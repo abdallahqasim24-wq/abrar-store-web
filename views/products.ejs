@@ -18,39 +18,48 @@
 
 <div class="card">
   <h3>قائمة المنتجات</h3>
-  <table id="prodTable">
-    <thead>
-      <tr>
-        <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
-        <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% products.forEach(p=> { %>
+
+  <!-- Form الحذف الجماعي -->
+  <form method="post" action="/products/bulk-delete" onsubmit="return confirm('هل أنت متأكد من حذف المنتجات المحددة؟')">
+    <table id="prodTable">
+      <thead>
         <tr>
-          <td><% if (p.image_path) { %><img src="<%= p.image_path %>" class="thumb"/><% } else { %>—<% } %></td>
-          <td><%= p.name %></td>
-          <td><%= p.brand %></td>
-          <td><%= p.category %></td>
-          <td>₪<%= p.cost_price.toFixed(2) %></td>
-          <td>₪<%= p.sale_price.toFixed(2) %></td>
-          <td><%= p.stock %></td>
-          <td class="row">
-            <form method="post" action="/products/<%= p.id %>/stock" class="row">
-              <input type="number" name="delta" value="1" step="1" style="width:80px"/>
-              <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
-            </form>
-            <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>
-              <i class="fa fa-pen"></i> تعديل
-            </button>
-            <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')" class="row">
-              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-            </form>
-          </td>
+          <th><input type="checkbox" id="selectAll"></th>
+          <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
+          <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
         </tr>
-      <% }) %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% products.forEach(p=> { %>
+          <tr>
+            <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck"></td>
+            <td><% if (p.image_path) { %><img src="<%= p.image_path %>" class="thumb"/><% } else { %>—<% } %></td>
+            <td><%= p.name %></td>
+            <td><%= p.brand %></td>
+            <td><%= p.category %></td>
+            <td>₪<%= p.cost_price.toFixed(2) %></td>
+            <td>₪<%= p.sale_price.toFixed(2) %></td>
+            <td><%= p.stock %></td>
+            <td class="row">
+              <form method="post" action="/products/<%= p.id %>/stock" class="row">
+                <input type="number" name="delta" value="1" step="1" style="width:80px"/>
+                <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
+              </form>
+              <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>
+                <i class="fa fa-pen"></i> تعديل
+              </button>
+              <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')" class="row">
+                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <div class="row right" style="margin-top:10px">
+      <button class="btn danger"><i class="fa fa-trash"></i> حذف المحدد</button>
+    </div>
+  </form>
 </div>
 
 <!-- Modal -->
@@ -74,6 +83,7 @@
 <div id="editBg" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40" onclick="closeEdit()"></div>
 
 <script>
+  // modal
   function openEdit(p){
     document.getElementById('e_name').value = p.name||'';
     document.getElementById('e_brand').value = p.brand||'';
@@ -89,4 +99,15 @@
     document.getElementById('editModal').style.display='none';
     document.getElementById('editBg').style.display='none';
   }
+
+  // select all
+  document.addEventListener("DOMContentLoaded", () => {
+    const selectAll = document.getElementById("selectAll");
+    const checks = document.querySelectorAll(".rowCheck");
+    if(selectAll){
+      selectAll.addEventListener("change", e=>{
+        checks.forEach(c => c.checked = e.target.checked);
+      });
+    }
+  });
 </script>

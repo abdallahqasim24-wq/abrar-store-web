@@ -5,19 +5,17 @@ dotenv.config();
 // ===[ 2) الاستيرادات ]===
 import express from 'express';
 import path from 'path';
-import fs from 'fs';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { query, initDb } from './db.js';
-import PDFDocument from 'pdfkit';
 import puppeteer from 'puppeteer';
 import dayjs from 'dayjs';
 import { fileURLToPath } from 'url';
 import expressLayouts from 'express-ejs-layouts';
 import basicAuth from 'express-basic-auth';
 
-// ===[ 3) تهيئة المسارات العامة للتطبيق ]===
+// ===[ 3) مسارات أساسية ]===
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -26,7 +24,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
 // ===[ 4) قاعدة البيانات ]===
-await initDb(); // ينشئ الجداول الناقصة ويتأكد من الاتصال
+await initDb();
 
 // ===[ 5) Cloudinary + Multer ]===
 cloudinary.config(process.env.CLOUDINARY_URL);
@@ -47,7 +45,13 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
 
-// ===== Health check (غير محمي) =====
+// Font Awesome للواجهات
+app.use((req, res, next) => {
+  res.locals.faLink = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
+  next();
+});
+
+// ===== Health check =====
 app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
 // ===== Basic Auth =====
@@ -69,16 +73,14 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
 // ===== Helpers =====
-// الربح = (سعر البيع × الكمية) − الشحن (الشحن مرة واحدة لكل الطلب)
-// الربح = (sale_price * quantity) - (cost_price * quantity) - shipping_cost
+// الربح = (سعر البيع × الكمية) − (السعر الأصلي × الكمية) − الشحن (الشحن مرة لكل الطلب)
 const profitOf = (s) =>
   (Number(s.sale_price) * Number(s.quantity))
   - (Number(s.cost_price) * Number(s.quantity))
   - Number(s.shipping_cost || 0);
 
-
 async function stats() {
-  const t   = await query(`
+  const t = await query(`
     SELECT
       COUNT(*)::int                               AS products_count,
       COALESCE(SUM(stock),0)::int                 AS total_units,
@@ -138,7 +140,7 @@ app.get('/products', async (_req, res) => {
 
 app.post('/products', upload.single('image'), async (req, res) => {
   const { name, brand, category, cost_price, sale_price, stock } = req.body;
-  const image_path = req.file ? req.file.path : null; // Cloudinary URL
+  const image_path = req.file ? req.file.path : null;
   await query(`
     INSERT INTO products (name,brand,category,cost_price,sale_price,stock,image_path)
     VALUES ($1,$2,$3,$4,$5,$6,$7)
@@ -167,39 +169,27 @@ app.post('/products/:id/update', upload.single('image'), async (req, res) => {
   res.redirect('/products');
 });
 
+// تعديل المخزون (+/-)
 app.post('/products/:id/stock', async (req, res) => {
   const id = Number(req.params.id), delta = Number(req.body.delta || 0);
   await query(`UPDATE products SET stock = GREATEST(0, stock + $1) WHERE id=$2`, [delta, id]);
   res.redirect('/products');
 });
 
+// حذف مفرد
 app.post('/products/:id/delete', async (req, res) => {
   await query(`DELETE FROM products WHERE id=$1`, [Number(req.params.id)]);
   res.redirect('/products');
 });
 
-// ====== الحذف الجماعي ======
+// الحذف الجماعي للمنتجات
 app.post('/products/bulk-delete', async (req, res) => {
   const ids = req.body.ids;
-  if (!ids) return res.redirect('/products');
   const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
-  if (arr.length > 0) {
+  if (arr.length) {
     await query(`DELETE FROM products WHERE id = ANY($1::int[])`, [arr]);
   }
   res.redirect('/products');
-});
-app.post('/sales/bulk-delete', async (req, res) => {
-  const ids = req.body.ids || [];
-  if (Array.isArray(ids) && ids.length > 0) {
-    for (const id of ids) {
-      const s = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
-      if (s) {
-        await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [s.quantity, s.product_id]);
-        await query(`DELETE FROM sales WHERE id=$1`, [id]);
-      }
-    }
-  }
-  res.redirect('/sales');
 });
 
 // ---------- Sales ----------
@@ -217,7 +207,6 @@ app.get('/sales', async (_req, res) => {
   res.render('sales', { sales, products, dayjs });
 });
 
-// نسجل (كوبون/هدية/نقاط) بصفر فقط — غير مستخدمة بالحساب
 app.post('/sales', async (req, res) => {
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const prod = (await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)])).rows[0];
@@ -227,8 +216,8 @@ app.post('/sales', async (req, res) => {
   await query(`UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id=$2`, [qty, prod.id]);
 
   await query(`
-    INSERT INTO sales (product_id,quantity,sale_price,cost_price,coupon_value,gift_value,points_value,shipping_cost,note)
-    VALUES ($1,$2,$3,$4, 0, 0, 0, $5, $6)
+    INSERT INTO sales (product_id,quantity,sale_price,cost_price,shipping_cost,note)
+    VALUES ($1,$2,$3,$4,$5,$6)
   `, [
     prod.id, qty,
     Number(sale_price || prod.sale_price), Number(cost_price || prod.cost_price),
@@ -239,12 +228,28 @@ app.post('/sales', async (req, res) => {
   res.redirect('/sales');
 });
 
+// حذف مفرد للمبيعات (مع إعادة المخزون)
 app.post('/sales/:id/delete', async (req, res) => {
   const id = Number(req.params.id);
   const s  = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
   if (s) {
     await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [s.quantity, s.product_id]);
     await query(`DELETE FROM sales WHERE id=$1`, [id]);
+  }
+  res.redirect('/sales');
+});
+
+// الحذف الجماعي للمبيعات (مع إعادة المخزون)
+app.post('/sales/bulk-delete', async (req, res) => {
+  const ids = req.body.ids || [];
+  const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
+  if (arr.length) {
+    // استرجاع المخزون لكل عملية
+    const rows = (await query(`SELECT id, product_id, quantity FROM sales WHERE id = ANY($1::int[])`, [arr])).rows;
+    for (const r of rows) {
+      await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [r.quantity, r.product_id]);
+    }
+    await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [arr]);
   }
   res.redirect('/sales');
 });
@@ -279,29 +284,28 @@ app.get('/reports', async (req, res) => {
   res.render('reports', { rows, title, totalRevenue, totalProfit, range, date, dayjs });
 });
 
-// ---------- Reports (PDF via Puppeteer) ----------
+// ---------- Reports (PDF) ----------
 app.get('/reports/pdf', async (req, res) => {
-  const { range = 'daily', date } = req.query;
-
   try {
-    // 1) البيانات
+    const { range = 'daily', date } = req.query;
     let rows = [], title = '';
+
     if (range === 'monthly') {
       const ym = date || dayjs().format('YYYY-MM');
       title = `تقرير مبيعات شهري ${ym}`;
-      rows  = (await query(`
+      rows = (await query(`
         SELECT s.*, p.name AS product_name
-        FROM sales s JOIN products p ON p.id = s.product_id
-        WHERE TO_CHAR(s.sold_at,'YYYY-MM') = $1
+        FROM sales s JOIN products p ON p.id=s.product_id
+        WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1
         ORDER BY s.sold_at DESC
       `, [ym])).rows;
     } else {
       const d = date || dayjs().format('YYYY-MM-DD');
       title = `تقرير مبيعات يومي ${d}`;
-      rows  = (await query(`
+      rows = (await query(`
         SELECT s.*, p.name AS product_name
-        FROM sales s JOIN products p ON p.id = s.product_id
-        WHERE DATE(s.sold_at) = DATE($1)
+        FROM sales s JOIN products p ON p.id=s.product_id
+        WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
       `, [d])).rows;
     }
@@ -309,55 +313,54 @@ app.get('/reports/pdf', async (req, res) => {
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
     const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
 
-    // 2) Render HTML بدون إرسال رد
-    const html = await new Promise((resolve, reject) => {
+    // HTML كامل مع RTL وترميز
+    const htmlBody = await new Promise((resolve, reject) => {
       req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
         if (err) reject(err); else resolve(str);
       });
     });
+    const fullHtml = `
+      <!doctype html>
+      <html lang="ar" dir="rtl">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+      </head>
+      <body>${htmlBody}</body>
+      </html>`;
 
-    // 3) Puppeteer (فلاغات مناسبة لـ Render)
     const browser = await puppeteer.launch({
       headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-zygote',
-        '--disable-dev-shm-usage',
         '--single-process'
       ]
     });
 
-    try {
-      const page = await browser.newPage();
-      await page.setContent(
-        `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">${html}</html>`,
-        { waitUntil: 'networkidle0', timeout: 60000 }
-      );
+    const page = await browser.newPage();
+    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' }
+    });
+    await browser.close();
 
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' }
-      });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
+    res.end(pdf);
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
-      return res.end(pdf);
-    } finally {
-      await browser.close();
-    }
   } catch (err) {
     console.error('PDF error:', err);
-    if (!res.headersSent) {
-      return res.status(500).type('text/plain').send('PDF generation failed');
-    }
-    try { res.end(); } catch {}
+    res.status(500).send('PDF generation failed');
   }
 });
 
-// ---------- Seed (اختياري) ----------
+// ---------- Seed ----------
 app.get('/dev/seed', async (_req, res) => {
   const items = [
     ['Lipstick Ruby', 'BrandX', 'Makeup', 10, 20, 25, null],

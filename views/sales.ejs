@@ -1,7 +1,8 @@
 <div class="card">
   <h3><i class="fa fa-cart-plus"></i> تسجيل عملية بيع</h3>
   <form method="post" action="/sales" class="form-grid">
-    <div><label>المنتج</label>
+    <div>
+      <label>المنتج</label>
       <select name="product_id" required>
         <option value="">اختر المنتج</option>
         <% products.forEach(p=> { %>
@@ -23,32 +24,63 @@
 
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>التاريخ</th><th>المنتج</th><th>كمية</th><th>سعر بيع</th>
-        <th>السعر الأصلي</th><th>شحن</th><th>الربح</th><th>حذف</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% sales.forEach(s=> { 
-           const profit = (s.sale_price * s.quantity) - (s.cost_price * s.quantity) - (s.shipping_cost||0);
-      %>
+
+  <!-- نموذج الحذف الجماعي -->
+  <form method="post" action="/sales/bulk-delete" onsubmit="return confirm('هل تريد حذف كل السجلات المحددة؟ سيعاد المخزون تلقائيًا.')">
+    <table>
+      <thead>
         <tr>
-          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
-          <td><%= s.product_name %></td>
-          <td><%= s.quantity %></td>
-          <td>₪<%= s.sale_price.toFixed(2) %></td>
-          <td>₪<%= s.cost_price.toFixed(2) %></td>
-          <td>₪<%= (s.shipping_cost||0).toFixed(2) %></td>
-          <td>₪<%= profit.toFixed(2) %></td>
-          <td>
-            <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟')">
-              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-            </form>
-          </td>
+          <th><input type="checkbox" id="selectAllSales"></th>
+          <th>التاريخ</th>
+          <th>المنتج</th>
+          <th>كمية</th>
+          <th>سعر بيع</th>
+          <th>السعر الأصلي</th>
+          <th>شحن</th>
+          <th>الربح</th>
+          <th>حذف</th>
         </tr>
-      <% }) %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% sales.forEach(s=> { 
+             const profit = (Number(s.sale_price) * Number(s.quantity))
+                            - (Number(s.cost_price) * Number(s.quantity))
+                            - Number(s.shipping_cost || 0);
+        %>
+          <tr>
+            <td><input type="checkbox" name="ids" value="<%= s.id %>" class="rowCheckSales"></td>
+            <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
+            <td><%= s.product_name %></td>
+            <td><%= Number(s.quantity).toLocaleString('en-US') %></td>
+            <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+            <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+            <td>₪<%= Number(s.shipping_cost || 0).toFixed(2) %></td>
+            <td>₪<%= profit.toFixed(2) %></td>
+            <td>
+              <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟')">
+                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <div class="row right" style="margin-top:10px">
+      <button class="btn danger"><i class="fa fa-trash"></i> حذف المحدد</button>
+    </div>
+  </form>
 </div>
+
+<script>
+  // تحديد الكل في سجل المبيعات
+  document.addEventListener('DOMContentLoaded', () => {
+    const all = document.getElementById('selectAllSales');
+    const rows = document.querySelectorAll('.rowCheckSales');
+    if (all) {
+      all.addEventListener('change', e => {
+        rows.forEach(ch => ch.checked = e.target.checked);
+      });
+    }
+  });
+</script>

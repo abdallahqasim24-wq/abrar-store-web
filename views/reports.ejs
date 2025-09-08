@@ -17,12 +17,14 @@
         </tr>
       </thead>
       <tbody>
-        <% rows.forEach(s => {
-             const sale   = Number(s.sale_price);
-             const ship   = Number(s.shipping_cost || 0);
-             const qty    = Number(s.quantity || 0);
-             const profit = (sale * qty) - ship; // ← المعادلة الجديدة
-        %>
+       <% rows.forEach(s => {
+     const sale = Number(s.sale_price);
+     const cost = Number(s.cost_price);
+     const ship = Number(s.shipping_cost || 0);
+     const qty  = Number(s.quantity || 0);
+     const profit = (sale * qty) - (cost * qty) - ship; // المعادلة الجديدة
+%>
+
           <tr>
             <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
             <td><%= s.product_name %></td>
