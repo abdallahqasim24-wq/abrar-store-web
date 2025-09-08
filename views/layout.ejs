@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Abrar Store</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/public/style.css"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/public/style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -21,6 +21,13 @@
         <a href="/reports" class="<%= currentPath.startsWith('/reports')?'active':'' %>">التقارير</a>
       </nav>
       <a class="btn ghost" target="_blank" href="/reports/pdf">PDF 🖨️</a>
+
+      <!-- زر الخروج -->
+      <% if (currentUser) { %>
+        <form method="post" action="/logout" style="margin-inline-start:10px">
+          <button class="btn danger"><i class="fa fa-right-from-bracket"></i> خروج</button>
+        </form>
+      <% } %>
     </div>
   </header>
   <main class="container page">

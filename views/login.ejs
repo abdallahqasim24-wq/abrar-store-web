@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="<%= faLink %>">
+  <link rel="stylesheet" href="/public/style.css">
+  <title>تسجيل الدخول</title>
+  <style>
+    body{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg)}
+    .login-card{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:22px;min-width:320px;max-width:380px}
+    .login-card h2{margin:0 0 10px 0}
+    .muted{color:var(--muted);margin-bottom:14px}
+    .error{background:#fde2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 12px;margin-bottom:10px}
+    .actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px}
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h2><i class="fa fa-lock"></i> تسجيل الدخول</h2>
+    <div class="muted">ادخل اسم المستخدم وكلمة المرور للمتابعة</div>
+
+    <% if (error) { %>
+      <div class="error"><i class="fa fa-circle-exclamation"></i> <%= error %></div>
+    <% } %>
+
+    <form method="post" action="/login" class="form-grid" style="grid-template-columns:1fr">
+      <input type="hidden" name="next" value="<%= next || '/' %>"/>
+      <div>
+        <label>اسم المستخدم</label>
+        <input name="username" required placeholder="abrar"/>
+      </div>
+      <div>
+        <label>كلمة المرور</label>
+        <input name="password" type="password" required placeholder="••••••••"/>
+      </div>
+      <button class="btn save" style="width:100%"><i class="fa fa-right-to-bracket"></i> دخول</button>
+    </form>
+  </div>
+</body>
+</html>

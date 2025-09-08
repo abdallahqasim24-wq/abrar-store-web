@@ -15,7 +15,7 @@ import utc from 'dayjs/plugin/utc.js';
 import tz from 'dayjs/plugin/timezone.js';
 import { fileURLToPath } from 'url';
 import expressLayouts from 'express-ejs-layouts';
-import basicAuth from 'express-basic-auth';
+import session from 'express-session';
 
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -27,6 +27,11 @@ const __dirname  = path.dirname(__filename);
 const app  = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
+const TZ_NAME = 'Asia/Hebron';
+
+// بيانات الدخول (من البيئة)
+const AUTH_USER = process.env.AUTH_USER || 'abrar';
+const AUTH_PASS = process.env.AUTH_PASS || '1143';
 
 // ===[ 4) قاعدة البيانات ]===
 await initDb();
@@ -52,11 +57,11 @@ await query(`
 // ترقية جدول المبيعات لإضافة معلومات الزبون والتوصيل (إن لم تكن موجودة)
 await query(`
   ALTER TABLE sales
-    ADD COLUMN IF NOT EXISTS customer_name  TEXT,
-    ADD COLUMN IF NOT EXISTS customer_phone TEXT,
-    ADD COLUMN IF NOT EXISTS customer_city  TEXT,
+    ADD COLUMN IF NOT EXISTS customer_name   TEXT,
+    ADD COLUMN IF NOT EXISTS customer_phone  TEXT,
+    ADD COLUMN IF NOT EXISTS customer_city   TEXT,
     ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending', -- pending|shipping|delivered|failed
-    ADD COLUMN IF NOT EXISTS delivered_at   TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS delivered_at    TIMESTAMPTZ;
 `);
 
 // ===[ 5) Cloudinary + Multer ]===
@@ -78,26 +83,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
 
-// Font Awesome و تمرير رابطها للقوالب
+// تمرير متغيّرات عامة للقوالب
 app.use((req, res, next) => {
   res.locals.faLink = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
-  res.locals.tzName = 'Asia/Hebron';
+  res.locals.tzName = TZ_NAME;
   next();
-});
-
-// ===== Health check =====
-app.get('/healthz', (req, res) => res.status(200).send('OK'));
-
-// ===== Basic Auth =====
-const authUsers = { 'abrar': '1143' };
-const authMw = basicAuth({
-  users: authUsers,
-  challenge: true,
-  unauthorizedResponse: () => 'Unauthorized'
-});
-app.use((req, res, next) => {
-  if (req.path === '/healthz') return next();
-  return authMw(req, res, next);
 });
 
 // ===== Parsers & Static =====
@@ -105,6 +95,57 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
+
+// ===== الجلسات (نظام تسجيل الدخول) =====
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'abrar_shop_secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 8 // 8 ساعات
+    // secure: true, // فعّلها إذا كان لديك HTTPS كامل
+  }
+}));
+app.use((req, res, next) => { res.locals.currentUser = req.session.user || null; next(); });
+
+// ===== Health check (مفتوح) =====
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
+
+// ===== حارس الحماية =====
+const openPaths = new Set(['/login', '/healthz']);
+function requireAuth(req, res, next) {
+  if (openPaths.has(req.path)) return next();
+  if (req.path.startsWith('/public')) return next();
+  if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?)$/i.test(req.path)) return next();
+  if (req.session && req.session.user) return next();
+  const back = encodeURIComponent(req.originalUrl || '/');
+  return res.redirect(`/login?next=${back}`);
+}
+app.use(requireAuth);
+
+// ===== مسارات تسجيل الدخول/الخروج =====
+app.get('/login', (req, res) => {
+  if (req.session.user) return res.redirect(req.query.next || '/');
+  res.render('login', { error: null, next: req.query.next || '/' });
+});
+
+app.post('/login', (req, res) => {
+  const { username, password, next } = req.body || {};
+  if (username === AUTH_USER && password === AUTH_PASS) {
+    req.session.user = { username };
+    return res.redirect(next || '/');
+  }
+  return res.status(401).render('login', {
+    error: 'اسم المستخدم أو كلمة المرور غير صحيحة',
+    next: next || '/'
+  });
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/login'));
+});
 
 // ===== Helpers =====
 const profitOf = (s) =>
@@ -125,9 +166,8 @@ app.get('/', async (_req, res) => {
     FROM products
   `);
 
-  const tzName = 'Asia/Hebron';
-  const today = dayjs().tz(tzName).format('YYYY-MM-DD');
-  const month = dayjs().tz(tzName).format('YYYY-MM');
+  const today = dayjs().tz(TZ_NAME).format('YYYY-MM-DD');
+  const month = dayjs().tz(TZ_NAME).format('YYYY-MM');
 
   const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
   const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [month])).rows;
@@ -373,16 +413,14 @@ app.post('/returns/:id/delete', async (req, res) => {
 
 // ---------- Reports (HTML) ----------
 app.get('/reports', async (req, res) => {
-  const tzName = 'Asia/Hebron';
   const { range = 'daily', year, month, day } = req.query;
 
   let rows = [], title = '';
 
   if (range === 'monthly') {
-    const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
-    const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+    const y = Number(year) || Number(dayjs().tz(TZ_NAME).format('YYYY'));
+    const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
     const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
-
     title = `تقرير شهري ${ym}`;
     rows  = (await query(`
       SELECT s.*, p.name AS product_name
@@ -391,11 +429,10 @@ app.get('/reports', async (req, res) => {
       ORDER BY s.sold_at DESC
     `, [ym])).rows;
   } else {
-    const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
-    const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
-    const d = Number(day) || Number(dayjs().tz(tzName).format('DD'));
+    const y = Number(year) || Number(dayjs().tz(TZ_NAME).format('YYYY'));
+    const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
+    const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
     const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-
     title = `تقرير يومي ${dateStr}`;
     rows  = (await query(`
       SELECT s.*, p.name AS product_name
@@ -424,14 +461,13 @@ app.get('/reports', async (req, res) => {
 // ---------- Reports (PDF) ----------
 app.get('/reports/pdf', async (req, res) => {
   try {
-    const tzName = 'Asia/Hebron';
     const { range = 'daily', year, month, day } = req.query;
 
     let rows = [], title = '';
 
     if (range === 'monthly') {
-      const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
-      const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+      const y = Number(year) || Number(dayjs().tz(TZ_NAME).format('YYYY'));
+      const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
       title = `تقرير مبيعات شهري ${ym}`;
       rows  = (await query(`
@@ -441,9 +477,9 @@ app.get('/reports/pdf', async (req, res) => {
         ORDER BY s.sold_at DESC
       `, [ym])).rows;
     } else {
-      const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
-      const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
-      const d = Number(day) || Number(dayjs().tz(tzName).format('DD'));
+      const y = Number(year) || Number(dayjs().tz(TZ_NAME).format('YYYY'));
+      const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
+      const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       title = `تقرير مبيعات يومي ${dateStr}`;
       rows  = (await query(`
