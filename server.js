@@ -327,18 +327,20 @@ app.get('/reports/pdf', async (req, res) => {
       process.env.PUPPETEER_CACHE_DIR = '/opt/render/.cache/puppeteer';
     }
 
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-zygote',
-        '--single-process'
-      ]
-    });
+    // ... داخل مسار /reports/pdf قبل launch مباشرة
+const browser = await puppeteer.launch({
+  headless: 'new',                 // أو true
+  executablePath: await puppeteer.executablePath(), // مهم!
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--no-zygote',
+    '--single-process'
+  ]
+});
+
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
