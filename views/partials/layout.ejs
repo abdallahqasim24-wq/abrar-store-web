@@ -1,0 +1,31 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Abrar Store</title>
+  <link rel="stylesheet" href="/public/style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="topbar">
+    <div class="container nav">
+      <span class="badge">لوحة التحكم</span>
+      <a href="/">الرئيسية</a>
+      <a href="/products">المنتجات</a>
+      <a href="/sales">المبيعات</a>
+      <a href="/reports">التقارير</a>
+      <span class="right"></span>
+      <a class="btn secondary" href="/reports/pdf" target="_blank">PDF 🖨️</a>
+    </div>
+  </div>
+
+  <div class="container page">
+    <%- body %>
+    <div class="foot">© <script>document.write(new Date().getFullYear())</script> Abrar Store</div>
+  </div>
+
+  <script src="/public/app.js"></script>
+</body>
+</html>

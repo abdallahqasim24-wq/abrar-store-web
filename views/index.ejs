@@ -1,0 +1,54 @@
+
+<section class="cards">
+  <div class="card"><h3>قيمة المخزون (بيع)</h3><div class="kpi">$<%= stats.total_sale_value.toFixed(2) %></div></div>
+  <div class="card"><h3>قيمة المخزون (تكلفة)</h3><div class="kpi">$<%= stats.total_cost_value.toFixed(2) %></div></div>
+  <div class="card"><h3>إيراد الشهر</h3><div class="kpi">$<%= stats.month_revenue.toFixed(2) %></div></div>
+  <div class="card"><h3>ربح الشهر</h3><div class="kpi">$<%= stats.month_profit.toFixed(2) %></div></div>
+</section>
+
+<section class="grid-2" style="margin-top:14px">
+  <div class="card">
+    <h3>آخر المبيعات 🧾</h3>
+    <% if(!lastSales.length){ %><p>لا توجد مبيعات بعد.</p><% } else { %>
+    <table>
+      <thead><tr><th>التاريخ</th><th>المنتج</th><th>كمية</th><th>سعر</th></tr></thead>
+      <tbody>
+      <% lastSales.forEach(s => { %>
+        <tr>
+          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
+          <td><%= s.product_name %></td>
+          <td><%= s.quantity %></td>
+          <td>$<%= (s.sale_price*s.quantity).toFixed(2) %></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+  <div class="card">
+    <h3>تنبيهات المخزون المنخفض</h3>
+    <% if(!lowStock.length){ %><p>لا توجد تنبيهات ✅</p><% } else { %>
+    <table>
+      <thead><tr><th>المنتج</th><th>الكمية</th></tr></thead>
+      <tbody>
+      <% lowStock.forEach(p => { %>
+        <tr><td><%= p.name %></td><td><%= p.stock %></td></tr>
+      <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+  </div>
+</section>
+
+<section class="card" style="margin-top:14px">
+  <h3>توزيع الإيراد حسب التصنيف</h3>
+  <canvas id="byCat"></canvas>
+</section>
+
+<script>
+  const data = {
+    labels: <%- JSON.stringify(byCat.map(x=>x.label||'غير مصنّف')) %>,
+    datasets: [{ label: 'الإيراد', data: <%- JSON.stringify(byCat.map(x=>x.value)) %> }]
+  };
+  new Chart(document.getElementById('byCat'), { type: 'pie', data });
+</script>
