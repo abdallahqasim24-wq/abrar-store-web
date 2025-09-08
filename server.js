@@ -197,7 +197,7 @@ app.get('/sales', async (_req, res) => {
   const sales = (await query(`
     SELECT s.*,
            p.name AS product_name,
-           p.image_path AS product_image   -- 👈 جِبْنا الصورة
+           p.image_path AS product_image
     FROM sales s
     JOIN products p ON p.id = s.product_id
     ORDER BY s.sold_at DESC
@@ -209,6 +209,7 @@ app.get('/sales', async (_req, res) => {
 
   res.render('sales', { sales, products, dayjs });
 });
+
 app.post('/sales', async (req, res) => {
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const prod = (await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)])).rows[0];
@@ -287,7 +288,6 @@ app.get('/reports', async (req, res) => {
 });
 
 // ---------- Reports (PDF) ----------
-// ---------- Reports (PDF) ----------
 app.get('/reports/pdf', async (req, res) => {
   try {
     const { range = 'daily', date } = req.query;
@@ -316,31 +316,30 @@ app.get('/reports/pdf', async (req, res) => {
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
     const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
 
+    // نرندر HTML للقالب المخصص للطباعة
     const html = await new Promise((resolve, reject) => {
       req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
         if (err) reject(err); else resolve(str);
       });
     });
 
-    // 🔹 هنا التعديل
+    // ضمان مسار كاش Puppeteer على Render
     if (!process.env.PUPPETEER_CACHE_DIR) {
       process.env.PUPPETEER_CACHE_DIR = '/opt/render/.cache/puppeteer';
     }
 
-    // ... داخل مسار /reports/pdf قبل launch مباشرة
-const browser = await puppeteer.launch({
-  headless: 'new',                 // أو true
-  executablePath: await puppeteer.executablePath(), // مهم!
-  args: [
-    '--no-sandbox',
-    '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu',
-    '--no-zygote',
-    '--single-process'
-  ]
-});
-
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-zygote',
+        '--single-process'
+      ]
+    });
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
@@ -356,7 +355,6 @@ const browser = await puppeteer.launch({
     res.status(500).send('PDF generation failed');
   }
 });
-
 
 // ---------- Seed ----------
 app.get('/dev/seed', async (_req, res) => {
