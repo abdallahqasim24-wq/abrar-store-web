@@ -14,6 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = "0.0.0.0";
 
 // ===== DB =====
 const db = new Database(path.join(__dirname, 'store.db'));
@@ -232,5 +233,6 @@ app.get('/dev/seed',(req,res)=>{
   res.json({ inserted: items.length });
 });
 
-app.listen(PORT, ()=> console.log(`Abrar Store Web running on http://localhost:${PORT}`));
-
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
+});

@@ -1,0 +1,8 @@
+node_modules/
+store.db
+store.db-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.env
