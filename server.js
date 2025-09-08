@@ -195,18 +195,20 @@ app.post('/products/bulk-delete', async (req, res) => {
 // ---------- Sales ----------
 app.get('/sales', async (_req, res) => {
   const sales = (await query(`
-    SELECT s.*, p.name AS product_name
-    FROM sales s JOIN products p ON p.id = s.product_id
+    SELECT s.*,
+           p.name AS product_name,
+           p.image_path AS product_image   -- 👈 جِبْنا الصورة
+    FROM sales s
+    JOIN products p ON p.id = s.product_id
     ORDER BY s.sold_at DESC
   `)).rows;
 
   const products = (await query(`
-    SELECT id,name,stock,cost_price,sale_price FROM products ORDER BY name
+    SELECT id, name, stock, cost_price, sale_price FROM products ORDER BY name
   `)).rows;
 
   res.render('sales', { sales, products, dayjs });
 });
-
 app.post('/sales', async (req, res) => {
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const prod = (await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)])).rows[0];
@@ -285,6 +287,7 @@ app.get('/reports', async (req, res) => {
 });
 
 // ---------- Reports (PDF) ----------
+// ---------- Reports (PDF) ----------
 app.get('/reports/pdf', async (req, res) => {
   try {
     const { range = 'daily', date } = req.query;
@@ -313,24 +316,20 @@ app.get('/reports/pdf', async (req, res) => {
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
     const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
 
-    // HTML كامل مع RTL وترميز
-    const htmlBody = await new Promise((resolve, reject) => {
+    const html = await new Promise((resolve, reject) => {
       req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
         if (err) reject(err); else resolve(str);
       });
     });
-    const fullHtml = `
-      <!doctype html>
-      <html lang="ar" dir="rtl">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-      </head>
-      <body>${htmlBody}</body>
-      </html>`;
+
+    // 🔹 هنا التعديل
+    if (!process.env.PUPPETEER_CACHE_DIR) {
+      process.env.PUPPETEER_CACHE_DIR = '/opt/render/.cache/puppeteer';
+    }
 
     const browser = await puppeteer.launch({
       headless: 'new',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -342,12 +341,8 @@ app.get('/reports/pdf', async (req, res) => {
     });
 
     const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0', timeout: 60000 });
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' }
-    });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true });
     await browser.close();
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -359,6 +354,7 @@ app.get('/reports/pdf', async (req, res) => {
     res.status(500).send('PDF generation failed');
   }
 });
+
 
 // ---------- Seed ----------
 app.get('/dev/seed', async (_req, res) => {

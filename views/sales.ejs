@@ -1,36 +1,10 @@
-<div class="card">
-  <h3><i class="fa fa-cart-plus"></i> تسجيل عملية بيع</h3>
-  <form method="post" action="/sales" class="form-grid">
-    <div>
-      <label>المنتج</label>
-      <select name="product_id" required>
-        <option value="">اختر المنتج</option>
-        <% products.forEach(p=> { %>
-          <option value="<%= p.id %>"><%= p.name %> (مخزون: <%= p.stock %>)</option>
-        <% }) %>
-      </select>
-    </div>
-    <div><label>كمية</label><input type="number" name="quantity" value="1" step="1" required/></div>
-    <div><label>سعر البيع</label><input type="number" name="sale_price" step="0.01"/></div>
-    <div><label>السعر الأصلي</label><input type="number" name="cost_price" step="0.01"/></div>
-    <div><label>تكلفة الشحن +₪</label><input type="number" name="shipping_cost" step="0.01"/></div>
-    <div><label>ملاحظة</label><input type="text" name="note"/></div>
-    <div class="right"></div>
-    <div class="row right">
-      <button class="btn save"><i class="fa fa-check"></i> تسجيل</button>
-    </div>
-  </form>
-</div>
-
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
-
-  <!-- نموذج الحذف الجماعي -->
-  <form method="post" action="/sales/bulk-delete" onsubmit="return confirm('هل تريد حذف كل السجلات المحددة؟ سيعاد المخزون تلقائيًا.')">
+  <form method="post" action="/sales/bulk-delete" id="bulkDelForm">
     <table>
       <thead>
         <tr>
-          <th><input type="checkbox" id="selectAllSales"></th>
+          <th>الصورة</th> <!-- 👈 عمود جديد -->
           <th>التاريخ</th>
           <th>المنتج</th>
           <th>كمية</th>
@@ -39,48 +13,58 @@
           <th>شحن</th>
           <th>الربح</th>
           <th>حذف</th>
+          <th style="width:44px">
+            <input type="checkbox" id="selectAllSales"/>
+          </th>
         </tr>
       </thead>
       <tbody>
-        <% sales.forEach(s=> { 
-             const profit = (Number(s.sale_price) * Number(s.quantity))
-                            - (Number(s.cost_price) * Number(s.quantity))
-                            - Number(s.shipping_cost || 0);
+        <% sales.forEach(s => {
+             const profit = (Number(s.sale_price)*Number(s.quantity))
+                           - (Number(s.cost_price)*Number(s.quantity))
+                           - Number(s.shipping_cost||0);
         %>
           <tr>
-            <td><input type="checkbox" name="ids" value="<%= s.id %>" class="rowCheckSales"></td>
+            <td>
+              <% if (s.product_image) { %>
+                <img src="<%= s.product_image %>" class="thumb" alt="صورة <%= s.product_name %>">
+              <% } else { %> — <% } %>
+            </td>
             <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
             <td><%= s.product_name %></td>
-            <td><%= Number(s.quantity).toLocaleString('en-US') %></td>
+            <td><%= s.quantity %></td>
             <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
             <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
-            <td>₪<%= Number(s.shipping_cost || 0).toFixed(2) %></td>
+            <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
             <td>₪<%= profit.toFixed(2) %></td>
             <td>
               <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟')">
                 <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
               </form>
             </td>
+            <td style="text-align:center">
+              <input type="checkbox" name="ids" value="<%= s.id %>" class="rowChkSales">
+            </td>
           </tr>
         <% }) %>
       </tbody>
     </table>
 
-    <div class="row right" style="margin-top:10px">
-      <button class="btn danger"><i class="fa fa-trash"></i> حذف المحدد</button>
+    <div class="row" style="margin-top:10px">
+      <button class="btn danger" type="submit" onclick="return confirm('حذف العناصر المحددة؟ سيُعاد المخزون!')">
+        <i class="fa fa-trash"></i> حذف المحدد
+      </button>
+      <div class="right"></div>
     </div>
   </form>
 </div>
 
 <script>
-  // تحديد الكل في سجل المبيعات
-  document.addEventListener('DOMContentLoaded', () => {
-    const all = document.getElementById('selectAllSales');
-    const rows = document.querySelectorAll('.rowCheckSales');
-    if (all) {
-      all.addEventListener('change', e => {
-        rows.forEach(ch => ch.checked = e.target.checked);
-      });
-    }
-  });
+  // Select All للمبيعات
+  const selectAllSales = document.getElementById('selectAllSales');
+  if (selectAllSales) {
+    selectAllSales.addEventListener('change', e => {
+      document.querySelectorAll('.rowChkSales').forEach(ch => ch.checked = e.target.checked);
+    });
+  }
 </script>
