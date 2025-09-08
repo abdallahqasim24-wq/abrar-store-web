@@ -1,8 +1,8 @@
-
 <div class="card">
   <h3>تسجيل عملية بيع</h3>
   <form method="post" action="/sales" class="form-grid">
-    <div><label>المنتج</label>
+    <div>
+      <label>المنتج</label>
       <select name="product_id" required>
         <option value="">اختر المنتج</option>
         <% products.forEach(p=> { %>
@@ -10,14 +10,13 @@
         <% }) %>
       </select>
     </div>
-    <div><label>كمية</label><input type="number" name="quantity" value="1" step="1" required/></div>
-    <div><label>سعر البيع (اختياري)</label><input type="number" name="sale_price" step="0.01" placeholder="إن تركته فارغًا سيأخذ سعر المنتج"/></div>
-    <div><label>السعر الأصلي/التكلفة (اختياري)</label><input type="number" name="cost_price" step="0.01" placeholder="إن تركته فارغًا سيأخذ تكلفة المنتج"/></div>
-    <div><label>تكلفة الشحن +$</label><input type="number" name="shipping_cost" step="0.01"/></div>
-    <div><label>خصم كوبون -$</label><input type="number" name="coupon_value" step="0.01"/></div>
-    <div><label>قيمة النقاط -$</label><input type="number" name="points_value" step="0.01"/></div>
-    <div><label>قيمة هدية/نقاط -$</label><input type="number" name="gift_value" step="0.01"/></div>
-    <div><label>ملاحظة (اختياري)</label><input type="text" name="note"/></div>
+
+    <div><label>كمية</label><input type="number" name="quantity" value="1" step="1" min="1" required/></div>
+    <div><label>سعر البيع</label><input type="number" name="sale_price" step="0.01" placeholder="اتركه فارغًا لاستخدام سعر المنتج"/></div>
+    <div><label>السعر الأصلي/التكلفة (اختياري)</label><input type="number" name="cost_price" step="0.01" placeholder="اتركه فارغًا لاستخدام تكلفة المنتج"/></div>
+    <div><label>تكلفة الشحن +$</label><input type="number" name="shipping_cost" step="0.01" value="0"/></div>
+    <div class="col-span-2"><label>ملاحظة (اختياري)</label><input type="text" name="note"/></div>
+
     <div class="right"></div>
     <div class="row right"><button class="btn">تسجيل</button></div>
   </form>
@@ -25,27 +24,29 @@
 
 <div class="card" style="margin-top:12px">
   <h3>سجل المبيعات</h3>
+  <% if (!sales.length) { %>
+    <p>لا توجد مبيعات بعد.</p>
+  <% } else { %>
   <table>
     <thead>
       <tr>
-        <th>التاريخ</th><th>المنتج</th><th>كمية</th><th>سعر بيع</th>
-        <th>السعر الأصلي</th><th>شحن</th><th>كوبون</th><th>هدية</th><th>نقاط</th><th>الربح</th><th>حذف</th>
+        <th>التاريخ</th><th>المنتج</th><th>كمية</th>
+        <th>سعر البيع</th><th>الشحن</th><th>الربح</th><th>حذف</th>
       </tr>
     </thead>
     <tbody>
-      <% sales.forEach(s=> { 
-           const profit = (((s.shipping_cost||0) + s.cost_price) - ((s.coupon_value||0) + (s.gift_value||0) + (s.points_value||0)) - s.sale_price) * s.quantity;
+      <% sales.forEach(s=> {
+           const sale = Number(s.sale_price);
+           const ship = Number(s.shipping_cost || 0);
+           const qty  = Number(s.quantity || 0);
+           const profit = (sale - ship) * qty;
       %>
         <tr>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
           <td><%= s.product_name %></td>
-          <td><%= s.quantity %></td>
-          <td>$<%= s.sale_price.toFixed(2) %></td>
-          <td>$<%= s.cost_price.toFixed(2) %></td>
-          <td>$<%= (s.shipping_cost||0).toFixed(2) %></td>
-          <td>$<%= (s.coupon_value||0).toFixed(2) %></td>
-          <td>$<%= (s.gift_value||0).toFixed(2) %></td>
-          <td>$<%= (s.points_value||0).toFixed(2) %></td>
+          <td><%= qty %></td>
+          <td>$<%= sale.toFixed(2) %></td>
+          <td>$<%= ship.toFixed(2) %></td>
           <td>$<%= profit.toFixed(2) %></td>
           <td>
             <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُعاد المخزون!')">
@@ -56,4 +57,5 @@
       <% }) %>
     </tbody>
   </table>
+  <% } %>
 </div>

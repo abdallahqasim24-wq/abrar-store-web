@@ -7,17 +7,20 @@
   },
   "scripts": {
     "start": "node server.js",
-    "pm2": "pm2 start ecosystem.config.cjs && pm2 save",
-    "postinstall": "npm rebuild better-sqlite3 --build-from-source || true"
+    "dev": "nodemon server.js",
+    "build": "echo \"no build step\""
   },
   "dependencies": {
-    "better-sqlite3": "^9.4.0",
-    "dayjs": "^1.11.13",
-    "ejs": "^3.1.10",
-    "express": "^4.19.2",
-    "express-basic-auth": "^1.2.1",
-    "express-ejs-layouts": "^2.5.1",
+    "pg": "^8.16.3",
+    "cloudinary": "^1.41.3",
+    "multer-storage-cloudinary": "^4.0.0",
     "multer": "^2.0.0",
+    "express": "^4.19.2",
+    "express-ejs-layouts": "^2.5.1",
+    "express-basic-auth": "^1.2.1",
+    "dayjs": "^1.11.13",
+    "dotenv": "^17.2.2",
+    "ejs": "^3.1.10",
     "pdfkit": "^0.15.0",
     "puppeteer": "^23.1.1"
   }

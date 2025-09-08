@@ -1,9 +1,8 @@
-
 <section class="cards">
-  <div class="card"><h3>قيمة المخزون (بيع)</h3><div class="kpi">$<%= stats.total_sale_value.toFixed(2) %></div></div>
-  <div class="card"><h3>قيمة المخزون (تكلفة)</h3><div class="kpi">$<%= stats.total_cost_value.toFixed(2) %></div></div>
-  <div class="card"><h3>إيراد الشهر</h3><div class="kpi">$<%= stats.month_revenue.toFixed(2) %></div></div>
-  <div class="card"><h3>ربح الشهر</h3><div class="kpi">$<%= stats.month_profit.toFixed(2) %></div></div>
+  <div class="card"><h3>قيمة المخزون (بيع)</h3><div class="kpi">$<%= Number(stats.total_sale_value).toFixed(2) %></div></div>
+  <div class="card"><h3>قيمة المخزون (تكلفة)</h3><div class="kpi">$<%= Number(stats.total_cost_value).toFixed(2) %></div></div>
+  <div class="card"><h3>إيراد الشهر</h3><div class="kpi">$<%= Number(stats.month_revenue).toFixed(2) %></div></div>
+  <div class="card"><h3>ربح الشهر</h3><div class="kpi">$<%= Number(stats.month_profit).toFixed(2) %></div></div>
 </section>
 
 <section class="grid-2" style="margin-top:14px">
@@ -18,7 +17,7 @@
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
           <td><%= s.product_name %></td>
           <td><%= s.quantity %></td>
-          <td>$<%= (s.sale_price*s.quantity).toFixed(2) %></td>
+          <td>$<%= (Number(s.sale_price) * Number(s.quantity)).toFixed(2) %></td>
         </tr>
       <% }) %>
       </tbody>
@@ -46,9 +45,23 @@
 </section>
 
 <script>
-  const data = {
-    labels: <%- JSON.stringify(byCat.map(x=>x.label||'غير مصنّف')) %>,
-    datasets: [{ label: 'الإيراد', data: <%- JSON.stringify(byCat.map(x=>x.value)) %> }]
-  };
-  new Chart(document.getElementById('byCat'), { type: 'pie', data });
+  (function () {
+    const labels = <%- JSON.stringify(byCat.map(x => (x.label || 'غير مصنّف'))) %>;
+    const values = <%- JSON.stringify(byCat.map(x => Number(x.value))) %>;
+
+    // لو ما في بيانات، بنحط نقطة صفرية عشان ما ينهار التشارت
+    const hasData = values.some(v => v > 0);
+    const chartLabels = hasData ? labels : ['لا بيانات'];
+    const chartValues = hasData ? values : [0];
+
+    const data = {
+      labels: chartLabels,
+      datasets: [{ label: 'الإيراد', data: chartValues }]
+    };
+
+    const ctx = document.getElementById('byCat');
+    if (ctx && window.Chart) {
+      new Chart(ctx, { type: 'pie', data });
+    }
+  })();
 </script>

@@ -1,9 +1,8 @@
-
 <div class="card" style="margin-bottom:12px">
   <div class="row">
     <form method="post" action="/products" enctype="multipart/form-data" class="form-grid" style="width:100%">
       <div><label>الاسم</label><input name="name" required placeholder=""/></div>
-      <div><label>الشركة</label><input name="brand" placeholder="MAC, Fenty"/></div>
+      <div><label>الماركة</label><input name="brand" placeholder="MAC, Fenty"/></div>
       <div><label>التصنيف</label><input name="category" placeholder="Makeup / Skincare"/></div>
       <div><label>سعر الشراء $</label><input name="cost_price" type="number" step="0.01" required/></div>
       <div><label>سعر البيع $</label><input name="sale_price" type="number" step="0.01" required/></div>
@@ -20,19 +19,25 @@
   <table id="prodTable">
     <thead>
       <tr>
-        <th>الصورة</th><th>الاسم</th><th>الмарكة</th><th>التصنيف</th>
+        <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
         <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
       </tr>
     </thead>
     <tbody>
       <% products.forEach(p=> { %>
         <tr>
-          <td><% if (p.image_path) { %><img src="<%= p.image_path %>" class="thumb"/><% } else { %>—<% } %></td>
+          <td>
+            <% if (p.image_path) { %>
+              <img src="<%= p.image_path %>" class="thumb" alt="<%= p.name %>"/>
+            <% } else { %>
+              —
+            <% } %>
+          </td>
           <td><%= p.name %></td>
           <td><%= p.brand %></td>
           <td><%= p.category %></td>
-          <td>$<%= p.cost_price.toFixed(2) %></td>
-          <td>$<%= p.sale_price.toFixed(2) %></td>
+          <td>$<%= Number(p.cost_price).toFixed(2) %></td>
+          <td>$<%= Number(p.sale_price).toFixed(2) %></td>
           <td><%= p.stock %></td>
           <td class="row">
             <form method="post" action="/products/<%= p.id %>/stock" class="row">
@@ -40,7 +45,7 @@
               <button class="btn" type="submit">+/- مخزون</button>
             </form>
             <button class="btn" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>تعديل</button>
-            <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm(\"حذف المنتج؟\")" class="row">
+            <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm(&quot;حذف المنتج؟&quot;)" class="row">
               <button class="danger">حذف</button>
             </form>
           </td>
@@ -55,7 +60,7 @@
   <h3>تعديل منتج</h3>
   <form id="editForm" method="post" enctype="multipart/form-data" class="form-grid">
     <div><label>الاسم</label><input id="e_name" name="name" required/></div>
-    <div><label>الмарكة</label><input id="e_brand" name="brand"/></div>
+    <div><label>الماركة</label><input id="e_brand" name="brand"/></div>
     <div><label>التصنيف</label><input id="e_category" name="category"/></div>
     <div><label>سعر الشراء $</label><input id="e_cost" name="cost_price" type="number" step="0.01" required/></div>
     <div><label>سعر البيع $</label><input id="e_sale" name="sale_price" type="number" step="0.01" required/></div>
@@ -69,6 +74,10 @@
   </form>
 </div>
 <div id="editBg" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40" onclick="closeEdit()"></div>
+
+<style>
+  .thumb{width:80px;height:80px;object-fit:cover;border-radius:6px}
+</style>
 
 <script>
   function openEdit(p){
