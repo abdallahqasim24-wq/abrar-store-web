@@ -11,9 +11,14 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { query, initDb } from './db.js';
 import puppeteer from 'puppeteer';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc.js';
+import tz from 'dayjs/plugin/timezone.js';
 import { fileURLToPath } from 'url';
 import expressLayouts from 'express-ejs-layouts';
 import basicAuth from 'express-basic-auth';
+
+dayjs.extend(utc);
+dayjs.extend(tz);
 
 // ===[ 3) مسارات أساسية ]===
 const __filename = fileURLToPath(import.meta.url);
@@ -23,19 +28,10 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-// ===== Timezone helpers (Asia/Jerusalem + 12h formatting) =====
-const TZ = 'Asia/Jerusalem';
-app.locals.fmtTS = (ts) =>
-  new Date(ts).toLocaleString('en-US', {
-    timeZone: TZ, hour12: true,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit'
-  });
-
 // ===[ 4) قاعدة البيانات ]===
 await initDb();
 
-// ترقية جداول مطلوبة (إن لم تكن موجودة)
+// إنشاء جدول الطلبات الراجعة إن لم يوجد
 await query(`
   CREATE TABLE IF NOT EXISTS returns_queue (
     id SERIAL PRIMARY KEY,
@@ -52,14 +48,20 @@ await query(`
       REFERENCES products(id) ON DELETE CASCADE
   );
 `);
-await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_name  TEXT;`);
-await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_phone TEXT;`);
-await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_city  TEXT;`);
-await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivered      BOOLEAN DEFAULT false;`);
-await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivered_at   TIMESTAMPTZ;`);
+
+// ترقية جدول المبيعات لإضافة معلومات الزبون والتوصيل (إن لم تكن موجودة)
+await query(`
+  ALTER TABLE sales
+    ADD COLUMN IF NOT EXISTS customer_name  TEXT,
+    ADD COLUMN IF NOT EXISTS customer_phone TEXT,
+    ADD COLUMN IF NOT EXISTS customer_city  TEXT,
+    ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending', -- pending|shipping|delivered|failed
+    ADD COLUMN IF NOT EXISTS delivered_at   TIMESTAMPTZ;
+`);
 
 // ===[ 5) Cloudinary + Multer ]===
 cloudinary.config(process.env.CLOUDINARY_URL);
+
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async () => ({
@@ -76,9 +78,10 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
 
-// Font Awesome للواجهات
+// Font Awesome و تمرير رابطها للقوالب
 app.use((req, res, next) => {
   res.locals.faLink = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
+  res.locals.tzName = 'Asia/Hebron';
   next();
 });
 
@@ -104,14 +107,15 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
 // ===== Helpers =====
-// الربح = (سعر البيع × الكمية) − (السعر الأصلي × الكمية) − الشحن (الشحن مرة لكل الطلب)
 const profitOf = (s) =>
   (Number(s.sale_price) * Number(s.quantity))
   - (Number(s.cost_price) * Number(s.quantity))
   - Number(s.shipping_cost || 0);
 
-// ===== Dashboard Stats بحدود Asia/Jerusalem =====
-async function stats() {
+// ====================== Routes ======================
+
+// ---------- Home ----------
+app.get('/', async (_req, res) => {
   const t = await query(`
     SELECT
       COUNT(*)::int                               AS products_count,
@@ -121,50 +125,24 @@ async function stats() {
     FROM products
   `);
 
-  // اليوم الحالي بتوقيت فلسطين
-  const todayRows = (await query(`
-    WITH loc AS (
-      SELECT
-        EXTRACT(YEAR  FROM (NOW() AT TIME ZONE 'Asia/Jerusalem'))::int AS y,
-        EXTRACT(MONTH FROM (NOW() AT TIME ZONE 'Asia/Jerusalem'))::int AS m,
-        EXTRACT(DAY   FROM (NOW() AT TIME ZONE 'Asia/Jerusalem'))::int AS d
-    )
-    SELECT * FROM sales
-    WHERE sold_at >= make_timestamptz((SELECT y FROM loc),(SELECT m FROM loc),(SELECT d FROM loc),0,0,0,'Asia/Jerusalem')
-      AND sold_at <  make_timestamptz((SELECT y FROM loc),(SELECT m FROM loc),(SELECT d FROM loc),0,0,0,'Asia/Jerusalem') + INTERVAL '1 day'
-    ORDER BY sold_at DESC
-  `)).rows;
+  const tzName = 'Asia/Hebron';
+  const today = dayjs().tz(tzName).format('YYYY-MM-DD');
+  const month = dayjs().tz(tzName).format('YYYY-MM');
 
-  // الشهر الحالي بتوقيت فلسطين
-  const monthRows = (await query(`
-    WITH loc AS (
-      SELECT
-        EXTRACT(YEAR  FROM (NOW() AT TIME ZONE 'Asia/Jerusalem'))::int AS y,
-        EXTRACT(MONTH FROM (NOW() AT TIME ZONE 'Asia/Jerusalem'))::int AS m
-    )
-    SELECT * FROM sales
-    WHERE sold_at >= make_timestamptz((SELECT y FROM loc),(SELECT m FROM loc),1,0,0,0,'Asia/Jerusalem')
-      AND sold_at <  (make_timestamptz((SELECT y FROM loc),(SELECT m FROM loc),1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month')
-    ORDER BY sold_at DESC
-  `)).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [month])).rows;
 
   const rev  = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
 
-  return {
+  const stats = {
     ...t.rows[0],
     today_revenue: rev(todayRows),
     today_profit : prof(todayRows),
     month_revenue: rev(monthRows),
     month_profit : prof(monthRows)
   };
-}
 
-// ====================== Routes ======================
-
-// ---------- Home ----------
-app.get('/', async (_req, res) => {
-  const s = await stats();
   const byCat   = (await query(`
     SELECT p.category AS label,
            COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
@@ -174,7 +152,7 @@ app.get('/', async (_req, res) => {
     ORDER BY value DESC
   `)).rows;
 
-  const lowStock = (await query(`SELECT * FROM products WHERE stock<= $1 ORDER BY stock ASC LIMIT 8`, [5])).rows;
+  const lowStock = (await query(`SELECT * FROM products WHERE stock<=$1 ORDER BY stock ASC LIMIT 8`, [5])).rows;
 
   const lastSales = (await query(`
     SELECT s.*, p.name AS product_name
@@ -182,14 +160,13 @@ app.get('/', async (_req, res) => {
     ORDER BY s.sold_at DESC LIMIT 8
   `)).rows;
 
-  res.render('index', { stats: s, byCat, lowStock, lastSales, dayjs });
+  res.render('index', { stats, byCat, lowStock, lastSales, dayjs });
 });
 
 // ---------- Products ----------
 app.get('/products', async (_req, res) => {
   const products = (await query(`SELECT * FROM products ORDER BY created_at DESC`)).rows;
 
-  // قائمة الطلبات الراجعة
   const returnsList = (await query(`
     SELECT r.*, p.name AS product_name, p.image_path AS product_image
     FROM returns_queue r
@@ -197,7 +174,7 @@ app.get('/products', async (_req, res) => {
     ORDER BY r.created_at DESC
   `)).rows;
 
-  res.render('products', { products, returnsList });
+  res.render('products', { products, returnsList, dayjs });
 });
 
 app.post('/products', upload.single('image'), async (req, res) => {
@@ -258,7 +235,7 @@ app.post('/products/bulk-delete', async (req, res) => {
 app.get('/sales', async (_req, res) => {
   const sales = (await query(`
     SELECT s.*, 
-           p.name       AS product_name,
+           p.name AS product_name,
            p.image_path AS product_image
     FROM sales s 
     JOIN products p ON p.id = s.product_id
@@ -275,7 +252,7 @@ app.get('/sales', async (_req, res) => {
 app.post('/sales', async (req, res) => {
   const {
     product_id, quantity, sale_price, cost_price, shipping_cost, note,
-    customer_name, customer_phone, customer_city, delivered
+    customer_name, customer_phone, customer_city
   } = req.body;
 
   const prod = (await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)])).rows[0];
@@ -284,25 +261,56 @@ app.post('/sales', async (req, res) => {
   const qty = Math.max(1, Number(quantity || 1));
   await query(`UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id=$2`, [qty, prod.id]);
 
-  const deliveredBool = delivered === 'on' || delivered === true;
-
   await query(`
-    INSERT INTO sales (product_id,quantity,sale_price,cost_price,shipping_cost,note,
-                       customer_name, customer_phone, customer_city, delivered, delivered_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $10 THEN NOW() ELSE NULL END)
+    INSERT INTO sales (
+      product_id,quantity,sale_price,cost_price,shipping_cost,note,
+      customer_name, customer_phone, customer_city, delivery_status
+    )
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
   `, [
     prod.id, qty,
     Number(sale_price || prod.sale_price), Number(cost_price || prod.cost_price),
-    Number(shipping_cost || 0), note || '',
-    customer_name || '', customer_phone || '', customer_city || '',
-    deliveredBool
+    Number(shipping_cost || 0),
+    note || '',
+    (customer_name || '').trim(),
+    (customer_phone || '').trim(),
+    (customer_city || '').trim()
   ]);
 
   res.redirect('/sales');
 });
 
+// تغيير حالة التوصيل من قائمة
+app.post('/sales/:id/delivery', async (req, res) => {
+  const id = Number(req.params.id);
+  const { status } = req.body; // pending | shipping | delivered | failed
+  const normalized = (status || 'pending').toLowerCase();
+  await query(`
+    UPDATE sales
+    SET delivery_status = $1,
+        delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
+    WHERE id = $2
+  `, [normalized, id]);
+  res.redirect('/sales');
+});
+
+// دعم مسار قديم للتبديل السريع
+app.post('/sales/:id/toggle-delivered', async (req, res) => {
+  const id = Number(req.params.id);
+  const row = (await query(`SELECT delivery_status FROM sales WHERE id=$1`, [id])).rows[0];
+  if (!row) return res.redirect('/sales');
+  const next = row.delivery_status === 'delivered' ? 'pending' : 'delivered';
+  await query(`
+    UPDATE sales
+    SET delivery_status = $1,
+        delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
+    WHERE id = $2
+  `, [next, id]);
+  res.redirect('/sales');
+});
+
+// حذف مفرد للمبيعات —> إلى returns_queue
 app.post('/sales/:id/delete', async (req, res) => {
-  // نقل العملية إلى returns_queue دون تعديل المخزون الآن
   const id = Number(req.params.id);
   const s  = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
   if (s) {
@@ -312,17 +320,6 @@ app.post('/sales/:id/delete', async (req, res) => {
     `, [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || '', s.sold_at]);
     await query(`DELETE FROM sales WHERE id=$1`, [id]);
   }
-  res.redirect('/sales');
-});
-
-// تحديث حالة التسليم (تم/لم يتم)
-app.post('/sales/:id/delivered', async (req, res) => {
-  const id = Number(req.params.id);
-  const val = (req.body.delivered === 'on' || req.body.delivered === true);
-  await query(
-    `UPDATE sales SET delivered=$1, delivered_at=CASE WHEN $1 THEN NOW() ELSE NULL END WHERE id=$2`,
-    [val, id]
-  );
   res.redirect('/sales');
 });
 
@@ -376,155 +373,92 @@ app.post('/returns/:id/delete', async (req, res) => {
 
 // ---------- Reports (HTML) ----------
 app.get('/reports', async (req, res) => {
-  const mode = (req.query.mode === 'monthly') ? 'monthly' : 'daily';
-
-  // قيم افتراضية من توقيت فلسطين
-  const now = new Date();
-  const defYear  = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric' }).format(now);
-  const defMonth = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: '2-digit' }).format(now);
-  const defDay   = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, day: '2-digit' }).format(now);
-
-  const year  = Number(req.query.year  || defYear);
-  const month = Number(req.query.month || defMonth);
-  const day   = Number(req.query.day   || defDay);
-
-  const ym  = `${String(year)}-${String(month).padStart(2,'0')}`;
-  const ymd = `${ym}-${String(day).padStart(2,'0')}`;
+  const tzName = 'Asia/Hebron';
+  const { range = 'daily', year, month, day } = req.query;
 
   let rows = [], title = '';
 
-  if (mode === 'monthly') {
+  if (range === 'monthly') {
+    const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
+    const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+    const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
+
     title = `تقرير شهري ${ym}`;
     rows  = (await query(`
-      SELECT s.*, p.name AS product_name, p.category
+      SELECT s.*, p.name AS product_name
       FROM sales s JOIN products p ON p.id = s.product_id
-      WHERE sold_at >= make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem')
-        AND sold_at <  (make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month')
+      WHERE TO_CHAR(s.sold_at,'YYYY-MM') = $1
       ORDER BY s.sold_at DESC
-    `, [year, month])).rows;
+    `, [ym])).rows;
   } else {
-    title = `تقرير يومي ${ymd}`;
+    const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
+    const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+    const d = Number(day) || Number(dayjs().tz(tzName).format('DD'));
+    const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+    title = `تقرير يومي ${dateStr}`;
     rows  = (await query(`
-      SELECT s.*, p.name AS product_name, p.category
+      SELECT s.*, p.name AS product_name
       FROM sales s JOIN products p ON p.id = s.product_id
-      WHERE sold_at >= make_timestamptz($1,$2,$3,0,0,0,'Asia/Jerusalem')
-        AND sold_at <  (make_timestamptz($1,$2,$3,0,0,0,'Asia/Jerusalem') + INTERVAL '1 day')
+      WHERE DATE(s.sold_at) = DATE($1)
       ORDER BY s.sold_at DESC
-    `, [year, month, day])).rows;
+    `, [dateStr])).rows;
   }
 
   const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-  const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
-
-  // ملخص شهري إضافي
-  let byDay = [], byCat = [];
-  if (mode === 'monthly') {
-    const daysRes = await query(`
-      WITH d AS (
-        SELECT
-          generate_series(
-            make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem'),
-            (make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month' - INTERVAL '1 day'),
-            INTERVAL '1 day'
-          ) AS d0
-      ),
-      agg AS (
-        SELECT
-          (s.sold_at AT TIME ZONE 'Asia/Jerusalem')::date AS d,
-          SUM(s.sale_price * s.quantity)::float8  AS rev,
-          SUM((s.sale_price * s.quantity) - (s.cost_price * s.quantity) - COALESCE(s.shipping_cost,0))::float8 AS prof
-        FROM sales s
-        WHERE s.sold_at >= make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem')
-          AND s.sold_at <  (make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month')
-        GROUP BY 1
-      )
-      SELECT
-        EXTRACT(DAY FROM d.d0)::int AS day,
-        COALESCE(agg.rev,0)  AS revenue,
-        COALESCE(agg.prof,0) AS profit
-      FROM d
-      LEFT JOIN agg ON agg.d = d.d0::date
-      ORDER BY 1
-    `, [year, month]);
-    byDay = daysRes.rows;
-
-    const byCatRes = await query(`
-      SELECT COALESCE(p.category,'غير مصنّف') AS label,
-             COALESCE(SUM(s.quantity * s.sale_price),0)::float8 AS value
-      FROM products p
-      LEFT JOIN sales s ON s.product_id = p.id
-           AND s.sold_at >= make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem')
-           AND s.sold_at <  (make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month')
-      GROUP BY 1
-      ORDER BY 2 DESC
-    `, [year, month]);
-    byCat = byCatRes.rows;
-  }
-
-  // إعداد قوائم السنوات/الشهور/الأيام
-  const currentYear = Number(defYear);
-  const years  = Array.from({length: (currentYear - 2023 + 1)}, (_,i)=>2023+i);
-  const months = [
-    {n:1 , name:'يناير'},{n:2 , name:'فبراير'},{n:3 , name:'مارس'},{n:4 , name:'أبريل'},
-    {n:5 , name:'مايو'  },{n:6 , name:'يونيو'},{n:7 , name:'يوليو'},{n:8 , name:'أغسطس'},
-    {n:9 , name:'سبتمبر'},{n:10, name:'أكتوبر'},{n:11, name:'نوفمبر'},{n:12, name:'ديسمبر'},
-  ];
-  const daysInSelectedMonthRes = await query(`
-    SELECT EXTRACT(DAY FROM (date_trunc('month',
-      make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month'
-    ) - INTERVAL '1 day'))::int AS d
-  `, [year, month]);
-  const dim = daysInSelectedMonthRes.rows?.[0]?.d || 31;
-  const daysArr = Array.from({length: dim}, (_,i)=> i+1);
+  const totalCost    = rows.reduce((a, s) => a + (Number(s.cost_price) * Number(s.quantity)) + Number(s.shipping_cost || 0), 0);
+  const totalProfit  = totalRevenue - totalCost;
 
   res.render('reports', {
-    mode, year, month, day,
-    years, months, daysArr,
-    rows, title, totalRevenue, totalProfit, byDay, byCat, dayjs
+    rows, title, range,
+    totalRevenue, totalCost, totalProfit,
+    selected: {
+      year: Number(year) || null,
+      month: Number(month) || null,
+      day: Number(day) || null
+    },
+    dayjs
   });
 });
 
 // ---------- Reports (PDF) ----------
 app.get('/reports/pdf', async (req, res) => {
   try {
-    const mode = (req.query.mode === 'monthly') ? 'monthly' : 'daily';
-
-    const now = new Date();
-    const defYear  = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric' }).format(now);
-    const defMonth = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, month: '2-digit' }).format(now);
-    const defDay   = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, day: '2-digit' }).format(now);
-
-    const year  = Number(req.query.year  || defYear);
-    const month = Number(req.query.month || defMonth);
-    const day   = Number(req.query.day   || defDay);
+    const tzName = 'Asia/Hebron';
+    const { range = 'daily', year, month, day } = req.query;
 
     let rows = [], title = '';
-    if (mode === 'monthly') {
-      title = `تقرير مبيعات شهري ${year}-${String(month).padStart(2,'0')}`;
-      rows = (await query(`
+
+    if (range === 'monthly') {
+      const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
+      const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+      const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
+      title = `تقرير مبيعات شهري ${ym}`;
+      rows  = (await query(`
         SELECT s.*, p.name AS product_name
         FROM sales s JOIN products p ON p.id=s.product_id
-        WHERE sold_at >= make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem')
-          AND sold_at <  (make_timestamptz($1,$2,1,0,0,0,'Asia/Jerusalem') + INTERVAL '1 month')
+        WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1
         ORDER BY s.sold_at DESC
-      `, [year, month])).rows;
+      `, [ym])).rows;
     } else {
-      title = `تقرير مبيعات يومي ${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      rows = (await query(`
+      const y = Number(year) || Number(dayjs().tz(tzName).format('YYYY'));
+      const m = Number(month) || Number(dayjs().tz(tzName).format('MM'));
+      const d = Number(day) || Number(dayjs().tz(tzName).format('DD'));
+      const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      title = `تقرير مبيعات يومي ${dateStr}`;
+      rows  = (await query(`
         SELECT s.*, p.name AS product_name
         FROM sales s JOIN products p ON p.id=s.product_id
-        WHERE sold_at >= make_timestamptz($1,$2,$3,0,0,0,'Asia/Jerusalem')
-          AND sold_at <  (make_timestamptz($1,$2,$3,0,0,0,'Asia/Jerusalem') + INTERVAL '1 day')
+        WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
-      `, [year, month, day])).rows;
+      `, [dateStr])).rows;
     }
 
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
     const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
 
-    // Render HTML (قالب report-pdf.ejs يستخدم ₪ وتحويلات 12h عبر fmtTS إن احتجت)
     const html = await new Promise((resolve, reject) => {
-      req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs, fmtTS: app.locals.fmtTS }, (err, str) => {
+      req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
         if (err) reject(err); else resolve(str);
       });
     });
@@ -547,11 +481,8 @@ app.get('/reports/pdf', async (req, res) => {
     });
 
     const page = await browser.newPage();
-    await page.setContent(
-      `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">${html}</html>`,
-      { waitUntil: 'networkidle0', timeout: 60000 }
-    );
-    const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' } });
+    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true });
     await browser.close();
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -562,19 +493,6 @@ app.get('/reports/pdf', async (req, res) => {
     console.error('PDF error:', err);
     res.status(500).send('PDF generation failed');
   }
-});
-
-// ---------- Seed ----------
-app.get('/dev/seed', async (_req, res) => {
-  const items = [
-    ['Lipstick Ruby', 'BrandX', 'Makeup', 10, 20, 25, null],
-    ['Face Cream', 'CareCo', 'Skincare', 15, 35, 15, null],
-    ['Mascara Pro', 'BrandY', 'Makeup', 8, 18, 30, null]
-  ];
-  await Promise.all(items.map(it =>
-    query(`INSERT INTO products (name,brand,category,cost_price,sale_price,stock,image_path) VALUES ($1,$2,$3,$4,$5,$6,$7)`, it)
-  ));
-  res.json({ inserted: items.length });
 });
 
 app.listen(PORT, HOST, () => {

@@ -1,141 +1,140 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
+<!-- فلاتر التقرير -->
 <div class="card" style="margin-bottom:12px">
   <h3><i class="fa fa-filter"></i> فلاتر التقرير</h3>
-  <form method="get" action="/reports" class="row" style="gap:12px; align-items:flex-end">
-    <!-- وضع التقرير -->
-    <div>
-      <label>وضع التقرير</label>
-      <select name="mode" onchange="this.form.submit()">
-        <option value="daily"   <%= mode==='daily'?'selected':'' %> >يومي</option>
-        <option value="monthly" <%= mode==='monthly'?'selected':'' %>>شهري</option>
-      </select>
-    </div>
 
+  <form method="get" action="/reports" class="row" style="gap:10px;flex-wrap:wrap">
+    <input type="hidden" name="range" value="<%= range || 'daily' %>"/>
+
+    <!-- اختيار السنة -->
     <div>
       <label>السنة</label>
       <select name="year">
-        <% years.forEach(y => { %>
-          <option value="<%= y %>" <%= (y===year)?'selected':'' %>><%= y %></option>
-        <% }) %>
+        <% const thisYear = Number(dayjs().format('YYYY'));
+           for (let y = thisYear; y >= thisYear-5; y--) { %>
+          <option value="<%= y %>" <%= (selected.year ? selected.year===y : y===thisYear) ? 'selected' : '' %>><%= y %></option>
+        <% } %>
       </select>
     </div>
 
+    <!-- اختيار الشهر -->
     <div>
       <label>الشهر</label>
-      <select name="month" onchange="syncDays()">
-        <% months.forEach(m => { %>
-          <option value="<%= m.n %>" <%= (m.n===month)?'selected':'' %>><%= m.name %></option>
-        <% }) %>
+      <select name="month">
+        <% for (let m = 1; m <= 12; m++) { %>
+          <option value="<%= m %>" <%= (selected.month ? selected.month===m : m===Number(dayjs().format('MM'))) ? 'selected' : '' %>><%= m %></option>
+        <% } %>
       </select>
     </div>
 
-    <% if (mode==='daily') { %>
+    <!-- اختيار اليوم (للـ daily فقط؛ يتم تجاهله بالـ monthly) -->
     <div>
       <label>اليوم</label>
-      <select name="day" id="daySelect">
-        <% daysArr.forEach(dv => { %>
-          <option value="<%= dv %>" <%= (dv===day)?'selected':'' %>><%= dv %></option>
-        <% }) %>
+      <select name="day">
+        <% for (let d = 1; d <= 31; d++) { %>
+          <option value="<%= d %>" <%= (selected.day ? selected.day===d : d===Number(dayjs().format('DD'))) ? 'selected' : '' %>><%= d %></option>
+        <% } %>
       </select>
     </div>
-    <% } %>
 
-    <div class="right"></div>
-    <div>
-      <button class="btn save"><i class="fa fa-search"></i> عرض</button>
+    <div class="row" style="gap:8px">
+      <button class="btn save"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
+      <a class="btn edit" href="/reports?range=monthly&year=<%= (selected.year||dayjs().year()) %>&month=<%= (selected.month||Number(dayjs().format('MM'))) %>">
+        <i class="fa fa-calendar"></i> تقرير شهري
+      </a>
     </div>
   </form>
 </div>
 
-<div class="cards" style="margin-bottom:14px">
-  <div class="card"><h3>الإيراد</h3><div class="kpi">₪<%= Number(totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></div></div>
-  <div class="card"><h3>الربح</h3><div class="kpi">₪<%= Number(totalProfit).toLocaleString('en-US',{minimumFractionDigits:2}) %></div></div>
+<!-- KPIs -->
+<div class="cards" style="margin-bottom:12px">
+  <div class="card"><h3>الإيراد</h3><div class="kpi">₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
+  <div class="card"><h3>التكاليف</h3><div class="kpi">₪<%= Number(totalCost).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
+  <div class="card"><h3>الربح</h3><div class="kpi">₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
 </div>
 
+<!-- جدول العمليات -->
 <div class="card">
-  <h3><i class="fa fa-list"></i> <%= title %></h3>
-  <% if(!rows.length){ %>
-    <p style="color:#666">لا توجد بيانات لهذا النطاق.</p>
+  <h3><i class="fa fa-receipt"></i> تفاصيل العمليات — <%= title %></h3>
+  <% if (!rows.length) { %>
+    <p>لا توجد بيانات في هذا النطاق.</p>
   <% } else { %>
-  <table>
-    <thead>
-      <tr>
-        <th>التاريخ</th>
-        <th>المنتج</th>
-        <th>الكمية</th>
-        <th>سعر البيع</th>
-        <th>السعر الأصلي</th>
-        <th>الشحن</th>
-        <th>التصنيف</th>
-        <th>الربح</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% rows.forEach(s => {
-           const sale = Number(s.sale_price);
-           const cost = Number(s.cost_price);
-           const ship = Number(s.shipping_cost||0);
-           const qty  = Number(s.quantity||0);
-           const profit = (sale*qty) - (cost*qty) - ship;
-      %>
-      <tr>
-        <td><%= fmtTS(s.sold_at) %></td>
-        <td class="right"><%= s.product_name %></td>
-        <td><%= qty.toLocaleString('en-US') %></td>
-        <td>₪<%= sale.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-        <td>₪<%= cost.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-        <td>₪<%= ship.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-        <td><%= s.category || 'غير مصنّف' %></td>
-        <td>₪<%= profit.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-      </tr>
-      <% }) %>
-    </tbody>
-  </table>
+    <table>
+      <thead>
+        <tr>
+          <th>التاريخ</th>
+          <th>المنتج</th>
+          <th>الكمية</th>
+          <th>سعر البيع (₪)</th>
+          <th>التكلفة (₪)</th>
+          <th>الشحن (₪)</th>
+          <th>الربح (₪)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <%
+          const tzName = 'Asia/Hebron';
+          rows.forEach(s => {
+            const sale = Number(s.sale_price);
+            const cost = Number(s.cost_price);
+            const ship = Number(s.shipping_cost || 0);
+            const qty  = Number(s.quantity || 0);
+            const profit = (sale * qty) - (cost * qty) - ship;
+        %>
+          <tr>
+            <td><%= dayjs(s.sold_at).tz(tzName).format('YYYY-MM-DD hh:mm A') %></td> <!-- 12 ساعة -->
+            <td style="text-align:right"><%= s.product_name %></td>
+            <td><%= qty.toLocaleString('en-US') %></td>
+            <td>₪<%= sale.toFixed(2) %></td>
+            <td>₪<%= (cost*qty).toFixed(2) %></td>
+            <td>₪<%= ship.toFixed(2) %></td>
+            <td>₪<%= profit.toFixed(2) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
   <% } %>
 </div>
 
-<% if (mode==='monthly') { %>
-  <div class="grid-2" style="margin-top:14px">
-    <div class="card">
-      <h3><i class="fa fa-calendar-day"></i> ملخص الشهر بحسب اليوم</h3>
-      <table>
-        <thead><tr><th>اليوم</th><th>الإيراد</th><th>الربح</th></tr></thead>
-        <tbody>
-          <% byDay.forEach(r => { %>
-            <tr>
-              <td><%= r.day %></td>
-              <td>₪<%= Number(r.revenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-              <td>₪<%= Number(r.profit).toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
+<!-- رسم توزيع الإيراد (الربح مقابل التكاليف) -->
+<div class="card" style="margin-top:14px">
+  <h3><i class="fa fa-chart-pie"></i> توزيع الإيرادات</h3>
+  <canvas id="revChart" height="200"></canvas>
+</div>
 
-    <div class="card">
-      <h3><i class="fa fa-tags"></i> توزيع الإيراد حسب التصنيف</h3>
-      <% if(!byCat.length){ %><p style="color:#666">لا يوجد بيانات.</p><% } else { %>
-      <table>
-        <thead><tr><th>التصنيف</th><th>الإيراد</th></tr></thead>
-        <tbody>
-          <% byCat.forEach(c => { %>
-            <tr>
-              <td class="right"><%= c.label %></td>
-              <td>₪<%= Number(c.value).toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-      <% } %>
-    </div>
-  </div>
-<% } %>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // تحديث قائمة الأيام عند تغيير الشهر (للواجهة فقط؛ الحسبة الفعلية على السيرفر)
-  function syncDays(){
-    const form = event.target.form;
-    if (form) form.submit();
-  }
+  // بيانات الرسم: الربح والتكاليف (مقابل إجمالي الإيراد)
+  const totalRevenue = <%= Number(totalRevenue) %>;
+  const totalCost    = <%= Number(totalCost) %>;
+  const totalProfit  = <%= Number(totalProfit) %>;
+
+  const ctx = document.getElementById('revChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['الربح', 'التكاليف'],
+      datasets: [{
+        data: [totalProfit, totalCost],
+        backgroundColor: ['#16a34a', '#ef4444'],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const val = context.raw || 0;
+              const perc = totalRevenue > 0 ? ((val / totalRevenue) * 100).toFixed(1) : '0.0';
+              return `${context.label}: ₪${Number(val).toFixed(2)} (${perc}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
 </script>

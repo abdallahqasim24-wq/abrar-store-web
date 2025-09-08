@@ -62,6 +62,82 @@
   </form>
 </div>
 
+<!-- ========== قائمة الطلبات الراجعة ========== -->
+<div class="card" style="margin-top:16px">
+  <h3><i class="fa fa-rotate-left"></i> الطلبات الراجعة</h3>
+
+  <% if (!returnsList || !returnsList.length) { %>
+    <p class="muted">لا يوجد طلبات راجعة حالياً.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>الصورة</th>
+          <th class="right">المنتج</th>
+          <th>كمية</th>
+          <th>سعر بيع</th>
+          <th>التكلفة</th>
+          <th>الشحن</th>
+          <th>تاريخ الإرجاع</th>
+          <th>تاريخ البيع الأصلي</th>
+          <th class="right">ملاحظة</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% returnsList.forEach(r => { %>
+          <tr>
+            <td>
+              <% if (r.product_image) { %>
+                <img src="<%= r.product_image %>" class="thumb" alt="">
+              <% } else { %> — <% } %>
+            </td>
+            <td class="right"><%= r.product_name %></td>
+            <td><%= Number(r.quantity).toLocaleString('en-US') %></td>
+            <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
+            <td>₪<%= Number(r.cost_price).toFixed(2) %></td>
+            <td>₪<%= Number(r.shipping_cost||0).toFixed(2) %></td>
+
+            <!-- تاريخ الإرجاع (Asia/Hebron إن توفر tz) -->
+            <td>
+              <%= (dayjs.tz
+                    ? dayjs(r.created_at).tz('Asia/Hebron')
+                    : dayjs(r.created_at)
+                  ).format('YYYY-MM-DD hh:mm A') %>
+            </td>
+
+            <!-- تاريخ البيع الأصلي -->
+            <td>
+              <%= r.sold_at
+                    ? (dayjs.tz
+                        ? dayjs(r.sold_at).tz('Asia/Hebron')
+                        : dayjs(r.sold_at)
+                      ).format('YYYY-MM-DD hh:mm A')
+                    : '—' %>
+            </td>
+
+            <td class="right"><%= r.note || '' %></td>
+            <td>
+              <div class="row">
+                <form method="post" action="/returns/<%= r.id %>/restock" onsubmit="return confirm('إرجاع الكمية إلى المخزون؟')">
+                  <button class="btn save"><i class="fa fa-boxes-stacked"></i> إرجاع للمخزون</button>
+                </form>
+                <form method="post" action="/returns/<%= r.id %>/reorder" onsubmit="return confirm('إعادة تسجيل كطلب بيع جديد؟')">
+                  <button class="btn edit"><i class="fa fa-cart-plus"></i> إعادة كطلب</button>
+                </form>
+                <form method="post" action="/returns/<%= r.id %>/delete" onsubmit="return confirm('حذف نهائي من قائمة الراجعة؟')">
+                  <button class="btn danger"><i class="fa fa-trash"></i> حذف نهائي</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+<!-- ========== /قائمة الطلبات الراجعة ========== -->
+
 <!-- Modal -->
 <div id="editModal" class="card" style="position:fixed;inset:0;max-width:760px;margin:auto;display:none;z-index:50">
   <h3><i class="fa fa-pen"></i> تعديل منتج</h3>
