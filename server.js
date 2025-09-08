@@ -188,6 +188,19 @@ app.post('/products/bulk-delete', async (req, res) => {
   }
   res.redirect('/products');
 });
+app.post('/sales/bulk-delete', async (req, res) => {
+  const ids = req.body.ids || [];
+  if (Array.isArray(ids) && ids.length > 0) {
+    for (const id of ids) {
+      const s = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
+      if (s) {
+        await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [s.quantity, s.product_id]);
+        await query(`DELETE FROM sales WHERE id=$1`, [id]);
+      }
+    }
+  }
+  res.redirect('/sales');
+});
 
 // ---------- Sales ----------
 app.get('/sales', async (_req, res) => {

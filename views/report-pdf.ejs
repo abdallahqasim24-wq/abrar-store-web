@@ -1,7 +1,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600&display=swap" rel="stylesheet">
 <style>
   @page { size: A4; margin: 20mm 12mm 16mm 12mm; }
-  body { direction: rtl; font-family: "Noto Kufi Arabic", Arial, sans-serif; }
+  body { direction: rtl; font-family: "Noto Kufi Arabic", Arial, sans-serif; font-size:13px; }
   h1 { margin: 0 0 14px; font-size: 20px; }
   .meta { margin-bottom: 12px; color:#555; font-size: 12px; }
   table { width:100%; border-collapse: collapse; font-size: 12px; }
@@ -26,8 +26,8 @@
 <% } else { %>
 
   <div class="kpis">
-    <div class="kpi">الإيراد: <strong>₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></strong></div>
-    <div class="kpi">الربح: <strong>₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></strong></div>
+    <div class="kpi">الإيراد: <strong>₪<%= Number(totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></strong></div>
+    <div class="kpi">الربح: <strong>₪<%= Number(totalProfit).toLocaleString('en-US',{minimumFractionDigits:2}) %></strong></div>
   </div>
 
   <table>
@@ -35,8 +35,9 @@
       <tr>
         <th>التاريخ</th>
         <th>المنتج</th>
-        <th>كمية</th>
+        <th>الكمية</th>
         <th>سعر البيع</th>
+        <th>السعر الأصلي</th>
         <th>الشحن</th>
         <th>الربح</th>
         <th>ملاحظة</th>
@@ -44,20 +45,20 @@
     </thead>
     <tbody>
       <% rows.forEach(s => {
-     const sale = Number(s.sale_price);
-     const cost = Number(s.cost_price);
-     const ship = Number(s.shipping_cost || 0);
-     const qty  = Number(s.quantity || 0);
-     const profit = (sale * qty) - (cost * qty) - ship; // المعادلة الجديدة
-%>
-
+         const sale = Number(s.sale_price);
+         const cost = Number(s.cost_price);
+         const ship = Number(s.shipping_cost || 0);
+         const qty  = Number(s.quantity || 0);
+         const profit = (sale * qty) - (cost * qty) - ship;
+      %>
         <tr>
           <td class="center"><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
           <td class="right"><%= s.product_name %></td>
           <td class="center"><%= qty.toLocaleString('en-US') %></td>
-          <td class="center">₪<%= sale.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
-          <td class="center">₪<%= ship.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
-          <td class="center">₪<%= profit.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= sale.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= cost.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= ship.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= profit.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
           <td class="right"><%= (s.note || '') %></td>
         </tr>
       <% }) %>
@@ -65,9 +66,10 @@
     <tfoot>
       <tr>
         <th class="right" colspan="3">الإجمالي</th>
-        <th class="center">₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+        <th class="center">₪<%= Number(totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></th>
         <th></th>
-        <th class="center">₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+        <th></th>
+        <th class="center">₪<%= Number(totalProfit).toLocaleString('en-US',{minimumFractionDigits:2}) %></th>
         <th></th>
       </tr>
     </tfoot>
