@@ -60,6 +60,11 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 .btn.edit   { background:var(--warning); color:#111; } /* برتقالي للتعديل */
 .btn.danger { background:var(--danger); }    /* أحمر للحذف */
 
+/* حالات التوصيل */
+.btn.ok   { background: var(--success); }
+.btn.warn { background: var(--warning); color:#111; }
+.muted    { color: var(--muted); }
+
 /* Cards */
 .page{padding:18px 0}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -73,7 +78,17 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-appl
 table{width:100%;border-collapse:collapse}
 th,td{border-bottom:1px solid var(--border);padding:10px;vertical-align:middle;text-align:center}
 th{background:#fff0f6;color:#374151}
-.thumb{width:52px;height:52px;border-radius:10px;object-fit:cover;border:1px solid var(--border)}
+
+/* 🔹 صور المنتجات */
+.thumb{
+  width:100px;
+  height:100px;
+  border-radius:12px;
+  object-fit:cover;
+  border:1px solid var(--border);
+}
+/* حجم أكبر عند اللزوم في جداول المبيعات */
+.thumb.lg{ width:110px; height:110px; }
 
 /* Forms */
 input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;color:#111;outline:none}
@@ -83,28 +98,20 @@ label{font-size:12px;color:#6b7280}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .right{margin-inline-start:auto}
 
+/* أدوات التحديد الجماعي */
+.toolbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+.select-all{ display:inline-flex; align-items:center; gap:6px; font-size:.95rem; }
+
 /* Footer */
 .foot{text-align:center;margin:36px 0 18px;color:var(--muted)}
 
 /* Responsive for Mobile */
 @media (max-width: 600px) {
-  .form-grid {
-    grid-template-columns: 1fr !important;
-  }
-  .cards {
-    grid-template-columns: 1fr !important;
-  }
-  table {
-    font-size: 0.9rem;
-  }
-  th, td {
-    padding: 6px 4px;
-  }
-  .btn {
-    width: 100%;
-    text-align: center;
-  }
-  .thumb {
-    width:40px; height:40px;
-  }
+  .form-grid { grid-template-columns: 1fr !important; }
+  .cards { grid-template-columns: 1fr !important; }
+  table { font-size: 0.9rem; }
+  th, td { padding: 6px 4px; }
+  .btn { width: 100%; text-align: center; }
+  /* 🔹 صور المنتجات على الموبايل */
+  .thumb { width:80px; height:80px; }
 }

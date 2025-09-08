@@ -10,11 +10,19 @@
         <% }) %>
       </select>
     </div>
+
     <div><label>كمية</label><input type="number" name="quantity" value="1" step="1" required/></div>
-    <div><label>سعر البيع</label><input type="number" name="sale_price" step="0.01"/></div>
-    <div><label>السعر الأصلي</label><input type="number" name="cost_price" step="0.01"/></div>
+    <div><label>سعر البيع ₪</label><input type="number" name="sale_price" step="0.01"/></div>
+    <div><label>السعر الأصلي ₪</label><input type="number" name="cost_price" step="0.01"/></div>
     <div><label>تكلفة الشحن +₪</label><input type="number" name="shipping_cost" step="0.01"/></div>
+
+    <!-- بيانات الزبون -->
+    <div><label>اسم الزبون</label><input type="text" name="customer_name" placeholder="مثال: سارة أحمد"/></div>
+    <div><label>رقم الهاتف</label><input type="tel" name="customer_phone" placeholder="05X-XXXXXXX"/></div>
+    <div><label>العنوان</label><input type="text" name="customer_address" placeholder="المدينة، الحي، وصف مختصر"/></div>
+
     <div><label>ملاحظة</label><input type="text" name="note"/></div>
+
     <div class="right"></div>
     <div class="row right">
       <button class="btn save"><i class="fa fa-check"></i> تسجيل</button>
@@ -24,71 +32,74 @@
 
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
-
-  <!-- نموذج الحذف الجماعي -->
-  <form method="post" action="/sales/bulk-delete" onsubmit="return confirm('هل تريد حذف السجلات المحددة؟ سيُعاد المخزون!')">
-    <table>
-      <thead>
+  <table>
+    <thead>
+      <tr>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>صورة</th>
+        <th>الزبون</th>
+        <th>هاتف</th>
+        <th>العنوان</th>
+        <th>كمية</th>
+        <th>سعر بيع</th>
+        <th>السعر الأصلي</th>
+        <th>شحن</th>
+        <th>الربح</th>
+        <th>التوصيل</th>
+        <th>حذف</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% sales.forEach(s=> {
+           const profit = (Number(s.sale_price) * Number(s.quantity))
+                        - (Number(s.cost_price) * Number(s.quantity))
+                        - Number(s.shipping_cost||0);
+      %>
         <tr>
-          <th><input type="checkbox" id="selectAllSales"></th>
-          <th>الصورة</th>
-          <th>التاريخ</th>
-          <th>المنتج</th>
-          <th>كمية</th>
-          <th>سعر بيع</th>
-          <th>السعر الأصلي</th>
-          <th>شحن</th>
-          <th>الربح</th>
-          <th>حذف</th>
+          <td><%= fmtTS(s.sold_at) %></td>
+          <td class="right"><%= s.product_name %></td>
+          <td>
+            <% if (s.product_image) { %>
+              <img src="<%= s.product_image %>" class="thumb lg"/>
+            <% } else { %>—<% } %>
+          </td>
+          <td class="right"><%= s.customer_name || '—' %></td>
+          <td><%= s.customer_phone || '—' %></td>
+          <td class="right"><%= s.customer_address || '—' %></td>
+          <td><%= Number(s.quantity).toLocaleString('en-US') %></td>
+          <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+          <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+          <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
+          <td>₪<%= profit.toFixed(2) %></td>
+
+          <td>
+            <form method="post" action="/sales/<%= s.id %>/toggle-delivered">
+              <% if (s.delivered) { %>
+                <button class="btn ok" title="تم التوصيل">
+                  <i class="fa fa-check"></i> واصل
+                </button>
+              <% } else { %>
+                <button class="btn warn" title="تغيير إلى واصل">
+                  <i class="fa fa-truck"></i> قيد التوصيل
+                </button>
+              <% } %>
+            </form>
+            <% if (s.delivered_at) { %>
+              <div class="muted" style="font-size:.8rem;margin-top:4px">
+                <i class="fa fa-clock"></i>
+                <%= fmtTS(s.delivered_at) %>
+              </div>
+            <% } %>
+          </td>
+
+          <td>
+            <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُنقل الطلب إلى قائمة الراجعة')">
+              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+            </form>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        <% sales.forEach(s=> { 
-             const qty = Number(s.quantity||0);
-             const sale = Number(s.sale_price||0);
-             const cost = Number(s.cost_price||0);
-             const ship = Number(s.shipping_cost||0);
-             const profit = (sale * qty) - (cost * qty) - ship;
-        %>
-          <tr>
-            <td style="text-align:center"><input type="checkbox" name="ids" value="<%= s.id %>" class="rowCheckSales"></td>
-            <td>
-              <% if (s.product_image) { %>
-                <img src="<%= s.product_image %>" class="thumb" alt="صورة <%= s.product_name %>">
-              <% } else { %> — <% } %>
-            </td>
-            <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
-            <td><%= s.product_name %></td>
-            <td><%= qty.toLocaleString('en-US') %></td>
-            <td>₪<%= sale.toFixed(2) %></td>
-            <td>₪<%= cost.toFixed(2) %></td>
-            <td>₪<%= ship.toFixed(2) %></td>
-            <td>₪<%= profit.toFixed(2) %></td>
-            <td>
-              <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُعاد المخزون!')">
-                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-              </form>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-
-    <div class="row right" style="margin-top:10px">
-      <button class="btn danger"><i class="fa fa-trash"></i> حذف المحدد</button>
-    </div>
-  </form>
+      <% }) %>
+    </tbody>
+  </table>
 </div>
-
-<script>
-  // تحديد الكل
-  document.addEventListener('DOMContentLoaded', () => {
-    const all = document.getElementById('selectAllSales');
-    const rows = document.querySelectorAll('.rowCheckSales');
-    if (all) {
-      all.addEventListener('change', (e) => {
-        rows.forEach(ch => ch.checked = e.target.checked);
-      });
-    }
-  });
-</script>
