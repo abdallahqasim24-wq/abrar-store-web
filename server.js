@@ -9,7 +9,7 @@ import fs from 'fs';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import { query, initDb } from './db.js';              // ← Postgres
+import { query, initDb } from './db.js';
 import PDFDocument from 'pdfkit';
 import puppeteer from 'puppeteer';
 import dayjs from 'dayjs';
@@ -25,18 +25,16 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const HOST = '0.0.0.0';
 
-// ===[ 4) تهيئة قاعدة البيانات (Postgres) ]===
+// ===[ 4) قاعدة البيانات ]===
 await initDb(); // ينشئ الجداول الناقصة ويتأكد من الاتصال
 
-// ===[ 5) إعداد Cloudinary للصور ]===
-// Render يمرر CLOUDINARY_URL عبر المتغير البيئي (اللي أضفته أنت)
+// ===[ 5) Cloudinary + Multer ]===
 cloudinary.config(process.env.CLOUDINARY_URL);
 
-// تخزين Multer على Cloudinary (بدل القرص المحلي)
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async () => ({
-    folder: 'abrar-shop',                   // غيّر الاسم لو حاب
+    folder: 'abrar-shop',
     resource_type: 'image',
     public_id: `${Date.now()}-${Math.round(Math.random()*1e9)}`
   })
@@ -52,8 +50,8 @@ app.set('layout', 'layout');
 // ===== Health check (غير محمي) =====
 app.get('/healthz', (req, res) => res.status(200).send('OK'));
 
-// ===== حماية Basic Auth =====
-const authUsers = { 'abrar': '1143' }; // عدّلهم متى شئت
+// ===== Basic Auth =====
+const authUsers = { 'abrar': '1143' };
 const authMw = basicAuth({
   users: authUsers,
   challenge: true,
@@ -68,29 +66,32 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
-
-// متغير مفيد في القوالب
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
 // ===== Helpers =====
-// الربح = (سعر البيع - الشحن) × الكمية
+// الربح = (سعر البيع × الكمية) − الشحن (الشحن مرة واحدة لكل الطلب)
+// الربح = (sale_price * quantity) - (cost_price * quantity) - shipping_cost
 const profitOf = (s) =>
-  (Number(s.sale_price) - Number(s.shipping_cost || 0)) * Number(s.quantity);
+  (Number(s.sale_price) * Number(s.quantity))
+  - (Number(s.cost_price) * Number(s.quantity))
+  - Number(s.shipping_cost || 0);
+
 
 async function stats() {
   const t   = await query(`
     SELECT
-      COUNT(*)::int                                      AS products_count,
-      COALESCE(SUM(stock),0)::int                        AS total_units,
-      COALESCE(SUM(stock*cost_price),0)::float8          AS total_cost_value,
-      COALESCE(SUM(stock*sale_price),0)::float8          AS total_sale_value
+      COUNT(*)::int                               AS products_count,
+      COALESCE(SUM(stock),0)::int                 AS total_units,
+      COALESCE(SUM(stock*cost_price),0)::float8   AS total_cost_value,
+      COALESCE(SUM(stock*sale_price),0)::float8   AS total_sale_value
     FROM products
   `);
+
   const today = dayjs().format('YYYY-MM-DD');
   const month = dayjs().format('YYYY-MM');
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at) = DATE($1)`, [today])).rows;
-  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM') = $1`, [month])).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [month])).rows;
 
   const rev  = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -104,8 +105,10 @@ async function stats() {
   };
 }
 
-// ===== Routes =====
-app.get('/', async (req, res) => {
+// ====================== Routes ======================
+
+// ---------- Home ----------
+app.get('/', async (_req, res) => {
   const s = await stats();
   const byCat   = (await query(`
     SELECT p.category AS label,
@@ -116,9 +119,7 @@ app.get('/', async (req, res) => {
     ORDER BY value DESC
   `)).rows;
 
-  const lowStock = (await query(`
-    SELECT * FROM products WHERE stock <= $1 ORDER BY stock ASC LIMIT 8
-  `, [5])).rows;
+  const lowStock = (await query(`SELECT * FROM products WHERE stock<=$1 ORDER BY stock ASC LIMIT 8`, [5])).rows;
 
   const lastSales = (await query(`
     SELECT s.*, p.name AS product_name
@@ -137,14 +138,11 @@ app.get('/products', async (_req, res) => {
 
 app.post('/products', upload.single('image'), async (req, res) => {
   const { name, brand, category, cost_price, sale_price, stock } = req.body;
-  // Cloudinary يرجّع رابط الصورة في req.file.path
-  const image_path = req.file ? req.file.path : null;
-
+  const image_path = req.file ? req.file.path : null; // Cloudinary URL
   await query(`
     INSERT INTO products (name,brand,category,cost_price,sale_price,stock,image_path)
     VALUES ($1,$2,$3,$4,$5,$6,$7)
   `, [name, brand || '', category || '', Number(cost_price), Number(sale_price), Number(stock || 0), image_path]);
-
   res.redirect('/products');
 });
 
@@ -180,6 +178,17 @@ app.post('/products/:id/delete', async (req, res) => {
   res.redirect('/products');
 });
 
+// ====== الحذف الجماعي ======
+app.post('/products/bulk-delete', async (req, res) => {
+  const ids = req.body.ids;
+  if (!ids) return res.redirect('/products');
+  const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
+  if (arr.length > 0) {
+    await query(`DELETE FROM products WHERE id = ANY($1::int[])`, [arr]);
+  }
+  res.redirect('/products');
+});
+
 // ---------- Sales ----------
 app.get('/sales', async (_req, res) => {
   const sales = (await query(`
@@ -195,7 +204,7 @@ app.get('/sales', async (_req, res) => {
   res.render('sales', { sales, products, dayjs });
 });
 
-// ملاحظة: ما منستعمل (كوبون/هدية/نقاط) الآن — نسجلها بصفر فقط للحقل الموجود في الجدول
+// نسجل (كوبون/هدية/نقاط) بصفر فقط — غير مستخدمة بالحساب
 app.post('/sales', async (req, res) => {
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const prod = (await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)])).rows[0];
@@ -236,13 +245,19 @@ app.get('/reports', async (req, res) => {
     const ym = date || dayjs().format('YYYY-MM');
     title = `تقرير شهري ${ym}`;
     rows  = (await query(`
-      SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM') = $1 ORDER BY sold_at DESC
+      SELECT s.*, p.name AS product_name
+      FROM sales s JOIN products p ON p.id = s.product_id
+      WHERE TO_CHAR(s.sold_at,'YYYY-MM') = $1
+      ORDER BY s.sold_at DESC
     `, [ym])).rows;
   } else {
     const d = date || dayjs().format('YYYY-MM-DD');
     title = `تقرير يومي ${d}`;
     rows  = (await query(`
-      SELECT * FROM sales WHERE DATE(sold_at) = DATE($1) ORDER BY sold_at DESC
+      SELECT s.*, p.name AS product_name
+      FROM sales s JOIN products p ON p.id = s.product_id
+      WHERE DATE(s.sold_at) = DATE($1)
+      ORDER BY s.sold_at DESC
     `, [d])).rows;
   }
 
@@ -252,13 +267,12 @@ app.get('/reports', async (req, res) => {
 });
 
 // ---------- Reports (PDF via Puppeteer) ----------
-// ---------- Reports (PDF via Puppeteer + PDFKit fallback) ----------
 app.get('/reports/pdf', async (req, res) => {
   const { range = 'daily', date } = req.query;
 
-  // 1) جهّز البيانات
-  let rows = [], title = '';
   try {
+    // 1) البيانات
+    let rows = [], title = '';
     if (range === 'monthly') {
       const ym = date || dayjs().format('YYYY-MM');
       title = `تقرير مبيعات شهري ${ym}`;
@@ -278,104 +292,55 @@ app.get('/reports/pdf', async (req, res) => {
         ORDER BY s.sold_at DESC
       `, [d])).rows;
     }
-  } catch (e) {
-    console.error('DB error for PDF:', e);
-    return res.status(500).send('DB error');
-  }
 
-  const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-  const profitOf = (s) => (Number(s.sale_price) - Number(s.shipping_cost || 0)) * Number(s.quantity);
-  const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
+    const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
+    const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
 
-  // 2) جرّب Puppeteer أولًا
-  try {
-    // نبني الـ HTML من EJS
+    // 2) Render HTML بدون إرسال رد
     const html = await new Promise((resolve, reject) => {
-      res.render(
-        'report-pdf',
-        { rows, title, totalRevenue, totalProfit, dayjs },
-        (err, str) => (err ? reject(err) : resolve(str))
-      );
+      req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
+        if (err) reject(err); else resolve(str);
+      });
     });
 
-    // إعدادات مناسبة لـ Render/Heroku
+    // 3) Puppeteer (فلاغات مناسبة لـ Render)
     const browser = await puppeteer.launch({
-      headless: true,
+      headless: 'new',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
         '--disable-gpu',
         '--no-zygote',
+        '--disable-dev-shm-usage',
         '--single-process'
       ]
     });
 
-    const page = await browser.newPage();
-    // IMPORTANT: لا نحمل أي موارد خارجية بالـ HTML (يفضّل CSS inline داخل القالب)
-    await page.setContent(html, { waitUntil: 'load', timeout: 60000 });
+    try {
+      const page = await browser.newPage();
+      await page.setContent(
+        `<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8">${html}</html>`,
+        { waitUntil: 'networkidle0', timeout: 60000 }
+      );
 
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' }
-    });
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '20mm', right: '12mm', bottom: '16mm', left: '12mm' }
+      });
 
-    await browser.close();
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
-    res.setHeader('Content-Length', pdfBuffer.length);
-    return res.send(pdfBuffer); // (send) أفضل من end هنا
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
+      return res.end(pdf);
+    } finally {
+      await browser.close();
+    }
   } catch (err) {
-    console.error('Puppeteer failed, falling back to PDFKit:', err);
-  }
-
-  // 3) Fallback: PDFKit بسيط لو فشل Puppeteer
-  try {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
-
-    const doc = new PDFDocument({ size: 'A4', margins: { top: 40, left: 40, right: 40, bottom: 40 } });
-    doc.pipe(res);
-
-    doc.fontSize(18).text(title, { align: 'right' });
-    doc.moveDown(0.5);
-    doc.fontSize(12).text(`إجمالي الإيراد: $${totalRevenue.toFixed(2)}`, { align: 'right' });
-    doc.text(`إجمالي الربح: $${totalProfit.toFixed(2)}`, { align: 'right' });
-    doc.moveDown();
-
-    // ترويسة جدول بسيطة
-    doc.fontSize(12).text('التاريخ', 40, doc.y, { continued: true })
-      .text('المنتج', 140, undefined, { continued: true })
-      .text('الكمية', 300, undefined, { continued: true })
-      .text('سعر البيع', 360, undefined, { continued: true })
-      .text('الشحن', 440, undefined, { continued: true })
-      .text('الربح', 510);
-
-    doc.moveTo(40, doc.y + 2).lineTo(555, doc.y + 2).stroke();
-    doc.moveDown(0.5);
-
-    rows.forEach((s) => {
-      const sale = Number(s.sale_price);
-      const ship = Number(s.shipping_cost || 0);
-      const qty  = Number(s.quantity || 0);
-      const pf   = (sale - ship) * qty;
-
-      doc.text(dayjs(s.sold_at).format('YYYY-MM-DD'), 40, doc.y, { continued: true })
-        .text(String(s.product_name || ''), 140, undefined, { continued: true })
-        .text(String(qty), 300, undefined, { continued: true })
-        .text(`$${sale.toFixed(2)}`, 360, undefined, { continued: true })
-        .text(`$${ship.toFixed(2)}`, 440, undefined, { continued: true })
-        .text(`$${pf.toFixed(2)}`, 510);
-
-      doc.moveDown(0.25);
-    });
-
-    doc.end();
-  } catch (e) {
-    console.error('PDFKit fallback failed:', e);
-    res.status(500).send('PDF generation failed');
+    console.error('PDF error:', err);
+    if (!res.headersSent) {
+      return res.status(500).type('text/plain').send('PDF generation failed');
+    }
+    try { res.end(); } catch {}
   }
 });
 

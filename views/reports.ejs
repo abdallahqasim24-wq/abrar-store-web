@@ -1,51 +1,48 @@
-
-<div class="card" style="margin-bottom:12px">
-  <h3>التقارير</h3>
-  <form method="get" action="/reports" class="row">
-    <select name="range" onchange="onRangeChanged(this.value)">
-      <option value="daily" <%= range==='daily'?'selected':'' %>>يومي</option>
-      <option value="monthly" <%= range==='monthly'?'selected':'' %>>شهري</option>
-    </select>
-    <input id="dateInput" name="date" placeholder="التاريخ" value="<%= date||'' %>"/>
-    <button class="btn" type="submit">عرض</button>
-    <a class="btn ghost" target="_blank" href="/reports/pdf?range=<%= range %>&date=<%= date||'' %>">تصدير PDF</a>
-  </form>
-</div>
-
 <div class="card">
   <h3><%= title %></h3>
-  <p>الإيراد: <strong>$<%= totalRevenue.toFixed(2) %></strong> — الربح: <strong>$<%= totalProfit.toFixed(2) %></strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>التاريخ</th><th>كمية</th><th>بيع</th><th>شراء</th><th>شحن</th><th>كوبون</th><th>هدية</th><th>نقاط</th><th>ربح</th><th>ملاحظة</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% rows.forEach(r=> { 
-           const profit = (((r.shipping_cost||0) + r.cost_price) - ((r.coupon_value||0) + (r.gift_value||0) + (r.points_value||0)) - r.sale_price) * r.quantity;
-      %>
-        <tr>
-          <td><%= dayjs(r.sold_at).format('YYYY-MM-DD HH:mm') %></td>
-          <td><%= r.quantity %></td>
-          <td>$<%= r.sale_price.toFixed(2) %></td>
-          <td>$<%= r.cost_price.toFixed(2) %></td>
-          <td>$<%= (r.shipping_cost||0).toFixed(2) %></td>
-          <td>$<%= (r.coupon_value||0).toFixed(2) %></td>
-          <td>$<%= (r.gift_value||0).toFixed(2) %></td>
-          <td>$<%= (r.points_value||0).toFixed(2) %></td>
-          <td>$<%= profit.toFixed(2) %></td>
-          <td><%= r.note||'' %></td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-</div>
 
-<script>
-  function onRangeChanged(v){
-    const d = document.getElementById('dateInput');
-    d.type = (v==='monthly') ? 'month' : 'date';
-  }
-  onRangeChanged('<%= range %>');
-</script>
+  <% if (!rows.length) { %>
+    <p>لا توجد بيانات لهذا النطاق الزمني.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>التاريخ</th>
+          <th>المنتج</th>
+          <th>كمية</th>
+          <th>سعر البيع</th>
+          <th>الشحن</th>
+          <th>الربح</th>
+          <th>ملاحظة</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(s => {
+             const sale   = Number(s.sale_price);
+             const ship   = Number(s.shipping_cost || 0);
+             const qty    = Number(s.quantity || 0);
+             const profit = (sale * qty) - ship; // ← المعادلة الجديدة
+        %>
+          <tr>
+            <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
+            <td><%= s.product_name %></td>
+            <td><%= qty.toLocaleString('en-US') %></td>
+            <td>₪<%= sale.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+            <td>₪<%= ship.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+            <td>₪<%= profit.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+            <td><%= (s.note || '') %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="3" style="text-align:right">الإجمالي:</th>
+          <th>₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+          <th></th>
+          <th>₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+          <th></th>
+        </tr>
+      </tfoot>
+    </table>
+  <% } %>
+</div>

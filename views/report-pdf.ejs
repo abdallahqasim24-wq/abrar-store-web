@@ -1,50 +1,76 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600&display=swap" rel="stylesheet">
 <style>
-  body{ font-family:'Cairo', Arial, sans-serif; direction:rtl; margin:0; color:#111 }
-  h1{ font-size:20px; text-align:center; margin:16px 0 8px }
-  .meta{ text-align:center; color:#555; margin-bottom:12px }
-  table{ width:100%; border-collapse:collapse; font-size:12px }
-  th,td{ border:1px solid #eee; padding:6px 8px; }
-  th{ background:#fff3f8 }
-  tfoot td{ font-weight:bold }
-  .right{ text-align:right }
+  @page { size: A4; margin: 20mm 12mm 16mm 12mm; }
+  body { direction: rtl; font-family: "Noto Kufi Arabic", Arial, sans-serif; }
+  h1 { margin: 0 0 14px; font-size: 20px; }
+  .meta { margin-bottom: 12px; color:#555; font-size: 12px; }
+  table { width:100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; }
+  th { background:#f5f6f8; text-align: center; }
+  td { vertical-align: top; }
+  tfoot th, tfoot td { background:#fafafa; font-weight: 600; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .kpis { display:flex; gap:10px; margin: 10px 0 16px; }
+  .kpi { border:1px solid #eee; padding:10px 12px; border-radius:8px; background:#fcfcfc; }
+  .muted { color:#666; }
 </style>
-</head>
-<body>
-  <h1><%= title %></h1>
-  <div class="meta">إيراد: $<%= totalRevenue.toFixed(2) %> — ربح: $<%= totalProfit.toFixed(2) %></div>
+
+<h1><%= title %></h1>
+<div class="meta">
+  تم التوليد: <%= dayjs().format('YYYY-MM-DD HH:mm') %>
+</div>
+
+<% if (!rows.length) { %>
+  <p class="muted">لا توجد بيانات لهذا النطاق الزمني.</p>
+<% } else { %>
+
+  <div class="kpis">
+    <div class="kpi">الإيراد: <strong>₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></strong></div>
+    <div class="kpi">الربح: <strong>₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></strong></div>
+  </div>
+
   <table>
     <thead>
       <tr>
-        <th>التاريخ</th><th>المنتج</th><th>كمية</th><th>بيع</th>
-        <th>شراء</th><th>شحن</th><th>كوبون</th><th>هدية</th><th>نقاط</th><th>الربح</th>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>كمية</th>
+        <th>سعر البيع</th>
+        <th>الشحن</th>
+        <th>الربح</th>
+        <th>ملاحظة</th>
       </tr>
     </thead>
     <tbody>
-      <% rows.forEach(r=>{ 
-         const profit = (((r.shipping_cost||0) + r.cost_price) - ((r.coupon_value||0) + (r.gift_value||0) + (r.points_value||0)) - r.sale_price) * r.quantity;
-      %>
+      <% rows.forEach(s => {
+     const sale = Number(s.sale_price);
+     const cost = Number(s.cost_price);
+     const ship = Number(s.shipping_cost || 0);
+     const qty  = Number(s.quantity || 0);
+     const profit = (sale * qty) - (cost * qty) - ship; // المعادلة الجديدة
+%>
+
         <tr>
-          <td class="right"><%= dayjs(r.sold_at).format('YYYY-MM-DD HH:mm') %></td>
-          <td class="right"><%= r.product_name %></td>
-          <td class="right"><%= r.quantity %></td>
-          <td class="right">$<%= r.sale_price.toFixed(2) %></td>
-          <td class="right">$<%= r.cost_price.toFixed(2) %></td>
-          <td class="right">$<%= (r.shipping_cost||0).toFixed(2) %></td>
-          <td class="right">$<%= (r.coupon_value||0).toFixed(2) %></td>
-          <td class="right">$<%= (r.gift_value||0).toFixed(2) %></td>
-          <td class="right">$<%= (r.points_value||0).toFixed(2) %></td>
-          <td class="right">$<%= profit.toFixed(2) %></td>
+          <td class="center"><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
+          <td class="right"><%= s.product_name %></td>
+          <td class="center"><%= qty.toLocaleString('en-US') %></td>
+          <td class="center">₪<%= sale.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= ship.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= profit.toLocaleString('en-US', {minimumFractionDigits:2}) %></td>
+          <td class="right"><%= (s.note || '') %></td>
         </tr>
       <% }) %>
     </tbody>
+    <tfoot>
+      <tr>
+        <th class="right" colspan="3">الإجمالي</th>
+        <th class="center">₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+        <th></th>
+        <th class="center">₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></th>
+        <th></th>
+      </tr>
+    </tfoot>
   </table>
-</body>
-</html>
+
+<% } %>
