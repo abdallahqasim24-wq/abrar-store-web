@@ -1,5 +1,33 @@
 <style>
-  .thumb{width:56px;height:56px;object-fit:cover;border-radius:10px}
+  :root{ --thumb-size:120px }
+  .thumb{
+    width:var(--thumb-size);
+    height:var(--thumb-size);
+    object-fit:cover;
+    border-radius:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,.08);
+    border:1px solid #f1f5f9;
+  }
+  .thumb-btn{
+    all:unset; cursor:zoom-in; display:inline-block; line-height:0;
+  }
+
+  /* معاينة الصورة */
+  #imgPreviewBg{
+    position:fixed; inset:0; background:rgba(0,0,0,.55);
+    display:none; z-index:70;
+  }
+  #imgPreview{
+    position:fixed; inset:0; margin:auto; max-width:min(92vw, 900px);
+    max-height:92vh; display:none; z-index:80; border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35)
+  }
+  #imgPreviewClose{
+    position:fixed; inset:12px 12px auto auto; z-index:85;
+    background:#fff; border:1px solid #e5e7eb; border-radius:999px;
+    width:40px; height:40px; display:none; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.12)
+  }
 </style>
 
 <div class="card" style="margin-bottom:12px">
@@ -23,7 +51,7 @@
 <div class="card">
   <h3>قائمة المنتجات</h3>
 
-  <!-- نموذج الحذف الجماعي (فارغ هنا – نربط به الcheckbox عبر الخاصية form) -->
+  <!-- نموذج الحذف الجماعي -->
   <form id="bulkForm" method="post" action="/products/bulk-delete"></form>
 
   <table id="prodTable">
@@ -37,12 +65,13 @@
     <tbody>
       <% products.forEach(p=> { %>
         <tr>
-          <!-- نربط الcheckbox بنموذج الحذف الجماعي عبر form="bulkForm" -->
           <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck" form="bulkForm"></td>
 
           <td>
             <% if (p.image_path) { %>
-              <img src="<%= p.image_path %>" class="thumb" alt="">
+              <button type="button" class="thumb-btn" data-src="<%= p.image_path %>">
+                <img src="<%= p.image_path %>" class="thumb" alt="">
+              </button>
             <% } else { %> — <% } %>
           </td>
 
@@ -54,7 +83,6 @@
           <td><%= p.stock %></td>
 
           <td class="row">
-            <!-- هذه النماذج مستقلة الآن (ما في تعشيش داخل فورم كبير) -->
             <form method="post" action="/products/<%= p.id %>/stock" class="row" style="gap:6px">
               <input type="number" name="delta" value="1" step="1" style="width:80px"/>
               <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
@@ -107,7 +135,9 @@
           <tr>
             <td>
               <% if (r.product_image) { %>
-                <img src="<%= r.product_image %>" class="thumb" alt="">
+                <button type="button" class="thumb-btn" data-src="<%= r.product_image %>">
+                  <img src="<%= r.product_image %>" class="thumb" alt="">
+                </button>
               <% } else { %> — <% } %>
             </td>
             <td class="right"><%= r.product_name %></td>
@@ -115,17 +145,12 @@
             <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
             <td>₪<%= Number(r.cost_price).toFixed(2) %></td>
             <td>₪<%= Number(r.shipping_cost||0).toFixed(2) %></td>
-
-            <td>
-              <%= (dayjs.tz ? dayjs(r.created_at).tz('Asia/Hebron') : dayjs(r.created_at)).format('YYYY-MM-DD hh:mm A') %>
-            </td>
-
+            <td><%= (dayjs.tz ? dayjs(r.created_at).tz('Asia/Hebron') : dayjs(r.created_at)).format('YYYY-MM-DD hh:mm A') %></td>
             <td>
               <%= r.sold_at
                     ? (dayjs.tz ? dayjs(r.sold_at).tz('Asia/Hebron') : dayjs(r.sold_at)).format('YYYY-MM-DD hh:mm A')
                     : '—' %>
             </td>
-
             <td class="right"><%= r.note || '' %></td>
             <td>
               <div class="row">
@@ -148,7 +173,7 @@
 </div>
 <!-- ========== /قائمة الطلبات الراجعة ========== -->
 
-<!-- Modal -->
+<!-- Modal تعديل -->
 <div id="editModal" class="card" style="position:fixed;inset:0;max-width:760px;margin:auto;display:none;z-index:50">
   <h3><i class="fa fa-pen"></i> تعديل منتج</h3>
   <form id="editForm" method="post" enctype="multipart/form-data" class="form-grid">
@@ -168,25 +193,28 @@
 </div>
 <div id="editBg" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40" onclick="closeEdit()"></div>
 
+<!-- عناصر معاينة الصورة -->
+<div id="imgPreviewBg"></div>
+<img id="imgPreview" alt="">
+<button id="imgPreviewClose" title="إغلاق"><i class="fa fa-xmark"></i></button>
+
 <script>
-  // modal
+  // modal تعديل
   function openEdit(p){
-    document.getElementById('e_name').value = p.name||'';
-    document.getElementById('e_brand').value = p.brand||'';
-    document.getElementById('e_category').value = p.category||'';
-    document.getElementById('e_cost').value = p.cost_price;
-    document.getElementById('e_sale').value = p.sale_price;
-    document.getElementById('e_stock').value = p.stock;
-    document.getElementById('editForm').action = '/products/'+p.id+'/update';
-    document.getElementById('editModal').style.display='block';
-    document.getElementById('editBg').style.display='block';
+    e_name.value  = p.name||'';
+    e_brand.value = p.brand||'';
+    e_category.value = p.category||'';
+    e_cost.value  = p.cost_price;
+    e_sale.value  = p.sale_price;
+    e_stock.value = p.stock;
+    editForm.action = '/products/'+p.id+'/update';
+    editModal.style.display='block'; editBg.style.display='block';
   }
   function closeEdit(){
-    document.getElementById('editModal').style.display='none';
-    document.getElementById('editBg').style.display='none';
+    editModal.style.display='none'; editBg.style.display='none';
   }
 
-  // select all + ربط الحذف الجماعي
+  // select all
   document.addEventListener("DOMContentLoaded", () => {
     const selectAll = document.getElementById("selectAll");
     const checks = document.querySelectorAll(".rowCheck");
@@ -195,5 +223,24 @@
         checks.forEach(c => c.checked = e.target.checked);
       });
     }
+
+    // معاينة الصورة الكبيرة
+    const bg   = document.getElementById('imgPreviewBg');
+    const img  = document.getElementById('imgPreview');
+    const xBtn = document.getElementById('imgPreviewClose');
+
+    function closePreview(){
+      bg.style.display='none'; img.style.display='none'; xBtn.style.display='none';
+      img.src='';
+    }
+    bg.addEventListener('click', closePreview);
+    xBtn.addEventListener('click', closePreview);
+    document.querySelectorAll('.thumb-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const src = btn.getAttribute('data-src');
+        img.src = src;
+        bg.style.display='block'; img.style.display='block'; xBtn.style.display='flex';
+      });
+    });
   });
 </script>

@@ -1,7 +1,12 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .thumb{border-radius:10px;object-fit:cover}
+  /* حجم مخصص داخل صفحة المبيعات (اختياري) */
+  .thumb.sales-thumb{
+    width: 80px; height: 80px; object-fit: cover; border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
   .status-chip{
     display:inline-flex; align-items:center; gap:6px;
     padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
@@ -63,6 +68,7 @@
       <tr>
         <th>التاريخ</th>
         <th>المنتج</th>
+        <th>الصورة</th> <!-- جديد -->
         <th>الزبون</th>
         <th>هاتف</th>
         <th>المدينة</th>
@@ -90,12 +96,16 @@
       %>
         <tr>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
-          <td class="right">
+
+          <td class="right"><%= s.product_name %></td>
+
+          <!-- الصورة كعمود منفصل -->
+          <td>
             <% if (s.product_image) { %>
-              <img src="<%= s.product_image %>" class="thumb" style="width:44px;height:44px;vertical-align:middle;margin-inline-start:6px" alt="product"/>
-            <% } %>
-            <%= s.product_name %>
+              <img src="<%= s.product_image %>" class="thumb sales-thumb" alt="صورة <%= s.product_name %>"/>
+            <% } else { %> — <% } %>
           </td>
+
           <td><%= s.customer_name || '—' %></td>
           <td><%= s.customer_phone || '—' %></td>
           <td><%= s.customer_city || '—' %></td>
