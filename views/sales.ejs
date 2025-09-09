@@ -1,16 +1,12 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  /* حجم مخصص داخل صفحة المبيعات (اختياري) */
-  .thumb.sales-thumb{
-    width: 80px; height: 80px; object-fit: cover; border-radius: 12px;
-    border: 1px solid var(--border);
-  }
-
+  /* أجزاء صغيرة فقط خاصة بالستاتس */
+  .thumb{border-radius:10px;object-fit:cover}
   .status-chip{
     display:inline-flex; align-items:center; gap:6px;
-    padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
-    border:1px solid var(--border); cursor:pointer; user-select:none;
+    padding:6px 10px; border-radius:999px; font-weight:700; font-size:.9rem;
+    border:1px solid var(--border); cursor:pointer; user-select:none; background:#fff;
   }
   .status-pending  { background:#fff7e6 }
   .status-shipping { background:#fff3cd }
@@ -19,13 +15,13 @@
   .status-menu{
     position:absolute; inset:auto auto auto 0; transform:translateY(6px);
     background:#fff; border:1px solid var(--border); border-radius:10px;
-    box-shadow: var(--shadow); min-width:180px; padding:6px; z-index:30; display:none;
+    box-shadow: var(--shadow); min-width:200px; padding:6px; z-index:30; display:none;
   }
   .status-wrap{ position:relative; display:inline-block }
   .status-menu form{ margin:0 }
   .status-menu button{
     width:100%; text-align:right; background:#fff; color:#111; border:0;
-    padding:8px 10px; border-radius:8px; cursor:pointer;
+    padding:10px 10px; border-radius:8px; cursor:pointer;
   }
   .status-menu button:hover{ background:#f8fafc }
   .muted-sm{ color:#6b7280; font-size:.8rem }
@@ -61,113 +57,135 @@
   </form>
 </div>
 
+<!-- ===== جدول سجل المبيعات بمسافات مريحة ===== -->
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>التاريخ</th>
-        <th>المنتج</th>
-        <th>الصورة</th> <!-- جديد -->
-        <th>الزبون</th>
-        <th>هاتف</th>
-        <th>المدينة</th>
-        <th>كمية</th>
-        <th>سعر بيع (₪)</th>
-        <th>المطلوب (₪)</th> <!-- = سعر*كمية + الشحن -->
-        <th>السعر الأصلي (₪)</th>
-        <th>شحن (₪)</th>
-        <th>الربح (₪)</th>
-        <th>التوصيل</th>
-        <th>تعديل</th>
-        <th>حذف</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% sales.forEach(s=> {
-           const qty       = Number(s.quantity);
-           const price     = Number(s.sale_price);
-           const costUnit  = Number(s.cost_price);
-           const ship      = Number(s.shipping_cost||0);
-           const revenue   = price * qty;
-           const requested = revenue + ship;             // المطلوب من الزبون
-           const profit    = revenue - (costUnit*qty) - ship;
-           const status    = (s.delivery_status || 'pending');
-      %>
+
+  <div class="table-wrap">
+    <table class="sales-table">
+      <colgroup>
+        <col style="width: 9%">
+        <col style="width: 7%">
+        <col style="width: 16%">
+        <col style="width: 9%">
+        <col style="width: 9%">
+        <col style="width: 8%">
+        <col style="width: 6%">
+        <col style="width: 7%">
+        <col style="width: 7%">
+        <col style="width: 7%">
+        <col style="width: 6%">
+        <col style="width: 7%">
+        <col style="width: 8%">
+        <col style="width: 6%">
+        <col style="width: 6%">
+      </colgroup>
+
+      <thead>
         <tr>
-          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
+          <th>التاريخ</th>
+          <th>الصورة</th>
+          <th class="right">المنتج</th>
+          <th>الزبون</th>
+          <th>هاتف</th>
+          <th>المدينة</th>
+          <th>كمية</th>
+          <th>سعر بيع (₪)</th>
+          <th>المطلوب (₪)</th>
+          <th>السعر الأصلي (₪)</th>
+          <th>شحن (₪)</th>
+          <th>الربح (₪)</th>
+          <th>التوصيل</th>
+          <th>تعديل</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
 
-          <td class="right"><%= s.product_name %></td>
+      <tbody>
+        <% sales.forEach(s=> {
+             const qty       = Number(s.quantity);
+             const price     = Number(s.sale_price);
+             const costUnit  = Number(s.cost_price);
+             const ship      = Number(s.shipping_cost||0);
+             const revenue   = price * qty;
+             const requested = revenue + ship;
+             const profit    = revenue - (costUnit*qty) - ship;
+             const status    = (s.delivery_status || 'pending');
+        %>
+          <tr>
+            <td class="nowrap"><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
 
-          <!-- الصورة كعمود منفصل -->
-          <td>
-            <% if (s.product_image) { %>
-              <img src="<%= s.product_image %>" class="thumb sales-thumb" alt="صورة <%= s.product_name %>"/>
-            <% } else { %> — <% } %>
-          </td>
+            <td>
+              <% if (s.product_image) { %>
+                <img src="<%= s.product_image %>" class="thumb sales" alt="product"/>
+              <% } else { %> — <% } %>
+            </td>
 
-          <td><%= s.customer_name || '—' %></td>
-          <td><%= s.customer_phone || '—' %></td>
-          <td><%= s.customer_city || '—' %></td>
-          <td><%= qty %></td>
-          <td>₪<%= price.toFixed(2) %></td>
-          <td><strong>₪<%= requested.toFixed(2) %></strong></td> <!-- المطلوب يشمل الشحن -->
-          <td>₪<%= costUnit.toFixed(2) %></td>
-          <td>₪<%= ship.toFixed(2) %></td>
-          <td>₪<%= profit.toFixed(2) %></td>
+            <td class="right"><span class="truncate"><%= s.product_name %></span></td>
 
-          <td>
-            <div class="status-wrap">
-              <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
-                <i class="fa fa-truck-fast"></i>
-                <span>
-                  <%= status === 'pending'   ? 'قيد المعالجة'
-                     : status === 'shipping' ? 'قيد التوصيل'
-                     : status === 'delivered'? 'تم التسليم'
-                     : 'فشل التوصيل' %>
-                </span>
-              </div>
-              <div class="status-menu">
-                <form method="post" action="/sales/<%= s.id %>/delivery">
-                  <input type="hidden" name="status" value="pending">
-                  <button type="submit"><i class="fa fa-hourglass-half"></i> قيد المعالجة</button>
-                </form>
-                <form method="post" action="/sales/<%= s.id %>/delivery">
-                  <input type="hidden" name="status" value="shipping">
-                  <button type="submit"><i class="fa fa-truck"></i> قيد التوصيل</button>
-                </form>
-                <form method="post" action="/sales/<%= s.id %>/delivery">
-                  <input type="hidden" name="status" value="delivered">
-                  <button type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-                </form>
-                <form method="post" action="/sales/<%= s.id %>/delivery">
-                  <input type="hidden" name="status" value="failed">
-                  <button type="submit"><i class="fa fa-xmark"></i> فشل/لم يتم</button>
-                </form>
-                <div class="muted-sm" style="padding:6px 8px">
-                  <% if (s.delivered_at) { %>
-                    آخر تسليم: <%= dayjs(s.delivered_at).format('YYYY-MM-DD hh:mm A') %>
-                  <% } else { %>
-                    لا يوجد وقت تسليم مسجل
-                  <% } %>
+            <td><%= s.customer_name || '—' %></td>
+            <td class="nowrap"><%= s.customer_phone || '—' %></td>
+            <td><%= s.customer_city || '—' %></td>
+            <td><%= qty %></td>
+            <td>₪<%= price.toFixed(2) %></td>
+            <td><strong>₪<%= requested.toFixed(2) %></strong></td>
+            <td>₪<%= costUnit.toFixed(2) %></td>
+            <td>₪<%= ship.toFixed(2) %></td>
+            <td>₪<%= profit.toFixed(2) %></td>
+
+            <td>
+              <div class="status-wrap sales-status">
+                <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
+                  <%=
+                    status === 'pending'    ? '<i class=\"fa fa-hourglass-half\"></i> قيد المعالجة'
+                  : status === 'shipping'   ? '<i class=\"fa fa-truck\"></i> قيد التوصيل'
+                  : status === 'delivered'  ? '<i class=\"fa fa-check\"></i> تم التسليم'
+                  :                           '<i class=\"fa fa-xmark\"></i> فشل/لم يتم'
+                  %>
+                </div>
+                <div class="status-menu">
+                  <form method="post" action="/sales/<%= s.id %>/delivery">
+                    <input type="hidden" name="status" value="pending">
+                    <button type="submit"><i class="fa fa-hourglass-half"></i> قيد المعالجة</button>
+                  </form>
+                  <form method="post" action="/sales/<%= s.id %>/delivery">
+                    <input type="hidden" name="status" value="shipping">
+                    <button type="submit"><i class="fa fa-truck"></i> قيد التوصيل</button>
+                  </form>
+                  <form method="post" action="/sales/<%= s.id %>/delivery">
+                    <input type="hidden" name="status" value="delivered">
+                    <button type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+                  </form>
+                  <form method="post" action="/sales/<%= s.id %>/delivery">
+                    <input type="hidden" name="status" value="failed">
+                    <button type="submit"><i class="fa fa-xmark"></i> فشل/لم يتم</button>
+                  </form>
+                  <div class="muted-sm" style="padding:6px 8px">
+                    <% if (s.delivered_at) { %>
+                      آخر تسليم: <%= dayjs(s.delivered_at).format('YYYY-MM-DD hh:mm A') %>
+                    <% } else { %>
+                      لا يوجد وقت تسليم مسجل
+                    <% } %>
+                  </div>
                 </div>
               </div>
-            </div>
-          </td>
+            </td>
 
-          <td>
-            <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
-          </td>
+            <td>
+              <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
+            </td>
 
-          <td>
-            <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُنقل الطلب إلى قائمة الراجعات.')">
-              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+            <td>
+              <form method="post" action="/sales/<%= s.id %>/delete"
+                    onsubmit="return confirm('حذف العملية؟ سيُنقل الطلب إلى قائمة الراجعات.')">
+                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>

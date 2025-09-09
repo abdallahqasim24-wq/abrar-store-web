@@ -13,6 +13,8 @@
   .table{width:100%}
   .table th,.table td{padding:12px;border-top:1px solid #f1f5f9}
   .thead th{background:#feeef5}
+  /* صورة مصغّرة بالتقارير */
+  .thumb{width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
 </style>
 
 <div class="card">
@@ -99,6 +101,7 @@
     <thead class="thead">
       <tr>
         <th>التاريخ</th>
+        <th>الصورة</th>
         <th>المنتج</th>
         <th>الكمية</th>
         <th>سعر بيع (₪)</th>
@@ -109,14 +112,22 @@
     </thead>
     <tbody>
     <% if (!rows || !rows.length){ %>
-      <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
+      <tr><td colspan="8" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
     <% } else { rows.forEach(s => {
         const revenue = Number(s.sale_price) * Number(s.quantity);
         const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
     %>
       <tr>
         <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
-        <td><%= s.product_name %></td>
+
+        <!-- صورة المنتج -->
+        <td>
+          <% if (s.product_image) { %>
+            <img src="<%= s.product_image %>" class="thumb" alt="product">
+          <% } else { %> — <% } %>
+        </td>
+
+        <td class="right"><%= s.product_name %></td>
         <td><%= s.quantity %></td>
         <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
         <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
