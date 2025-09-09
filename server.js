@@ -56,7 +56,7 @@ await query(`
   );
 `);
 
-// ترقية جدول المبيعات لإضافة معلومات الزبون والتوصيل (إن لم تكن موجودة)
+// ترقية جدول المبيعات
 await query(`
   ALTER TABLE sales
     ADD COLUMN IF NOT EXISTS customer_name   TEXT,
@@ -105,27 +105,48 @@ const pgPool = new pg.Pool({
   ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : undefined
 });
 
-// مهم على Render (خلف بروكسي) حتى لا تُرفض الكوكيز الآمنة
 app.set('trust proxy', 1);
+
+// مهلة الخمول (بالدقائق) — قابلة للتعديل من env
+const IDLE_MINUTES = Number(process.env.SESSION_IDLE_MINUTES || 30);
+const IDLE_MS = IDLE_MINUTES * 60 * 1000;
 
 app.use(session({
   store: new PgStore({
     pool: pgPool,
     tableName: 'session',
-    // ينشئ جدول session تلقائيًا إذا غير موجود (يحل error: relation "session" does not exist)
     createTableIfMissing: true
   }),
   secret: process.env.SESSION_SECRET || 'abrar_shop_secret',
   resave: false,
   saveUninitialized: false,
+  rolling: false,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production', // على Render = true (HTTPS)
-    maxAge: 1000 * 60 * 60 * 8 // 8 ساعات
+    secure: process.env.NODE_ENV === 'production'
+    // بدون maxAge => Session Cookie تُحذف عند إغلاق المتصفح
   }
 }));
-app.use((req, res, next) => { res.locals.currentUser = req.session.user || null; next(); });
+
+// تمرير المستخدم للقوالب
+app.use((req, res, next) => {
+  res.locals.currentUser = req.session.user || null;
+  next();
+});
+
+// إنهاء الجلسة عند الخمول
+app.use((req, res, next) => {
+  if (!req.session.user) return next();
+  const now = Date.now();
+  const last = req.session.lastSeen || now;
+  if (now - last > IDLE_MS) {
+    req.session.destroy(() => res.redirect('/login'));
+    return;
+  }
+  req.session.lastSeen = now;
+  next();
+});
 
 // ===== Health check (مفتوح) =====
 app.get('/healthz', (req, res) => res.status(200).send('OK'));
@@ -133,8 +154,8 @@ app.get('/healthz', (req, res) => res.status(200).send('OK'));
 // ===== حارس الحماية =====
 const openPaths = new Set(['/login', '/healthz']);
 function requireAuth(req, res, next) {
-  if (openPaths.has(req.path)) return next();                // يسمح GET/POST /login
-  if (req.path.startsWith('/public')) return next();          // الملفات الثابتة
+  if (openPaths.has(req.path)) return next();
+  if (req.path.startsWith('/public')) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session && req.session.user) return next();
   const back = encodeURIComponent(req.originalUrl || '/');
@@ -150,7 +171,6 @@ app.get('/login', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { username = '', password = '', next = '/' } = req.body || {};
-
   if (username !== AUTH_USER) {
     return res.status(401).render('login', {
       error: '❌ اسم المستخدم غير صحيح',
@@ -165,7 +185,6 @@ app.post('/login', (req, res) => {
       usernamePrefill: username
     });
   }
-
   req.session.user = { username };
   res.redirect(next || '/');
 });
@@ -210,7 +229,7 @@ app.get('/', async (_req, res) => {
     month_profit : prof(monthRows)
   };
 
-  const byCat   = (await query(`
+  const byCat = (await query(`
     SELECT p.category AS label,
            COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
     FROM products p
@@ -347,7 +366,7 @@ app.post('/sales', async (req, res) => {
   res.redirect('/sales');
 });
 
-// تغيير حالة التوصيل من قائمة
+// تغيير حالة التوصيل
 app.post('/sales/:id/delivery', async (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body; // pending | shipping | delivered | failed
@@ -361,7 +380,7 @@ app.post('/sales/:id/delivery', async (req, res) => {
   res.redirect('/sales');
 });
 
-// دعم مسار قديم للتبديل السريع
+// دعم مسار قديم
 app.post('/sales/:id/toggle-delivered', async (req, res) => {
   const id = Number(req.params.id);
   const row = (await query(`SELECT delivery_status FROM sales WHERE id=$1`, [id])).rows[0];
@@ -390,7 +409,7 @@ app.post('/sales/:id/delete', async (req, res) => {
   res.redirect('/sales');
 });
 
-// الحذف الجماعي للمبيعات —> نقل جماعي للـ returns_queue ثم حذف
+// الحذف الجماعي للمبيعات
 app.post('/sales/bulk-delete', async (req, res) => {
   const ids = req.body.ids || [];
   const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);

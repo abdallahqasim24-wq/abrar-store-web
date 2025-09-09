@@ -4,137 +4,104 @@
 <div class="card" style="margin-bottom:12px">
   <h3><i class="fa fa-filter"></i> فلاتر التقرير</h3>
 
-  <form method="get" action="/reports" class="row" style="gap:10px;flex-wrap:wrap">
-    <input type="hidden" name="range" value="<%= range || 'daily' %>"/>
+  <form id="reportFilter" method="get" action="/reports" class="row" style="gap:10px;flex-wrap:wrap">
+    <!-- المدى -->
+    <input id="rangeInput" type="hidden" name="range" value="<%= (range || 'daily') %>"/>
 
-    <!-- اختيار السنة -->
+    <!-- السنة -->
     <div>
       <label>السنة</label>
-      <select name="year">
+      <select name="year" id="yearSelect">
         <% const thisYear = Number(dayjs().format('YYYY'));
+           const selYear  = selected.year ?? thisYear;
            for (let y = thisYear; y >= thisYear-5; y--) { %>
-          <option value="<%= y %>" <%= (selected.year ? selected.year===y : y===thisYear) ? 'selected' : '' %>><%= y %></option>
+          <option value="<%= y %>" <%= selYear===y ? 'selected' : '' %>><%= y %></option>
         <% } %>
       </select>
     </div>
 
-    <!-- اختيار الشهر -->
+    <!-- الشهر -->
     <div>
       <label>الشهر</label>
-      <select name="month">
-        <% for (let m = 1; m <= 12; m++) { %>
-          <option value="<%= m %>" <%= (selected.month ? selected.month===m : m===Number(dayjs().format('MM'))) ? 'selected' : '' %>><%= m %></option>
+      <select name="month" id="monthSelect">
+        <% const thisMonth = Number(dayjs().format('MM'));
+           const selMonth  = selected.month ?? thisMonth;
+           for (let m = 1; m <= 12; m++) { %>
+          <option value="<%= m %>" <%= selMonth===m ? 'selected' : '' %>><%= m %></option>
         <% } %>
       </select>
     </div>
 
-    <!-- اختيار اليوم (للـ daily فقط؛ يتم تجاهله بالـ monthly) -->
-    <div>
+    <!-- اليوم (يُخفى/يُعطّل عند الشهري) -->
+    <div id="dayWrap">
       <label>اليوم</label>
-      <select name="day">
-        <% for (let d = 1; d <= 31; d++) { %>
-          <option value="<%= d %>" <%= (selected.day ? selected.day===d : d===Number(dayjs().format('DD'))) ? 'selected' : '' %>><%= d %></option>
+      <select name="day" id="daySelect">
+        <% const thisDay = Number(dayjs().format('DD'));
+           const selDay  = selected.day ?? thisDay;
+           for (let d = 1; d <= 31; d++) { %>
+          <option value="<%= d %>" <%= selDay===d ? 'selected' : '' %>><%= d %></option>
         <% } %>
       </select>
     </div>
 
+    <!-- الأزرار -->
     <div class="row" style="gap:8px">
-      <button class="btn save"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
-      <a class="btn edit" href="/reports?range=monthly&year=<%= (selected.year||dayjs().year()) %>&month=<%= (selected.month||Number(dayjs().format('MM'))) %>">
-        <i class="fa fa-calendar"></i> تقرير شهري
+      <button type="button" id="dailyBtn"  class="btn save"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
+      <button type="button" id="monthlyBtn" class="btn edit" style="background:#f59e0b"><i class="fa fa-calendar"></i> تقرير شهري</button>
+
+      <!-- رابط PDF يتحدث تلقائيًا حسب المدى -->
+      <a id="pdfLink" class="btn" style="background:#6b7280" target="_blank">
+        <i class="fa fa-file-pdf"></i> طباعة PDF
       </a>
+
+      <!-- إرسال -->
+      <button class="btn" style="background:#334155"><i class="fa fa-search"></i> عرض</button>
     </div>
   </form>
 </div>
 
-<!-- KPIs -->
-<div class="cards" style="margin-bottom:12px">
-  <div class="card"><h3>الإيراد</h3><div class="kpi">₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-  <div class="card"><h3>التكاليف</h3><div class="kpi">₪<%= Number(totalCost).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-  <div class="card"><h3>الربح</h3><div class="kpi">₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-</div>
-
-<!-- جدول العمليات -->
-<div class="card">
-  <h3><i class="fa fa-receipt"></i> تفاصيل العمليات — <%= title %></h3>
-  <% if (!rows.length) { %>
-    <p>لا توجد بيانات في هذا النطاق.</p>
-  <% } else { %>
-    <table>
-      <thead>
-        <tr>
-          <th>التاريخ</th>
-          <th>المنتج</th>
-          <th>الكمية</th>
-          <th>سعر البيع (₪)</th>
-          <th>التكلفة (₪)</th>
-          <th>الشحن (₪)</th>
-          <th>الربح (₪)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%
-          const tzName = 'Asia/Hebron';
-          rows.forEach(s => {
-            const sale = Number(s.sale_price);
-            const cost = Number(s.cost_price);
-            const ship = Number(s.shipping_cost || 0);
-            const qty  = Number(s.quantity || 0);
-            const profit = (sale * qty) - (cost * qty) - ship;
-        %>
-          <tr>
-            <td><%= dayjs(s.sold_at).tz(tzName).format('YYYY-MM-DD hh:mm A') %></td> <!-- 12 ساعة -->
-            <td style="text-align:right"><%= s.product_name %></td>
-            <td><%= qty.toLocaleString('en-US') %></td>
-            <td>₪<%= sale.toFixed(2) %></td>
-            <td>₪<%= (cost*qty).toFixed(2) %></td>
-            <td>₪<%= ship.toFixed(2) %></td>
-            <td>₪<%= profit.toFixed(2) %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  <% } %>
-</div>
-
-<!-- رسم توزيع الإيراد (الربح مقابل التكاليف) -->
-<div class="card" style="margin-top:14px">
-  <h3><i class="fa fa-chart-pie"></i> توزيع الإيرادات</h3>
-  <canvas id="revChart" height="200"></canvas>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // بيانات الرسم: الربح والتكاليف (مقابل إجمالي الإيراد)
-  const totalRevenue = <%= Number(totalRevenue) %>;
-  const totalCost    = <%= Number(totalCost) %>;
-  const totalProfit  = <%= Number(totalProfit) %>;
+  (function () {
+    const form       = document.getElementById('reportFilter');
+    const rangeInput = document.getElementById('rangeInput');
+    const dayWrap    = document.getElementById('dayWrap');
+    const daySelect  = document.getElementById('daySelect');
+    const yearSel    = document.getElementById('yearSelect');
+    const monthSel   = document.getElementById('monthSelect');
+    const pdfLink    = document.getElementById('pdfLink');
 
-  const ctx = document.getElementById('revChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['الربح', 'التكاليف'],
-      datasets: [{
-        data: [totalProfit, totalCost],
-        backgroundColor: ['#16a34a', '#ef4444'],
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom' },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const val = context.raw || 0;
-              const perc = totalRevenue > 0 ? ((val / totalRevenue) * 100).toFixed(1) : '0.0';
-              return `${context.label}: ₪${Number(val).toFixed(2)} (${perc}%)`;
-            }
-          }
-        }
-      }
+    function updateUI() {
+      const isMonthly = rangeInput.value === 'monthly';
+      // إخفاء/تعطيل اختيار اليوم في الشهري
+      dayWrap.style.display = isMonthly ? 'none' : '';
+      daySelect.disabled = isMonthly;
+
+      // تحديث رابط PDF
+      const y = yearSel.value || '';
+      const m = monthSel.value || '';
+      const d = !isMonthly ? (daySelect.value || '') : '';
+      const url = new URL('/reports/pdf', window.location.origin);
+      url.searchParams.set('range', rangeInput.value);
+      if (y) url.searchParams.set('year', y);
+      if (m) url.searchParams.set('month', m);
+      if (!isMonthly && d) url.searchParams.set('day', d);
+      pdfLink.href = url.pathname + url.search;
     }
-  });
+
+    // تبديل المدى
+    document.getElementById('dailyBtn').addEventListener('click', () => {
+      rangeInput.value = 'daily';
+      updateUI();
+    });
+    document.getElementById('monthlyBtn').addEventListener('click', () => {
+      rangeInput.value = 'monthly';
+      updateUI();
+    });
+
+    // حدث تغيير القوائم لتحديث PDF فورًا
+    [yearSel, monthSel, daySelect].forEach(el => el.addEventListener('change', updateUI));
+
+    // تهيئة أولية
+    updateUI();
+  })();
 </script>
