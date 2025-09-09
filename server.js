@@ -62,7 +62,7 @@ await query(`
     ADD COLUMN IF NOT EXISTS customer_name   TEXT,
     ADD COLUMN IF NOT EXISTS customer_phone  TEXT,
     ADD COLUMN IF NOT EXISTS customer_city   TEXT,
-    ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending', -- pending|shipping|delivered|failed
+    ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending',
     ADD COLUMN IF NOT EXISTS delivered_at    TIMESTAMPTZ;
 `);
 
@@ -98,12 +98,15 @@ app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
-// ===== الجلسات (نظام تسجيل الدخول) =====
+// ===== الجلسات (تسجيل الدخول) =====
 const PgStore = connectPgSimple(session);
 const pgPool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : undefined
 });
+
+// مهم جداً على Render/خلف بروكسي
+app.set('trust proxy', 1);
 
 app.use(session({
   store: new PgStore({ pool: pgPool, tableName: 'session' }),
@@ -113,8 +116,8 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 8, // 8 ساعات
-    secure: process.env.NODE_ENV === 'production'
+    secure: process.env.NODE_ENV === 'production', // يضمن إرسال الكوكي عبر HTTPS
+    maxAge: 1000 * 60 * 60 * 8 // 8 ساعات
   }
 }));
 app.use((req, res, next) => { res.locals.currentUser = req.session.user || null; next(); });
@@ -141,15 +144,24 @@ app.get('/login', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-  const { username, password, next } = req.body || {};
-  if (username === AUTH_USER && password === AUTH_PASS) {
-    req.session.user = { username };
-    return res.redirect(next || '/');
+  const { username = '', password = '', next = '/' } = req.body || {};
+
+  // رسائل خطأ دقيقة
+  if (username !== AUTH_USER) {
+    return res.status(401).render('login', {
+      error: '❌ اسم المستخدم غير صحيح',
+      next
+    });
   }
-  return res.status(401).render('login', {
-    error: 'اسم المستخدم أو كلمة المرور غير صحيحة',
-    next: next || '/'
-  });
+  if (password !== AUTH_PASS) {
+    return res.status(401).render('login', {
+      error: '❌ كلمة المرور غير صحيحة',
+      next
+    });
+  }
+
+  req.session.user = { username };
+  res.redirect(next || '/');
 });
 
 app.post('/logout', (req, res) => {
