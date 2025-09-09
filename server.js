@@ -16,6 +16,8 @@ import tz from 'dayjs/plugin/timezone.js';
 import { fileURLToPath } from 'url';
 import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
+import pg from 'pg';
+import connectPgSimple from 'connect-pg-simple';
 
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -97,15 +99,22 @@ app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
 // ===== الجلسات (نظام تسجيل الدخول) =====
+const PgStore = connectPgSimple(session);
+const pgPool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : undefined
+});
+
 app.use(session({
+  store: new PgStore({ pool: pgPool, tableName: 'session' }),
   secret: process.env.SESSION_SECRET || 'abrar_shop_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 8 // 8 ساعات
-    // secure: true, // فعّلها إذا كان لديك HTTPS كامل
+    maxAge: 1000 * 60 * 60 * 8, // 8 ساعات
+    secure: process.env.NODE_ENV === 'production'
   }
 }));
 app.use((req, res, next) => { res.locals.currentUser = req.session.user || null; next(); });
