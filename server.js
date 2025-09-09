@@ -580,3 +580,76 @@ app.get('/reports/pdf', async (req, res) => {
 app.listen(PORT, HOST, () => {
   console.log(`Server running on http://${HOST}:${PORT}`);
 });
+// ======== (جديد) صفحة تعديل عملية بيع ========
+app.get('/sales/:id/edit', async (req, res) => {
+  const id = Number(req.params.id);
+  const sale = (await query(`
+    SELECT s.*, p.name AS product_name, p.image_path AS product_image
+    FROM sales s JOIN products p ON p.id = s.product_id
+    WHERE s.id=$1
+  `, [id])).rows[0];
+  if (!sale) return res.redirect('/sales');
+
+  const products = (await query(`
+    SELECT id, name, stock, cost_price, sale_price FROM products ORDER BY name
+  `)).rows;
+
+  res.render('sales-edit', { sale, products, dayjs });
+});
+
+// ======== (جديد) حفظ التعديل مع ضبط المخزون ========
+app.post('/sales/:id/update', async (req, res) => {
+  const id = Number(req.params.id);
+  const old = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
+  if (!old) return res.redirect('/sales');
+
+  // القيم الجديدة
+  const {
+    product_id, quantity, sale_price, cost_price, shipping_cost, note,
+    customer_name, customer_phone, customer_city, delivery_status
+  } = req.body;
+
+  const newPid = Number(product_id || old.product_id);
+  const newQty = Math.max(1, Number(quantity || old.quantity));
+
+  // تعديل المخزون حسب التغييرات
+  if (newPid !== old.product_id) {
+    // رجّع كمية العملية القديمة لمخزون المنتج القديم
+    await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [old.quantity, old.product_id]);
+    // اطرح كمية العملية الجديدة من مخزون المنتج الجديد
+    await query(`UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id=$2`, [newQty, newPid]);
+  } else if (newQty !== old.quantity) {
+    const diff = old.quantity - newQty; // موجب => نعيد للمخزون، سالب => ننقص
+    await query(`UPDATE products SET stock = GREATEST(0, stock + $1) WHERE id=$2`, [diff, newPid]);
+  }
+
+  await query(`
+    UPDATE sales
+    SET product_id=$1,
+        quantity=$2,
+        sale_price=$3,
+        cost_price=$4,
+        shipping_cost=$5,
+        note=$6,
+        customer_name=$7,
+        customer_phone=$8,
+        customer_city=$9,
+        delivery_status=$10
+    WHERE id=$11
+  `, [
+    newPid,
+    newQty,
+    Number(sale_price ?? old.sale_price),
+    Number(cost_price ?? old.cost_price),
+    Number(shipping_cost ?? old.shipping_cost || 0),
+    (note ?? old.note || '').trim(),
+    (customer_name ?? old.customer_name || '').trim(),
+    (customer_phone ?? old.customer_phone || '').trim(),
+    (customer_city ?? old.customer_city || '').trim(),
+    (delivery_status ?? old.delivery_status || 'pending'),
+    id
+  ]);
+
+  res.redirect('/sales');
+});
+

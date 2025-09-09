@@ -1,0 +1,79 @@
+<link rel="stylesheet" href="<%= faLink %>">
+
+<div class="card">
+  <h3><i class="fa fa-pen-to-square"></i> تعديل عملية بيع #<%= sale.id %></h3>
+
+  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid">
+    <div>
+      <label>المنتج</label>
+      <select name="product_id" required>
+        <% products.forEach(p => { %>
+          <option value="<%= p.id %>" <%= p.id===sale.product_id ? 'selected':'' %>>
+            <%= p.name %> (مخزون: <%= p.stock %>)
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div><label>كمية</label>
+      <input type="number" name="quantity" value="<%= sale.quantity %>" step="1" required/>
+    </div>
+
+    <div><label>سعر البيع (₪)</label>
+      <input type="number" name="sale_price" step="0.01" value="<%= Number(sale.sale_price).toFixed(2) %>"/>
+    </div>
+
+    <div><label>السعر الأصلي (₪)</label>
+      <input type="number" name="cost_price" step="0.01" value="<%= Number(sale.cost_price).toFixed(2) %>"/>
+    </div>
+
+    <div><label>الشحن (₪)</label>
+      <input type="number" name="shipping_cost" step="0.01" value="<%= Number(sale.shipping_cost||0).toFixed(2) %>"/>
+    </div>
+
+    <div><label>ملاحظة</label>
+      <input type="text" name="note" value="<%= sale.note || '' %>"/>
+    </div>
+
+    <div><label>اسم الزبون</label>
+      <input type="text" name="customer_name" value="<%= sale.customer_name || '' %>"/>
+    </div>
+
+    <div><label>هاتف</label>
+      <input type="tel" name="customer_phone" value="<%= sale.customer_phone || '' %>"/>
+    </div>
+
+    <div><label>المدينة</label>
+      <input type="text" name="customer_city" value="<%= sale.customer_city || '' %>"/>
+    </div>
+
+    <div>
+      <label>حالة التوصيل</label>
+      <select name="delivery_status">
+        <option value="pending"   <%= sale.delivery_status==='pending'?'selected':'' %>>قيد المعالجة</option>
+        <option value="shipping"  <%= sale.delivery_status==='shipping'?'selected':'' %>>قيد التوصيل</option>
+        <option value="delivered" <%= sale.delivery_status==='delivered'?'selected':'' %>>تم التسليم</option>
+        <option value="failed"    <%= sale.delivery_status==='failed'?'selected':'' %>>فشل/لم يتم</option>
+      </select>
+    </div>
+
+    <div class="right"></div>
+    <div class="row right" style="gap:8px">
+      <a class="btn" href="/sales"><i class="fa fa-arrow-right"></i> إلغاء</a>
+      <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:12px">
+  <h3><i class="fa fa-box-open"></i> المنتج الحالي</h3>
+  <div class="row" style="align-items:center; gap:12px">
+    <% if (sale.product_image) { %>
+      <img src="<%= sale.product_image %>" class="thumb" style="width:90px;height:90px" />
+    <% } %>
+    <div>
+      <div><b><%= sale.product_name %></b></div>
+      <div>سعر البيع: ₪<%= Number(sale.sale_price).toFixed(2) %> — الكمية: <%= sale.quantity %></div>
+    </div>
+  </div>
+</div>

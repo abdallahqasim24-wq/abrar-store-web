@@ -1,6 +1,7 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
+  .thumb{border-radius:10px;object-fit:cover}
   .status-chip{
     display:inline-flex; align-items:center; gap:6px;
     padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
@@ -44,9 +45,9 @@
     <div><label>ملاحظة</label><input type="text" name="note"/></div>
 
     <!-- معلومات الزبون -->
-    <div><label>اسم الزبون</label><input type="text" name="customer_name" placeholder=""/></div>
-    <div><label>رقم الهاتف</label><input type="tel" name="customer_phone" placeholder=""/></div>
-    <div><label>المدينة/المنطقة</label><input type="text" name="customer_city" placeholder=""/></div>
+    <div><label>اسم الزبون</label><input type="text" name="customer_name" /></div>
+    <div><label>رقم الهاتف</label><input type="tel" name="customer_phone" /></div>
+    <div><label>المدينة/المنطقة</label><input type="text" name="customer_city" /></div>
 
     <div class="right"></div>
     <div class="row right">
@@ -66,18 +67,21 @@
         <th>هاتف</th>
         <th>المدينة</th>
         <th>كمية</th>
-        <th>سعر بيع</th>
-        <th>السعر الأصلي</th>
-        <th>شحن</th>
-        <th>الربح</th>
+        <th>سعر بيع (₪)</th>
+        <th>المطلوب (₪)</th> <!-- جديد -->
+        <th>السعر الأصلي (₪)</th>
+        <th>شحن (₪)</th>
+        <th>الربح (₪)</th>
         <th>التوصيل</th>
+        <th>تعديل</th>  <!-- جديد -->
         <th>حذف</th>
       </tr>
     </thead>
     <tbody>
       <% sales.forEach(s=> {
-           const profit = (s.sale_price * s.quantity) - (s.cost_price * s.quantity) - (s.shipping_cost||0);
-           const status = (s.delivery_status || 'pending');
+           const revenue  = Number(s.sale_price) * Number(s.quantity);
+           const profit   = revenue - (Number(s.cost_price) * Number(s.quantity)) - Number(s.shipping_cost||0);
+           const status   = (s.delivery_status || 'pending');
       %>
         <tr>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
@@ -91,12 +95,12 @@
           <td><%= s.customer_phone || '—' %></td>
           <td><%= s.customer_city || '—' %></td>
           <td><%= s.quantity %></td>
-          <td>₪<%= s.sale_price.toFixed(2) %></td>
-          <td>₪<%= s.cost_price.toFixed(2) %></td>
-          <td>₪<%= (s.shipping_cost||0).toFixed(2) %></td>
+          <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+          <td>₪<%= revenue.toFixed(2) %></td> <!-- المطلوب -->
+          <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+          <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
           <td>₪<%= profit.toFixed(2) %></td>
 
-          <!-- التوصيل: زر يفتح قائمة تغيير الحالة -->
           <td>
             <div class="status-wrap">
               <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
@@ -137,6 +141,10 @@
           </td>
 
           <td>
+            <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
+          </td>
+
+          <td>
             <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُنقل الطلب إلى قائمة الراجعات.')">
               <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
             </form>
@@ -148,14 +156,12 @@
 </div>
 
 <script>
-  // فتح/إغلاق قائمة الحالة
   function toggleMenu(el){
     const menu = el.parentElement.querySelector('.status-menu');
     const open = menu.style.display === 'block';
     document.querySelectorAll('.status-menu').forEach(m => m.style.display='none');
     menu.style.display = open ? 'none' : 'block';
   }
-  // إغلاق القائمة عند النقر خارجها
   document.addEventListener('click', (e)=>{
     const wrap = e.target.closest('.status-wrap');
     if(!wrap) document.querySelectorAll('.status-menu').forEach(m => m.style.display='none');
