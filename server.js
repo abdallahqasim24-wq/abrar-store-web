@@ -107,7 +107,7 @@ const pgPool = new pg.Pool({
 
 app.set('trust proxy', 1);
 
-// مهلة الخمول (بالدقائق) — قابلة للتعديل من env
+// مهلة الخمول (بالدقائق)
 const IDLE_MINUTES = Number(process.env.SESSION_IDLE_MINUTES || 30);
 const IDLE_MS = IDLE_MINUTES * 60 * 1000;
 
@@ -527,13 +527,13 @@ app.get('/reports/pdf', async (req, res) => {
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      title = `تقرير مبيعات يومي ${dateStr}`;
       rows  = (await query(`
         SELECT s.*, p.name AS product_name
         FROM sales s JOIN products p ON p.id=s.product_id
         WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
       `, [dateStr])).rows;
+      title = `تقرير مبيعات يومي ${dateStr}`;
     }
 
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
@@ -552,14 +552,7 @@ app.get('/reports/pdf', async (req, res) => {
     const browser = await puppeteer.launch({
       headless: 'new',
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-zygote',
-        '--single-process'
-      ]
+      args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-zygote','--single-process']
     });
 
     const page = await browser.newPage();
@@ -600,7 +593,6 @@ app.post('/sales/:id/update', async (req, res) => {
   const old = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
   if (!old) return res.redirect('/sales');
 
-  // القيم الجديدة
   const {
     product_id, quantity, sale_price, cost_price, shipping_cost, note,
     customer_name, customer_phone, customer_city, delivery_status
@@ -609,7 +601,7 @@ app.post('/sales/:id/update', async (req, res) => {
   const newPid = Number(product_id || old.product_id);
   const newQty = Math.max(1, Number(quantity || old.quantity));
 
-  // تعديل المخزون حسب التغييرات
+  // تعديل المخزون
   if (newPid !== old.product_id) {
     await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [old.quantity, old.product_id]);
     await query(`UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id=$2`, [newQty, newPid]);
@@ -636,12 +628,12 @@ app.post('/sales/:id/update', async (req, res) => {
     newQty,
     Number(sale_price ?? old.sale_price),
     Number(cost_price ?? old.cost_price),
-    Number((shipping_cost ?? old.shipping_cost ?? 0)), // ✅ الإصلاح هنا
-    (note ?? old.note || '').trim(),
-    (customer_name ?? old.customer_name || '').trim(),
-    (customer_phone ?? old.customer_phone || '').trim(),
-    (customer_city ?? old.customer_city || '').trim(),
-    (delivery_status ?? old.delivery_status || 'pending'),
+    Number(shipping_cost ?? old.shipping_cost ?? 0),
+    (note ?? old.note ?? '').trim(),
+    (customer_name ?? old.customer_name ?? '').trim(),
+    (customer_phone ?? old.customer_phone ?? '').trim(),
+    (customer_city ?? old.customer_city ?? '').trim(),
+    (delivery_status ?? old.delivery_status ?? 'pending'),
     id
   ]);
 
