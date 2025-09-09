@@ -1,41 +1,46 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="stylesheet" href="<%= faLink %>">
-  <link rel="stylesheet" href="/public/style.css">
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>تسجيل الدخول</title>
-  <style>
-    body{display:flex;min-height:100vh;align-items:center;justify-content:center;background:var(--bg)}
-    .login-card{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);padding:22px;min-width:320px;max-width:380px}
-    .login-card h2{margin:0 0 10px 0}
-    .muted{color:var(--muted);margin-bottom:14px}
-    .error{background:#fde2e2;color:#b91c1c;border:1px solid #fecaca;border-radius:12px;padding:10px 12px;margin-bottom:10px}
-    .actions{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px}
-  </style>
+  <link rel="stylesheet" href="/public/style.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 </head>
-<body>
-  <div class="login-card">
-    <h2><i class="fa fa-lock"></i> تسجيل الدخول</h2>
-    <div class="muted">ادخل اسم المستخدم وكلمة المرور للمتابعة</div>
+<body style="background:var(--bg)">
+  <main class="container page" style="display:flex;justify-content:center;align-items:center;min-height:75vh">
+    <form class="card" method="post" action="/login"
+          style="max-width:420px;width:100%;padding:22px" autocomplete="off">
+      <h2 style="margin-top:0"><i class="fa fa-lock"></i> تسجيل الدخول</h2>
+      <p style="margin-top:0;color:var(--muted)">ادخل اسم المستخدم وكلمة المرور للمتابعة</p>
 
-    <% if (error) { %>
-      <div class="error"><i class="fa fa-circle-exclamation"></i> <%= error %></div>
-    <% } %>
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="card" style="background:#fff0f0;border-color:#fda4af;color:#b91c1c;margin:8px 0">
+          <i class="fa fa-triangle-exclamation"></i> <%= error %>
+        </div>
+      <% } %>
 
-    <form method="post" action="/login" class="form-grid" style="grid-template-columns:1fr">
       <input type="hidden" name="next" value="<%= next || '/' %>"/>
-      <div>
+
+      <div style="margin-bottom:10px">
         <label>اسم المستخدم</label>
-        <input name="username" required placeholder="abrar"/>
+        <input name="username" placeholder="username"
+               autocomplete="off" autocapitalize="none" spellcheck="false" required />
       </div>
-      <div>
+
+      <div style="margin-bottom:10px">
         <label>كلمة المرور</label>
-        <input name="password" type="password" required placeholder="••••••••"/>
+        <input name="password" type="password" placeholder="••••••••"
+               autocomplete="new-password" required />
       </div>
-      <button class="btn save" style="width:100%"><i class="fa fa-right-to-bracket"></i> دخول</button>
+
+      <button class="btn save" style="width:100%">
+        <i class="fa fa-right-to-bracket"></i> دخول
+      </button>
     </form>
-  </div>
+  </main>
+
+  <footer class="container foot">© <span id="y"></span> Abrar Store</footer>
+  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
 </body>
 </html>

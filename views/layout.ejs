@@ -11,28 +11,29 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="container nav">
-      <div class="brand">Abrar Store</div>
-      <nav class="links">
-        <a href="/" class="<%= currentPath==='/'?'active':'' %>">لوحة التحكم</a>
-        <a href="/products" class="<%= currentPath.startsWith('/products')?'active':'' %>">المنتجات</a>
-        <a href="/sales" class="<%= currentPath.startsWith('/sales')?'active':'' %>">المبيعات</a>
-        <a href="/reports" class="<%= currentPath.startsWith('/reports')?'active':'' %>">التقارير</a>
-      </nav>
-      <a class="btn ghost" target="_blank" href="/reports/pdf">PDF 🖨️</a>
+  <% if (currentUser && currentPath !== '/login') { %>
+    <header class="topbar">
+      <div class="container nav">
+        <div class="brand">Abrar Store</div>
+        <nav class="links">
+          <a href="/" class="<%= currentPath==='/'?'active':'' %>">لوحة التحكم</a>
+          <a href="/products" class="<%= currentPath.startsWith('/products')?'active':'' %>">المنتجات</a>
+          <a href="/sales" class="<%= currentPath.startsWith('/sales')?'active':'' %>">المبيعات</a>
+          <a href="/reports" class="<%= currentPath.startsWith('/reports')?'active':'' %>">التقارير</a>
+        </nav>
 
-      <!-- زر الخروج -->
-      <% if (currentUser) { %>
-        <form method="post" action="/logout" style="margin-inline-start:10px">
+        <!-- زر خروج يظهر فقط بعد تسجيل الدخول -->
+        <form method="post" action="/logout" style="margin-inline-start:auto">
           <button class="btn danger"><i class="fa fa-right-from-bracket"></i> خروج</button>
         </form>
-      <% } %>
-    </div>
-  </header>
+      </div>
+    </header>
+  <% } %>
+
   <main class="container page">
     <%- body %>
   </main>
+
   <footer class="container foot">© <span id="y"></span> Abrar Store</footer>
   <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
 </body>
