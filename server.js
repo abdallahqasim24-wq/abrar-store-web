@@ -105,18 +105,23 @@ const pgPool = new pg.Pool({
   ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : undefined
 });
 
-// مهم جداً على Render/خلف بروكسي
+// مهم على Render (خلف بروكسي) حتى لا تُرفض الكوكيز الآمنة
 app.set('trust proxy', 1);
 
 app.use(session({
-  store: new PgStore({ pool: pgPool, tableName: 'session' }),
+  store: new PgStore({
+    pool: pgPool,
+    tableName: 'session',
+    // ينشئ جدول session تلقائيًا إذا غير موجود (يحل error: relation "session" does not exist)
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || 'abrar_shop_secret',
   resave: false,
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production', // يضمن إرسال الكوكي عبر HTTPS
+    secure: process.env.NODE_ENV === 'production', // على Render = true (HTTPS)
     maxAge: 1000 * 60 * 60 * 8 // 8 ساعات
   }
 }));
@@ -128,8 +133,8 @@ app.get('/healthz', (req, res) => res.status(200).send('OK'));
 // ===== حارس الحماية =====
 const openPaths = new Set(['/login', '/healthz']);
 function requireAuth(req, res, next) {
-  if (openPaths.has(req.path)) return next();
-  if (req.path.startsWith('/public')) return next();
+  if (openPaths.has(req.path)) return next();                // يسمح GET/POST /login
+  if (req.path.startsWith('/public')) return next();          // الملفات الثابتة
   if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session && req.session.user) return next();
   const back = encodeURIComponent(req.originalUrl || '/');
@@ -140,23 +145,24 @@ app.use(requireAuth);
 // ===== مسارات تسجيل الدخول/الخروج =====
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect(req.query.next || '/');
-  res.render('login', { error: null, next: req.query.next || '/' });
+  res.render('login', { error: null, next: req.query.next || '/', usernamePrefill: '' });
 });
 
 app.post('/login', (req, res) => {
   const { username = '', password = '', next = '/' } = req.body || {};
 
-  // رسائل خطأ دقيقة
   if (username !== AUTH_USER) {
     return res.status(401).render('login', {
       error: '❌ اسم المستخدم غير صحيح',
-      next
+      next,
+      usernamePrefill: username
     });
   }
   if (password !== AUTH_PASS) {
     return res.status(401).render('login', {
       error: '❌ كلمة المرور غير صحيحة',
-      next
+      next,
+      usernamePrefill: username
     });
   }
 
