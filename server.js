@@ -5,6 +5,7 @@ dotenv.config();
 // ===[ 2) الاستيرادات ]===
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
@@ -66,23 +67,40 @@ await query(`
     ADD COLUMN IF NOT EXISTS delivered_at    TIMESTAMPTZ;
 `);
 
-// ===[ 5) Cloudinary + Multer ]===
-// يدعم العمل حتى لو CLOUDINARY_URL غير موجود — يكمل بدون رفع صورة
-const hasCloud = !!process.env.CLOUDINARY_URL;
-if (!hasCloud) {
-  console.warn('⚠️  CLOUDINARY_URL غير موجود. سيتم إضافة المنتجات بدون صورة.');
-} else {
+// ===[ 5) إعداد رفع الصور (Cloudinary أو محلي) ]===
+
+// نحدد هل Cloudinary متاح عبر CLOUDINARY_URL أو المفاتيح المنفصلة
+const hasCloud =
+  !!process.env.CLOUDINARY_URL ||
+  (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+
+if (process.env.CLOUDINARY_URL) {
   cloudinary.config(process.env.CLOUDINARY_URL);
+} else if (hasCloud) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+} else {
+  console.warn('⚠️  CLOUDINARY غير مضبوط. سيتم الرفع محليًا إلى public/uploads');
+}
+
+// لو محلي: تأكد من وجود مجلد الرفع
+const localUploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!hasCloud) {
+  if (!fs.existsSync(localUploadsDir)) fs.mkdirSync(localUploadsDir, { recursive: true });
 }
 
 // فلترة الملفات للسماح بالصور فقط
 const fileFilter = (req, file, cb) => {
-  if (!/image\/(png|jpe?g|webp|gif|svg\+xml)/i.test(file.mimetype)) {
-    return cb(new Error('الملف ليس صورة مدعومة'), false);
+  if (!file || !file.mimetype || !file.mimetype.startsWith('image/')) {
+    return cb(new Error('يُسمح برفع الصور فقط'), false);
   }
   cb(null, true);
 };
 
+// اختيار التخزين حسب التوفر
 let storage;
 if (hasCloud) {
   storage = new CloudinaryStorage({
@@ -95,8 +113,13 @@ if (hasCloud) {
     })
   });
 } else {
-  // بدون كلوديناري: نخزن في الذاكرة (لن نستعمل الملف، فقط لتجاوز multer)
-  storage = multer.memoryStorage();
+  storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, localUploadsDir),
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+      cb(null, `${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`);
+    }
+  });
 }
 
 const upload = multer({
@@ -289,65 +312,81 @@ app.get('/products', async (_req, res) => {
   res.render('products', { products, returnsList, dayjs });
 });
 
-// (معدل) إضافة منتج مع try/catch ورسائل أوضح
-app.post('/products', upload.single('image'), async (req, res) => {
-  try {
-    const { name, brand, category, cost_price, sale_price, stock } = req.body;
+// إضافة منتج
+app.post('/products', (req, res, next) => {
+  upload.single('image')(req, res, async (err) => {
+    try {
+      if (err) throw err;
+      const { name, brand, category, cost_price, sale_price, stock } = req.body;
 
-    // لو Cloudinary شغال، req.file.path/secure_url تكون موجودة
-    const image_path = (req.file && hasCloud) ? (req.file.path || req.file.secure_url || null) : null;
+      let image_path = null;
+      if (req.file) {
+        image_path = hasCloud
+          ? (req.file.path || req.file.secure_url || null)
+          : `/public/uploads/${req.file.filename}`;
+      }
 
-    await query(`
-      INSERT INTO products (name,brand,category,cost_price,sale_price,stock,image_path)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-    `, [
-      name,
-      brand || '',
-      category || '',
-      Number(cost_price),
-      Number(sale_price),
-      Number(stock || 0),
-      image_path
-    ]);
-    res.redirect('/products');
-  } catch (err) {
-    console.error('❌ إضافة منتج فشلت:', err);
-    res.status(500).send('فشل رفع الصورة/إضافة المنتج: ' + (err?.message || 'خطأ غير معروف'));
-  }
+      await query(`
+        INSERT INTO products (name,brand,category,cost_price,sale_price,stock,image_path)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `, [
+        name,
+        brand || '',
+        category || '',
+        Number(cost_price),
+        Number(sale_price),
+        Number(stock || 0),
+        image_path
+      ]);
+
+      res.redirect('/products');
+    } catch (e) {
+      console.error('Products create error:', e?.message, e);
+      next(e);
+    }
+  });
 });
 
-// (معدل) تحديث منتج مع try/catch
-app.post('/products/:id/update', upload.single('image'), async (req, res) => {
-  try {
-    const id  = Number(req.params.id);
-    const old = (await query(`SELECT * FROM products WHERE id=$1`, [id])).rows[0];
-    if (!old) return res.redirect('/products');
+// تحديث منتج
+app.post('/products/:id/update', (req, res, next) => {
+  upload.single('image')(req, res, async (err) => {
+    try {
+      if (err) throw err;
 
-    const { name, brand, category, cost_price, sale_price, stock } = req.body;
+      const id  = Number(req.params.id);
+      const old = (await query(`SELECT * FROM products WHERE id=$1`, [id])).rows[0];
+      if (!old) return res.redirect('/products');
 
-    const newImage = (req.file && hasCloud) ? (req.file.path || req.file.secure_url || null) : null;
-    const image_path = newImage || old.image_path;
+      const { name, brand, category, cost_price, sale_price, stock } = req.body;
 
-    await query(`
-      UPDATE products
-      SET name=$1, brand=$2, category=$3, cost_price=$4, sale_price=$5, stock=$6, image_path=$7
-      WHERE id=$8
-    `, [
-      name || old.name,
-      brand ?? old.brand,
-      category ?? old.category,
-      Number(cost_price ?? old.cost_price),
-      Number(sale_price ?? old.sale_price),
-      Number(stock ?? old.stock),
-      image_path,
-      id
-    ]);
+      let image_path = old.image_path;
+      if (req.file) {
+        image_path = hasCloud
+          ? (req.file.path || req.file.secure_url || old.image_path)
+          : `/public/uploads/${req.file.filename}`;
+      }
 
-    res.redirect('/products');
-  } catch (err) {
-    console.error('❌ تعديل منتج فشل:', err);
-    res.status(500).send('فشل تعديل المنتج: ' + (err?.message || 'خطأ غير معروف'));
-  }
+      await query(`
+        UPDATE products
+        SET name=$1, brand=$2, category=$3, cost_price=$4, sale_price=$5, stock=$6, image_path=$7
+        WHERE id=$8
+      `, [
+        name || old.name,
+        brand ?? old.brand,
+        category ?? old.category,
+        Number(cost_price ?? old.cost_price),
+        Number(sale_price ?? old.sale_price),
+        Number(stock ?? old.stock),
+        image_path,
+        id
+      ]);
+
+      res.redirect('/products');
+    } catch (e) {
+      console.error('Products update error:', e?.message, e);
+      next(e);
+    }
+  });
 });
 
 // تعديل المخزون (+/-)
@@ -685,7 +724,7 @@ app.post('/sales/:id/update', async (req, res) => {
     newQty,
     Number(sale_price ?? old.sale_price),
     Number(cost_price ?? old.cost_price),
-    Number(shipping_cost ?? old.shipping_cost ?? 0),
+    Number((shipping_cost ?? old.shipping_cost) ?? 0),
     (note ?? old.note ?? '').trim(),
     (customer_name ?? old.customer_name ?? '').trim(),
     (customer_phone ?? old.customer_phone ?? '').trim(),
@@ -695,6 +734,13 @@ app.post('/sales/:id/update', async (req, res) => {
   ]);
 
   res.redirect('/sales');
+});
+
+// ===[ Global Error Handler ]===
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err?.message, err?.stack);
+  if (req.accepts('html')) return res.status(500).send('حدث خطأ أثناء معالجة الطلب.');
+  res.status(500).json({ error: err?.message || 'Server error' });
 });
 
 app.listen(PORT, HOST, () => {

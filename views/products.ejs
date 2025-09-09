@@ -1,3 +1,7 @@
+<style>
+  .thumb{width:56px;height:56px;object-fit:cover;border-radius:10px}
+</style>
+
 <div class="card" style="margin-bottom:12px">
   <div class="row">
     <form method="post" action="/products" enctype="multipart/form-data" class="form-grid" style="width:100%">
@@ -19,47 +23,61 @@
 <div class="card">
   <h3>قائمة المنتجات</h3>
 
-  <!-- Form الحذف الجماعي -->
-  <form method="post" action="/products/bulk-delete" onsubmit="return confirm('هل أنت متأكد من حذف المنتجات المحددة؟')">
-    <table id="prodTable">
-      <thead>
+  <!-- نموذج الحذف الجماعي (فارغ هنا – نربط به الcheckbox عبر الخاصية form) -->
+  <form id="bulkForm" method="post" action="/products/bulk-delete"></form>
+
+  <table id="prodTable">
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAll"></th>
+        <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
+        <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% products.forEach(p=> { %>
         <tr>
-          <th><input type="checkbox" id="selectAll"></th>
-          <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
-          <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
+          <!-- نربط الcheckbox بنموذج الحذف الجماعي عبر form="bulkForm" -->
+          <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck" form="bulkForm"></td>
+
+          <td>
+            <% if (p.image_path) { %>
+              <img src="<%= p.image_path %>" class="thumb" alt="">
+            <% } else { %> — <% } %>
+          </td>
+
+          <td><%= p.name %></td>
+          <td><%= p.brand || '—' %></td>
+          <td><%= p.category || '—' %></td>
+          <td>₪<%= Number(p.cost_price).toFixed(2) %></td>
+          <td>₪<%= Number(p.sale_price).toFixed(2) %></td>
+          <td><%= p.stock %></td>
+
+          <td class="row">
+            <!-- هذه النماذج مستقلة الآن (ما في تعشيش داخل فورم كبير) -->
+            <form method="post" action="/products/<%= p.id %>/stock" class="row" style="gap:6px">
+              <input type="number" name="delta" value="1" step="1" style="width:80px"/>
+              <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
+            </form>
+
+            <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>
+              <i class="fa fa-pen"></i> تعديل
+            </button>
+
+            <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')" class="row">
+              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+            </form>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        <% products.forEach(p=> { %>
-          <tr>
-            <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck"></td>
-            <td><% if (p.image_path) { %><img src="<%= p.image_path %>" class="thumb"/><% } else { %>—<% } %></td>
-            <td><%= p.name %></td>
-            <td><%= p.brand %></td>
-            <td><%= p.category %></td>
-            <td>₪<%= p.cost_price.toFixed(2) %></td>
-            <td>₪<%= p.sale_price.toFixed(2) %></td>
-            <td><%= p.stock %></td>
-            <td class="row">
-              <form method="post" action="/products/<%= p.id %>/stock" class="row">
-                <input type="number" name="delta" value="1" step="1" style="width:80px"/>
-                <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
-              </form>
-              <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>
-                <i class="fa fa-pen"></i> تعديل
-              </button>
-              <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')" class="row">
-                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-              </form>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-    <div class="row right" style="margin-top:10px">
-      <button class="btn danger"><i class="fa fa-trash"></i> حذف المحدد</button>
-    </div>
-  </form>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <div class="row right" style="margin-top:10px">
+    <button class="btn danger" type="submit" form="bulkForm">
+      <i class="fa fa-trash"></i> حذف المحدد
+    </button>
+  </div>
 </div>
 
 <!-- ========== قائمة الطلبات الراجعة ========== -->
@@ -98,21 +116,13 @@
             <td>₪<%= Number(r.cost_price).toFixed(2) %></td>
             <td>₪<%= Number(r.shipping_cost||0).toFixed(2) %></td>
 
-            <!-- تاريخ الإرجاع (Asia/Hebron إن توفر tz) -->
             <td>
-              <%= (dayjs.tz
-                    ? dayjs(r.created_at).tz('Asia/Hebron')
-                    : dayjs(r.created_at)
-                  ).format('YYYY-MM-DD hh:mm A') %>
+              <%= (dayjs.tz ? dayjs(r.created_at).tz('Asia/Hebron') : dayjs(r.created_at)).format('YYYY-MM-DD hh:mm A') %>
             </td>
 
-            <!-- تاريخ البيع الأصلي -->
             <td>
               <%= r.sold_at
-                    ? (dayjs.tz
-                        ? dayjs(r.sold_at).tz('Asia/Hebron')
-                        : dayjs(r.sold_at)
-                      ).format('YYYY-MM-DD hh:mm A')
+                    ? (dayjs.tz ? dayjs(r.sold_at).tz('Asia/Hebron') : dayjs(r.sold_at)).format('YYYY-MM-DD hh:mm A')
                     : '—' %>
             </td>
 
@@ -176,7 +186,7 @@
     document.getElementById('editBg').style.display='none';
   }
 
-  // select all
+  // select all + ربط الحذف الجماعي
   document.addEventListener("DOMContentLoaded", () => {
     const selectAll = document.getElementById("selectAll");
     const checks = document.querySelectorAll(".rowCheck");
