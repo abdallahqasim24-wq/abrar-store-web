@@ -68,37 +68,42 @@
         <th>المدينة</th>
         <th>كمية</th>
         <th>سعر بيع (₪)</th>
-        <th>المطلوب (₪)</th> <!-- جديد -->
+        <th>المطلوب (₪)</th> <!-- = سعر*كمية + الشحن -->
         <th>السعر الأصلي (₪)</th>
         <th>شحن (₪)</th>
         <th>الربح (₪)</th>
         <th>التوصيل</th>
-        <th>تعديل</th>  <!-- جديد -->
+        <th>تعديل</th>
         <th>حذف</th>
       </tr>
     </thead>
     <tbody>
       <% sales.forEach(s=> {
-           const revenue  = Number(s.sale_price) * Number(s.quantity);
-           const profit   = revenue - (Number(s.cost_price) * Number(s.quantity)) - Number(s.shipping_cost||0);
-           const status   = (s.delivery_status || 'pending');
+           const qty       = Number(s.quantity);
+           const price     = Number(s.sale_price);
+           const costUnit  = Number(s.cost_price);
+           const ship      = Number(s.shipping_cost||0);
+           const revenue   = price * qty;
+           const requested = revenue + ship;             // المطلوب من الزبون
+           const profit    = revenue - (costUnit*qty) - ship;
+           const status    = (s.delivery_status || 'pending');
       %>
         <tr>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
           <td class="right">
             <% if (s.product_image) { %>
-              <img src="<%= s.product_image %>" class="thumb" style="width:44px;height:44px;vertical-align:middle;margin-inline-start:6px" />
+              <img src="<%= s.product_image %>" class="thumb" style="width:44px;height:44px;vertical-align:middle;margin-inline-start:6px" alt="product"/>
             <% } %>
             <%= s.product_name %>
           </td>
           <td><%= s.customer_name || '—' %></td>
           <td><%= s.customer_phone || '—' %></td>
           <td><%= s.customer_city || '—' %></td>
-          <td><%= s.quantity %></td>
-          <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
-          <td>₪<%= revenue.toFixed(2) %></td> <!-- المطلوب -->
-          <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
-          <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
+          <td><%= qty %></td>
+          <td>₪<%= price.toFixed(2) %></td>
+          <td><strong>₪<%= requested.toFixed(2) %></strong></td> <!-- المطلوب يشمل الشحن -->
+          <td>₪<%= costUnit.toFixed(2) %></td>
+          <td>₪<%= ship.toFixed(2) %></td>
           <td>₪<%= profit.toFixed(2) %></td>
 
           <td>

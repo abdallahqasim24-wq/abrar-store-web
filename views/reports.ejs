@@ -1,140 +1,163 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
-<!-- فلاتر التقرير -->
-<div class="card" style="margin-bottom:12px">
-  <h3><i class="fa fa-filter"></i> فلاتر التقرير</h3>
+<style>
+  .filters{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+  .btn-toggle{padding:10px 14px;border-radius:12px;border:1px solid var(--border);cursor:pointer;font-weight:700}
+  .btn-on {background:#16a34a;color:#fff;border-color:#128a3e}
+  .btn-off{background:#f59e0b;color:#111;border-color:#d97706}
+  .btn-ghost{background:#fff}
+  .disabled{opacity:.55;pointer-events:none}
+  .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
+  .kpi{padding:20px;border:1px solid var(--border);border-radius:16px;background:#fff}
+  .muted{color:#6b7280}
+  .table{width:100%}
+  .table th,.table td{padding:12px;border-top:1px solid #f1f5f9}
+  .thead th{background:#feeef5}
+</style>
 
-  <form method="get" action="/reports" class="row" style="gap:10px;flex-wrap:wrap">
-    <input type="hidden" name="range" value="<%= range || 'daily' %>"/>
-
-    <!-- اختيار السنة -->
-    <div>
-      <label>السنة</label>
-      <select name="year">
-        <% const thisYear = Number(dayjs().format('YYYY'));
-           for (let y = thisYear; y >= thisYear-5; y--) { %>
-          <option value="<%= y %>" <%= (selected.year ? selected.year===y : y===thisYear) ? 'selected' : '' %>><%= y %></option>
-        <% } %>
-      </select>
-    </div>
-
-    <!-- اختيار الشهر -->
-    <div>
-      <label>الشهر</label>
-      <select name="month">
-        <% for (let m = 1; m <= 12; m++) { %>
-          <option value="<%= m %>" <%= (selected.month ? selected.month===m : m===Number(dayjs().format('MM'))) ? 'selected' : '' %>><%= m %></option>
-        <% } %>
-      </select>
-    </div>
-
-    <!-- اختيار اليوم (للـ daily فقط؛ يتم تجاهله بالـ monthly) -->
-    <div>
-      <label>اليوم</label>
-      <select name="day">
-        <% for (let d = 1; d <= 31; d++) { %>
-          <option value="<%= d %>" <%= (selected.day ? selected.day===d : d===Number(dayjs().format('DD'))) ? 'selected' : '' %>><%= d %></option>
-        <% } %>
-      </select>
-    </div>
-
-    <div class="row" style="gap:8px">
-      <button class="btn save"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
-      <a class="btn edit" href="/reports?range=monthly&year=<%= (selected.year||dayjs().year()) %>&month=<%= (selected.month||Number(dayjs().format('MM'))) %>">
-        <i class="fa fa-calendar"></i> تقرير شهري
-      </a>
-    </div>
-  </form>
-</div>
-
-<!-- KPIs -->
-<div class="cards" style="margin-bottom:12px">
-  <div class="card"><h3>الإيراد</h3><div class="kpi">₪<%= Number(totalRevenue).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-  <div class="card"><h3>التكاليف</h3><div class="kpi">₪<%= Number(totalCost).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-  <div class="card"><h3>الربح</h3><div class="kpi">₪<%= Number(totalProfit).toLocaleString('en-US', {minimumFractionDigits:2}) %></div></div>
-</div>
-
-<!-- جدول العمليات -->
 <div class="card">
-  <h3><i class="fa fa-receipt"></i> تفاصيل العمليات — <%= title %></h3>
-  <% if (!rows.length) { %>
-    <p>لا توجد بيانات في هذا النطاق.</p>
-  <% } else { %>
-    <table>
-      <thead>
-        <tr>
-          <th>التاريخ</th>
-          <th>المنتج</th>
-          <th>الكمية</th>
-          <th>سعر البيع (₪)</th>
-          <th>التكلفة (₪)</th>
-          <th>الشحن (₪)</th>
-          <th>الربح (₪)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%
-          const tzName = 'Asia/Hebron';
-          rows.forEach(s => {
-            const sale = Number(s.sale_price);
-            const cost = Number(s.cost_price);
-            const ship = Number(s.shipping_cost || 0);
-            const qty  = Number(s.quantity || 0);
-            const profit = (sale * qty) - (cost * qty) - ship;
+  <div class="filters">
+    <!-- نموذج واحد نتحكم فيه بالـ JS -->
+    <form id="reportForm" method="get" action="/reports" class="filters">
+      <input type="hidden" name="range" id="rangeInput" value="<%= range || 'daily' %>">
+      <button type="button" id="btnDaily"   class="btn-toggle btn-on"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
+      <button type="button" id="btnMonthly" class="btn-toggle btn-ghost"><i class="fa fa-calendar"></i> تقرير شهري</button>
+
+      <div>
+        <label class="muted">السنة</label>
+        <select name="year" id="ySel">
+          <% 
+            const curY = Number(dayjs().format('YYYY'));
+            const selY = Number(selected?.year || curY);
+            for (let y = curY+1; y >= curY-5; y--) { %>
+              <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
+          <% } %>
+        </select>
+      </div>
+
+      <div>
+        <label class="muted">الشهر</label>
+        <select name="month" id="mSel">
+          <% 
+            const selM = Number(selected?.month || Number(dayjs().format('MM')));
+            for (let m=1;m<=12;m++){ %>
+              <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
+          <% } %>
+        </select>
+      </div>
+
+      <div id="dayWrap">
+        <label class="muted">اليوم</label>
+        <select name="day" id="dSel">
+          <% 
+            const selD = Number(selected?.day || Number(dayjs().format('DD')));
+            for (let d=1; d<=31; d++){ %>
+              <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
+          <% } %>
+        </select>
+      </div>
+
+      <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
+    </form>
+  </div>
+
+  <div class="cards">
+    <div class="kpi">
+      <div class="muted">الإيراد</div>
+      <div style="font-size:28px;font-weight:800">₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %></div>
+    </div>
+    <div class="kpi">
+      <div class="muted">التكاليف</div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%=
+          (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2)
         %>
-          <tr>
-            <td><%= dayjs(s.sold_at).tz(tzName).format('YYYY-MM-DD hh:mm A') %></td> <!-- 12 ساعة -->
-            <td style="text-align:right"><%= s.product_name %></td>
-            <td><%= qty.toLocaleString('en-US') %></td>
-            <td>₪<%= sale.toFixed(2) %></td>
-            <td>₪<%= (cost*qty).toFixed(2) %></td>
-            <td>₪<%= ship.toFixed(2) %></td>
-            <td>₪<%= profit.toFixed(2) %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  <% } %>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="muted">الربح</div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%=
+          (rows||[]).reduce((a,s)=>{
+            const revenue = Number(s.sale_price)*Number(s.quantity);
+            const cost    = Number(s.cost_price)*Number(s.quantity) + Number(s.shipping_cost||0);
+            return a + (revenue - cost);
+          },0).toFixed(2)
+        %>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- رسم توزيع الإيراد (الربح مقابل التكاليف) -->
-<div class="card" style="margin-top:14px">
-  <h3><i class="fa fa-chart-pie"></i> توزيع الإيرادات</h3>
-  <canvas id="revChart" height="200"></canvas>
+<div class="card" style="margin-top:16px">
+  <h3>
+    <i class="fa fa-clipboard-list"></i>
+    تفاصيل العمليات — <%= title %>
+  </h3>
+
+  <table class="table">
+    <thead class="thead">
+      <tr>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>الكمية</th>
+        <th>سعر بيع (₪)</th>
+        <th>السعر الأصلي (₪)</th>
+        <th>الشحن (₪)</th>
+        <th>الربح (₪)</th>
+      </tr>
+    </thead>
+    <tbody>
+    <% if (!rows || !rows.length){ %>
+      <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
+    <% } else { rows.forEach(s => {
+        const revenue = Number(s.sale_price) * Number(s.quantity);
+        const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
+    %>
+      <tr>
+        <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
+        <td><%= s.product_name %></td>
+        <td><%= s.quantity %></td>
+        <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
+        <td>₪<%= profit.toFixed(2) %></td>
+      </tr>
+    <% }) } %>
+    </tbody>
+  </table>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // بيانات الرسم: الربح والتكاليف (مقابل إجمالي الإيراد)
-  const totalRevenue = <%= Number(totalRevenue) %>;
-  const totalCost    = <%= Number(totalCost) %>;
-  const totalProfit  = <%= Number(totalProfit) %>;
+  (function(){
+    const form   = document.getElementById('reportForm');
+    const rangeI = document.getElementById('rangeInput');
+    const btnDaily   = document.getElementById('btnDaily');
+    const btnMonthly = document.getElementById('btnMonthly');
+    const dayWrap = document.getElementById('dayWrap');
+    const dSel    = document.getElementById('dSel');
 
-  const ctx = document.getElementById('revChart').getContext('2d');
-  new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: ['الربح', 'التكاليف'],
-      datasets: [{
-        data: [totalProfit, totalCost],
-        backgroundColor: ['#16a34a', '#ef4444'],
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { position: 'bottom' },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              const val = context.raw || 0;
-              const perc = totalRevenue > 0 ? ((val / totalRevenue) * 100).toFixed(1) : '0.0';
-              return `${context.label}: ₪${Number(val).toFixed(2)} (${perc}%)`;
-            }
-          }
-        }
-      }
+    function applyUI(){
+      const isMonthly = rangeI.value === 'monthly';
+      // تفعيل/تعطيل اليوم
+      dSel.disabled = isMonthly;
+      dayWrap.classList.toggle('disabled', isMonthly);
+
+      // تلوين الأزرار
+      btnDaily.className   = 'btn-toggle ' + (isMonthly ? 'btn-ghost' : 'btn-on');
+      btnMonthly.className = 'btn-toggle ' + (isMonthly ? 'btn-off'   : 'btn-ghost');
     }
-  });
+
+    btnDaily.addEventListener('click', ()=>{ rangeI.value='daily'; applyUI(); form.submit(); });
+    btnMonthly.addEventListener('click', ()=>{ rangeI.value='monthly'; applyUI(); form.submit(); });
+
+    // عند التحميل: طبّق الحالة القادمة من السيرفر
+    applyUI();
+
+    // عند الإرسال: إن كان شهري احذف "day" من الإرسال نهائياً
+    form.addEventListener('submit', ()=>{
+      if (rangeI.value === 'monthly') dSel.removeAttribute('name');
+      else dSel.setAttribute('name','day');
+    });
+  })();
 </script>
