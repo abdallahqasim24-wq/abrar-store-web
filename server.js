@@ -577,9 +577,6 @@ app.get('/reports/pdf', async (req, res) => {
   }
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
-});
 // ======== (جديد) صفحة تعديل عملية بيع ========
 app.get('/sales/:id/edit', async (req, res) => {
   const id = Number(req.params.id);
@@ -614,9 +611,7 @@ app.post('/sales/:id/update', async (req, res) => {
 
   // تعديل المخزون حسب التغييرات
   if (newPid !== old.product_id) {
-    // رجّع كمية العملية القديمة لمخزون المنتج القديم
     await query(`UPDATE products SET stock = stock + $1 WHERE id=$2`, [old.quantity, old.product_id]);
-    // اطرح كمية العملية الجديدة من مخزون المنتج الجديد
     await query(`UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id=$2`, [newQty, newPid]);
   } else if (newQty !== old.quantity) {
     const diff = old.quantity - newQty; // موجب => نعيد للمخزون، سالب => ننقص
@@ -641,7 +636,7 @@ app.post('/sales/:id/update', async (req, res) => {
     newQty,
     Number(sale_price ?? old.sale_price),
     Number(cost_price ?? old.cost_price),
-    Number(shipping_cost ?? old.shipping_cost || 0),
+    Number((shipping_cost ?? old.shipping_cost ?? 0)), // ✅ الإصلاح هنا
     (note ?? old.note || '').trim(),
     (customer_name ?? old.customer_name || '').trim(),
     (customer_phone ?? old.customer_phone || '').trim(),
@@ -653,3 +648,6 @@ app.post('/sales/:id/update', async (req, res) => {
   res.redirect('/sales');
 });
 
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
+});
