@@ -1,67 +1,66 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .filters{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+  .filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end}
+  @media(max-width:900px){.filters{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:600px){.filters{grid-template-columns:1fr}}
   .btn-toggle{padding:10px 14px;border-radius:12px;border:1px solid var(--border);cursor:pointer;font-weight:700}
   .btn-on {background:#16a34a;color:#fff;border-color:#128a3e}
   .btn-off{background:#f59e0b;color:#111;border-color:#d97706}
   .btn-ghost{background:#fff}
   .disabled{opacity:.55;pointer-events:none}
   .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
+  @media(max-width:900px){.cards{grid-template-columns:1fr}}
   .kpi{padding:20px;border:1px solid var(--border);border-radius:16px;background:#fff}
   .muted{color:#6b7280}
   .table{width:100%}
   .table th,.table td{padding:12px;border-top:1px solid #f1f5f9}
   .thead th{background:#feeef5}
-  /* صورة مصغّرة بالتقارير */
-  .thumb{width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
 </style>
 
 <div class="card">
-  <div class="filters">
-    <!-- نموذج واحد نتحكم فيه بالـ JS -->
-    <form id="reportForm" method="get" action="/reports" class="filters">
-      <input type="hidden" name="range" id="rangeInput" value="<%= range || 'daily' %>">
-      <button type="button" id="btnDaily"   class="btn-toggle btn-on"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
-      <button type="button" id="btnMonthly" class="btn-toggle btn-ghost"><i class="fa fa-calendar"></i> تقرير شهري</button>
+  <form id="reportForm" method="get" action="/reports" class="filters">
+    <input type="hidden" name="range" id="rangeInput" value="<%= range || 'daily' %>">
 
-      <div>
-        <label class="muted">السنة</label>
-        <select name="year" id="ySel">
-          <% 
-            const curY = Number(dayjs().format('YYYY'));
-            const selY = Number(selected?.year || curY);
-            for (let y = curY+1; y >= curY-5; y--) { %>
-              <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
-          <% } %>
-        </select>
-      </div>
+    <button type="button" id="btnDaily"   class="btn-toggle btn-on"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
+    <button type="button" id="btnMonthly" class="btn-toggle btn-ghost"><i class="fa fa-calendar"></i> تقرير شهري</button>
 
-      <div>
-        <label class="muted">الشهر</label>
-        <select name="month" id="mSel">
-          <% 
-            const selM = Number(selected?.month || Number(dayjs().format('MM')));
-            for (let m=1;m<=12;m++){ %>
-              <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
-          <% } %>
-        </select>
-      </div>
+    <div>
+      <label class="muted">السنة</label>
+      <select name="year" id="ySel">
+        <% 
+          const curY = Number(dayjs().format('YYYY'));
+          const selY = Number(selected?.year || curY);
+          for (let y = curY+1; y >= curY-5; y--) { %>
+            <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
+        <% } %>
+      </select>
+    </div>
 
-      <div id="dayWrap">
-        <label class="muted">اليوم</label>
-        <select name="day" id="dSel">
-          <% 
-            const selD = Number(selected?.day || Number(dayjs().format('DD')));
-            for (let d=1; d<=31; d++){ %>
-              <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
-          <% } %>
-        </select>
-      </div>
+    <div>
+      <label class="muted">الشهر</label>
+      <select name="month" id="mSel">
+        <% 
+          const selM = Number(selected?.month || Number(dayjs().format('MM')));
+          for (let m=1;m<=12;m++){ %>
+            <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
+        <% } %>
+      </select>
+    </div>
 
-      <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
-    </form>
-  </div>
+    <div id="dayWrap">
+      <label class="muted">اليوم</label>
+      <select name="day" id="dSel">
+        <% 
+          const selD = Number(selected?.day || Number(dayjs().format('DD')));
+          for (let d=1; d<=31; d++){ %>
+            <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
+  </form>
 
   <div class="cards">
     <div class="kpi">
@@ -101,7 +100,6 @@
     <thead class="thead">
       <tr>
         <th>التاريخ</th>
-        <th>الصورة</th>
         <th>المنتج</th>
         <th>الكمية</th>
         <th>سعر بيع (₪)</th>
@@ -112,22 +110,19 @@
     </thead>
     <tbody>
     <% if (!rows || !rows.length){ %>
-      <tr><td colspan="8" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
+      <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
     <% } else { rows.forEach(s => {
         const revenue = Number(s.sale_price) * Number(s.quantity);
         const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
     %>
       <tr>
         <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
-
-        <!-- صورة المنتج -->
-        <td>
+        <td class="right">
           <% if (s.product_image) { %>
-            <img src="<%= s.product_image %>" class="thumb" alt="product">
-          <% } else { %> — <% } %>
+            <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">
+          <% } %>
+          <%= s.product_name %>
         </td>
-
-        <td class="right"><%= s.product_name %></td>
         <td><%= s.quantity %></td>
         <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
         <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
@@ -150,22 +145,16 @@
 
     function applyUI(){
       const isMonthly = rangeI.value === 'monthly';
-      // تفعيل/تعطيل اليوم
       dSel.disabled = isMonthly;
       dayWrap.classList.toggle('disabled', isMonthly);
-
-      // تلوين الأزرار
       btnDaily.className   = 'btn-toggle ' + (isMonthly ? 'btn-ghost' : 'btn-on');
       btnMonthly.className = 'btn-toggle ' + (isMonthly ? 'btn-off'   : 'btn-ghost');
     }
 
     btnDaily.addEventListener('click', ()=>{ rangeI.value='daily'; applyUI(); form.submit(); });
     btnMonthly.addEventListener('click', ()=>{ rangeI.value='monthly'; applyUI(); form.submit(); });
-
-    // عند التحميل: طبّق الحالة القادمة من السيرفر
     applyUI();
 
-    // عند الإرسال: إن كان شهري احذف "day" من الإرسال نهائياً
     form.addEventListener('submit', ()=>{
       if (rangeI.value === 'monthly') dSel.removeAttribute('name');
       else dSel.setAttribute('name','day');

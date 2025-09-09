@@ -1,40 +1,83 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Abrar Store</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/public/style.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-</head>
-<body>
-  <% if (currentUser && currentPath !== '/login') { %>
-    <header class="topbar">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Abrar Shop</title>
+
+    <link rel="stylesheet" href="<%= faLink %>">
+    <link rel="stylesheet" href="/public/style.css">
+  </head>
+  <body>
+    <div class="topbar">
       <div class="container nav">
-        <div class="brand">Abrar Store</div>
-        <nav class="links">
-          <a href="/" class="<%= currentPath==='/'?'active':'' %>">لوحة التحكم</a>
-          <a href="/products" class="<%= currentPath.startsWith('/products')?'active':'' %>">المنتجات</a>
-          <a href="/sales" class="<%= currentPath.startsWith('/sales')?'active':'' %>">المبيعات</a>
-          <a href="/reports" class="<%= currentPath.startsWith('/reports')?'active':'' %>">التقارير</a>
-        </nav>
-
-        <!-- زر خروج يظهر فقط بعد تسجيل الدخول -->
-        <form method="post" action="/logout" style="margin-inline-start:auto">
-          <button class="btn danger"><i class="fa fa-right-from-bracket"></i> خروج</button>
-        </form>
+        <div class="brand">Abrar Shop</div>
+        <div class="links">
+          <a href="/"        class="<%= currentPath==='/' ? 'active' : '' %>">الرئيسية</a>
+          <a href="/products" class="<%= currentPath==='/products' ? 'active' : '' %>">المنتجات</a>
+          <a href="/sales"    class="<%= currentPath==='/sales' ? 'active' : '' %>">المبيعات</a>
+          <a href="/reports"  class="<%= currentPath.startsWith('/reports') ? 'active' : '' %>">التقارير</a>
+        </div>
+        <div class="right row">
+          <% if (currentUser) { %>
+            <form method="post" action="/logout">
+              <button class="btn danger"><i class="fa fa-right-from-bracket"></i> خروج</button>
+            </form>
+          <% } %>
+        </div>
       </div>
-    </header>
-  <% } %>
+    </div>
 
-  <main class="container page">
-    <%- body %>
-  </main>
+    <div class="container page">
+      <%- body %>
+    </div>
 
-  <footer class="container foot">© <span id="y"></span> Abrar Store</footer>
-  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
-</body>
+    <!-- ==== Global Image Lightbox ==== -->
+    <div id="imgPreviewBg"></div>
+    <img id="imgPreview" alt="preview">
+    <button id="imgPreviewClose" type="button" aria-label="Close">
+      <i class="fa fa-xmark"></i>
+    </button>
+
+    <script>
+      (function(){
+        const bg    = document.getElementById('imgPreviewBg');
+        const img   = document.getElementById('imgPreview');
+        const close = document.getElementById('imgPreviewClose');
+
+        function openImgPreview(src){
+          if(!src) return;
+          img.src = src;
+          bg.style.display = 'block';
+          img.style.display = 'block';
+          close.style.display = 'flex';
+          document.body.classList.add('modal-open');
+        }
+        function closeImgPreview(){
+          bg.style.display = 'none';
+          img.style.display = 'none';
+          close.style.display = 'none';
+          img.src = '';
+          document.body.classList.remove('modal-open');
+        }
+
+        bg.addEventListener('click', closeImgPreview);
+        close.addEventListener('click', closeImgPreview);
+        document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeImgPreview(); });
+
+        // تفويض: أي ضغطة على صورة بclass أو data-preview تفتح اللايت-بوكس
+        document.addEventListener('click', (e)=>{
+          const targetImg = e.target.closest('img.thumb, img.product-img, [data-preview="img"] img');
+          if(targetImg && targetImg.src){
+            e.preventDefault();
+            openImgPreview(targetImg.src);
+          }
+        });
+
+        // كشف يدويّا إذا حبيت
+        window.openImgPreview  = openImgPreview;
+        window.closeImgPreview = closeImgPreview;
+      })();
+    </script>
+  </body>
 </html>

@@ -68,8 +68,6 @@ await query(`
 `);
 
 // ===[ 5) إعداد رفع الصور (Cloudinary أو محلي) ]===
-
-// نحدد هل Cloudinary متاح عبر CLOUDINARY_URL أو المفاتيح المنفصلة
 const hasCloud =
   !!process.env.CLOUDINARY_URL ||
   (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
@@ -205,7 +203,7 @@ const openPaths = new Set(['/login', '/healthz']);
 function requireAuth(req, res, next) {
   if (openPaths.has(req.path)) return next();
   if (req.path.startsWith('/public')) return next();
-  if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?)$/i.test(req.path)) return next();
+  if (/\.(css|js|png|jpg|jpeg|webp|gif|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session && req.session.user) return next();
   const back = encodeURIComponent(req.originalUrl || '/');
   return res.redirect(`/login?next=${back}`);
@@ -565,7 +563,7 @@ app.get('/reports', async (req, res) => {
     const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
     title = `تقرير شهري ${ym}`;
     rows  = (await query(`
-      SELECT s.*, p.name AS product_name
+      SELECT s.*, p.name AS product_name, p.image_path AS product_image
       FROM sales s JOIN products p ON p.id = s.product_id
       WHERE TO_CHAR(s.sold_at,'YYYY-MM') = $1
       ORDER BY s.sold_at DESC
@@ -577,7 +575,7 @@ app.get('/reports', async (req, res) => {
     const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     title = `تقرير يومي ${dateStr}`;
     rows  = (await query(`
-      SELECT s.*, p.name AS product_name
+      SELECT s.*, p.name AS product_name, p.image_path AS product_image
       FROM sales s JOIN products p ON p.id = s.product_id
       WHERE DATE(s.sold_at) = DATE($1)
       ORDER BY s.sold_at DESC
@@ -613,7 +611,7 @@ app.get('/reports/pdf', async (req, res) => {
       const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
       title = `تقرير مبيعات شهري ${ym}`;
       rows  = (await query(`
-        SELECT s.*, p.name AS product_name
+        SELECT s.*, p.name AS product_name, p.image_path AS product_image
         FROM sales s JOIN products p ON p.id=s.product_id
         WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1
         ORDER BY s.sold_at DESC
@@ -625,7 +623,7 @@ app.get('/reports/pdf', async (req, res) => {
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       title = `تقرير مبيعات يومي ${dateStr}`;
       rows  = (await query(`
-        SELECT s.*, p.name AS product_name
+        SELECT s.*, p.name AS product_name, p.image_path AS product_image
         FROM sales s JOIN products p ON p.id=s.product_id
         WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
@@ -666,7 +664,7 @@ app.get('/reports/pdf', async (req, res) => {
   }
 });
 
-// ======== (جديد) صفحة تعديل عملية بيع ========
+// ======== صفحة تعديل عملية بيع ========
 app.get('/sales/:id/edit', async (req, res) => {
   const id = Number(req.params.id);
   const sale = (await query(`
@@ -683,7 +681,7 @@ app.get('/sales/:id/edit', async (req, res) => {
   res.render('sales-edit', { sale, products, dayjs });
 });
 
-// ======== (جديد) حفظ التعديل مع ضبط المخزون ========
+// ======== حفظ التعديل مع ضبط المخزون ========
 app.post('/sales/:id/update', async (req, res) => {
   const id = Number(req.params.id);
   const old = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
