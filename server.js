@@ -1,4 +1,4 @@
-// server.js — نسخة كاملة وجاهزة
+// server.js — نسخة كاملة جاهزة
 // ===========================================
 // 1) .env
 import dotenv from 'dotenv';
@@ -284,7 +284,7 @@ app.get('/products', async (_req, res) => {
   res.render('products', { products, returnsList, dayjs });
 });
 
-// ⬇️ إضافة منتج: صورة رئيسية + صور فرعية متعددة
+// إضافة منتج: صورة رئيسية + صور فرعية متعددة
 app.post('/products', (req, res, next) => {
   const uploader = upload.fields([
     { name: 'image',  maxCount: 1 },   // صورة الغلاف
@@ -341,7 +341,7 @@ app.post('/products', (req, res, next) => {
   });
 });
 
-// ⬇️ تعديل منتج: يمكن استبدال الصورة الرئيسية + إضافة صور فرعية جديدة (اختياري)
+// تعديل منتج: يمكن استبدال الصورة الرئيسية + إضافة صور فرعية جديدة
 app.post('/products/:id/update', (req, res, next) => {
   const uploader = upload.fields([
     { name: 'image',  maxCount: 1 },
@@ -497,13 +497,13 @@ app.post('/sales/:id/toggle-delivered', async (req, res) => {
   res.redirect('/sales');
 });
 
-// حذف نهائي
+// حذف نهائي فردي
 app.post('/sales/:id/delete', async (req, res) => {
   await query(`DELETE FROM sales WHERE id=$1`, [Number(req.params.id)]);
   res.redirect('/sales');
 });
 
-// نقل للراجعات (بدون حذف)
+// نقل للراجعات (فردي — بدون حذف من sales)
 app.post('/sales/:id/return', async (req, res) => {
   const id = Number(req.params.id);
   const s  = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
@@ -518,9 +518,28 @@ app.post('/sales/:id/return', async (req, res) => {
 
 // حذف جماعي (نهائي)
 app.post('/sales/bulk-delete', async (req, res) => {
-  const ids = req.body.ids || [];
-  const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
+  const raw = req.body.ids || '';
+  const arr = (Array.isArray(raw) ? raw : String(raw).split(','))
+              .map(Number).filter(Boolean);
   if (arr.length) await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [arr]);
+  res.redirect('/sales');
+});
+
+// نقل جماعي إلى الراجعات (بدون حذف من sales)
+app.post('/sales/bulk-return', async (req, res) => {
+  const raw = req.body.ids || '';
+  const arr = (Array.isArray(raw) ? raw : String(raw).split(','))
+              .map(x=>Number(x)).filter(Boolean);
+
+  for (const id of arr) {
+    const s = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
+    if (s) {
+      await query(`
+        INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `, [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || '', s.sold_at]);
+    }
+  }
   res.redirect('/sales');
 });
 
