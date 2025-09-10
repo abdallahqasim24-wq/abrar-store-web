@@ -262,8 +262,8 @@ app.get('/', async (_req, res) => {
   const today = dayjs().tz(TZ_NAME).format('YYYY-MM-DD');
   const month = dayjs().tz(TZ_NAME).format('YYYY-MM');
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
-  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [month])).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(s.old_at)=DATE($1)`.replace('s.old_at','s.sold_at'), [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1`, [month])).rows;
 
   const rev  = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -478,23 +478,10 @@ app.post('/sales/:id/delivery', async (req, res) => {
   res.redirect('/sales');
 });
 
-// دعم مسار قديم
-app.post('/sales/:id/toggle-delivered', async (req, res) => {
-  const id = Number(req.params.id);
-  const row = (await query(`SELECT delivery_status FROM sales WHERE id=$1`, [id])).rows[0];
-  if (!row) return res.redirect('/sales');
-  const next = row.delivery_status === 'delivered' ? 'pending' : 'delivered';
-  await query(`
-    UPDATE sales
-    SET delivery_status = $1,
-        delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
-    WHERE id = $2
-  `, [next, id]);
-  res.redirect('/sales');
-});
+// ======= المسارات الجديدة المطلوبة =======
 
-// حذف مفرد للمبيعات —> إلى returns_queue
-app.post('/sales/:id/delete', async (req, res) => {
+// إرجاع مفرد إلى returns_queue
+app.post('/sales/:id/return', async (req, res) => {
   const id = Number(req.params.id);
   const s  = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
   if (s) {
@@ -507,8 +494,15 @@ app.post('/sales/:id/delete', async (req, res) => {
   res.redirect('/sales');
 });
 
-// الحذف الجماعي للمبيعات
-app.post('/sales/bulk-delete', async (req, res) => {
+// حذف نهائي مفرد من sales
+app.post('/sales/:id/delete-final', async (req, res) => {
+  const id = Number(req.params.id);
+  await query(`DELETE FROM sales WHERE id=$1`, [id]);
+  res.redirect('/sales');
+});
+
+// إرجاع جماعي إلى returns_queue
+app.post('/sales/bulk-return', async (req, res) => {
   const ids = req.body.ids || [];
   const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
   if (arr.length) {
@@ -520,6 +514,30 @@ app.post('/sales/bulk-delete', async (req, res) => {
       `, [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || '', s.sold_at]);
     }
     await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [arr]);
+  }
+  res.redirect('/sales');
+});
+
+// حذف نهائي جماعي من sales
+app.post('/sales/bulk-delete-final', async (req, res) => {
+  const ids = req.body.ids || [];
+  const arr = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Boolean);
+  if (arr.length) {
+    await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [arr]);
+  }
+  res.redirect('/sales');
+});
+
+// ======= (الإصدار القديم للإرجاع إلى قائمة الراجعات بقي متاحًا لمسار /sales/:id/delete إذا لزم) =======
+app.post('/sales/:id/delete', async (req, res) => {
+  const id = Number(req.params.id);
+  const s  = (await query(`SELECT * FROM sales WHERE id=$1`, [id])).rows[0];
+  if (s) {
+    await query(`
+      INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `, [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || '', s.sold_at]);
+    await query(`DELETE FROM sales WHERE id=$1`, [id]);
   }
   res.redirect('/sales');
 });
@@ -625,13 +643,13 @@ app.get('/reports/pdf', async (req, res) => {
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      title = `تقرير مبيعات يومي ${dateStr}`;
       rows  = (await query(`
         SELECT s.*, p.name AS product_name, p.image_path AS product_image
         FROM sales s JOIN products p ON p.id=s.product_id
         WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
       `, [dateStr])).rows;
-      title = `تقرير مبيعات يومي ${dateStr}`;
     }
 
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
@@ -679,7 +697,9 @@ app.get('/sales/:id/edit', async (req, res) => {
   if (!sale) return res.redirect('/sales');
 
   const products = (await query(`
-    SELECT id, name, stock, cost_price, sale_price FROM products ORDER BY name
+    SELECT id, name, stock, cost_price, sale_price, image_path
+    FROM products
+    ORDER BY name
   `)).rows;
 
   res.render('sales-edit', { sale, products, dayjs });

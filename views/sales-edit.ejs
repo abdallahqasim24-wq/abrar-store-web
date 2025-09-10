@@ -11,7 +11,6 @@
   .pick-preview .meta .name{ font-weight:800 }
   .pick-preview .tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; border:1px solid var(--border); background:#fff7fb; margin-inline-end:6px }
 
-  /* منتقي المنتجات */
   .pp-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:80}
   .pp-modal{position:fixed; inset:30px; background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:none; z-index:90; padding:14px; overflow:hidden}
   .pp-head{display:flex; gap:10px; align-items:center; margin-bottom:8px}
@@ -37,25 +36,24 @@
   <h3><i class="fa fa-pen"></i> تعديل عملية بيع</h3>
 
   <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid" id="saleForm">
-    <div>
+    <!-- المعرف المخفي -->
+    <input type="hidden" name="product_id" id="productId" value="<%= sale.product_id %>" required>
+
+    <div style="grid-column:1 / -1">
       <label>المنتج</label>
       <div class="row" style="gap:8px">
-        <select name="product_id" id="prodSelect" required style="min-width:260px">
-          <% products.forEach(p=> { %>
-            <option
-              value="<%= p.id %>"
-              data-name="<%- p.name %>"
-              data-img="<%= p.image_path || '' %>"
-              data-sale="<%= Number(p.sale_price) %>"
-              data-cost="<%= Number(p.cost_price) %>"
-              data-stock="<%= Number(p.stock) %>"
-              <%= p.id===sale.product_id ? 'selected' : '' %>
-            >
-              <%= p.name %> (مخزون: <%= p.stock %>)
-            </option>
-          <% }) %>
-        </select>
-        <button type="button" class="btn edit" id="btnOpenPicker"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
+        <button type="button" class="btn edit" id="btnOpenPicker"><i class="fa fa-grid-2"></i> تغيير المنتج من الشبكة</button>
+      </div>
+      <div id="pickPreview" class="pick-preview" style="margin-top:10px">
+        <img id="pickImg" class="thumb js-img" src="<%= sale.product_image || '' %>" alt="">
+        <div class="meta">
+          <div class="name" id="pickName"><%= sale.product_name %></div>
+          <div class="muted-sm">
+            <span class="tag">المخزون: <span id="pickStock">—</span></span>
+            <span class="tag">بيع: ₪<span id="pickSale"><%= Number(sale.sale_price).toFixed(2) %></span></span>
+            <span class="tag">أصلي: ₪<span id="pickCost"><%= Number(sale.cost_price).toFixed(2) %></span></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -107,21 +105,6 @@
       </select>
     </div>
 
-    <!-- معاينة المنتج المختار -->
-    <div style="grid-column:1 / -1">
-      <div id="pickPreview" class="pick-preview">
-        <img id="pickImg" class="thumb js-img" src="<%= sale.product_image || '' %>" alt="">
-        <div class="meta">
-          <div class="name" id="pickName"><%= sale.product_name %></div>
-          <div class="muted-sm">
-            <span class="tag">المخزون: <span id="pickStock">—</span></span>
-            <span class="tag">بيع: ₪<span id="pickSale"><%= Number(sale.sale_price).toFixed(2) %></span></span>
-            <span class="tag">أصلي: ₪<span id="pickCost"><%= Number(sale.cost_price).toFixed(2) %></span></span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="right"></div>
     <div class="row right">
       <a href="/sales" class="btn danger"><i class="fa fa-xmark"></i> إلغاء</a>
@@ -146,50 +129,32 @@
 </div>
 
 <script>
-  // بيانات المنتجات للمودال
+  // جميع المنتجات للواجهة
   window.PRODUCTS = <%- JSON.stringify(products || []) %>;
 
-  // المعاينة وتعبئة الحقول
-  (function(){
-    const sel   = document.getElementById('prodSelect');
-    const qty   = document.getElementById('qtyInput');
-    const saleI = document.getElementById('salePriceInput');
-    const costI = document.getElementById('costPriceInput');
+  function fillFromProduct(p){
+    const idI  = document.getElementById('productId');
+    const qty  = document.getElementById('qtyInput');
+    const saleI= document.getElementById('salePriceInput');
+    const costI= document.getElementById('costPriceInput');
+    const img  = document.getElementById('pickImg');
+    const name = document.getElementById('pickName');
+    const stock= document.getElementById('pickStock');
+    const saleV= document.getElementById('pickSale');
+    const costV= document.getElementById('pickCost');
 
-    const box   = document.getElementById('pickPreview');
-    const img   = document.getElementById('pickImg');
-    const name  = document.getElementById('pickName');
-    const stock = document.getElementById('pickStock');
-    const saleV = document.getElementById('pickSale');
-    const costV = document.getElementById('pickCost');
+    idI.value = p.id;
+    if (p.image_path) img.src = p.image_path; else img.removeAttribute('src');
+    name.textContent  = p.name;
+    stock.textContent = Number(p.stock||0).toLocaleString('en-US');
+    saleV.textContent = Number(p.sale_price).toFixed(2);
+    costV.textContent = Number(p.cost_price).toFixed(2);
+    saleI.value = Number(p.sale_price).toFixed(2);
+    costI.value = Number(p.cost_price).toFixed(2);
+    if (!qty.value || Number(qty.value) <= 0) qty.value = 1;
+  }
 
-    function fillFromOption(opt){
-      const pImg   = opt.getAttribute('data-img') || '';
-      const pName  = opt.getAttribute('data-name') || '';
-      const pSale  = Number(opt.getAttribute('data-sale') || 0);
-      const pCost  = Number(opt.getAttribute('data-cost') || 0);
-      const pStock = Number(opt.getAttribute('data-stock')|| 0);
-
-      if (pImg) img.src = pImg; else img.removeAttribute('src');
-      name.textContent  = pName;
-      stock.textContent = pStock.toLocaleString('en-US');
-      saleV.textContent = pSale.toFixed(2);
-      costV.textContent = pCost.toFixed(2);
-
-      saleI.value = pSale.toFixed(2);
-      costI.value = pCost.toFixed(2);
-      if (!qty.value || Number(qty.value) <= 0) qty.value = 1;
-    }
-
-    sel.addEventListener('change', ()=> {
-      const opt = sel.options[sel.selectedIndex];
-      if (opt && opt.value) fillFromOption(opt);
-    });
-
-    if (sel.value) fillFromOption(sel.options[sel.selectedIndex]);
-  })();
-
-  // منتقي المنتجات الشبكي (لا يفتح تلقائياً)
+  // افتح الشبكة واختر
   (function(){
     const bg   = document.getElementById('ppBg');
     const mod  = document.getElementById('ppModal');
@@ -197,7 +162,6 @@
     const search = document.getElementById('ppSearch');
     const btnOpen = document.getElementById('btnOpenPicker');
     const btnClose= document.getElementById('ppClose');
-    const sel = document.getElementById('prodSelect');
 
     function open(){ bg.style.display='block'; mod.style.display='block'; search.focus(); render(); }
     function close(){ bg.style.display='none'; mod.style.display='none'; }
@@ -230,15 +194,14 @@
         cards.appendChild(div);
       });
     }
-
     search.addEventListener('input', render);
 
     cards.addEventListener('click', (e)=>{
       const btn = e.target.closest('.pp-pick');
       if(!btn) return;
       const id = Number(btn.getAttribute('data-id'));
-      const opt = Array.from(sel.options).find(o => Number(o.value)===id);
-      if (opt){ sel.value = String(id); sel.dispatchEvent(new Event('change')); }
+      const p = (window.PRODUCTS||[]).find(x => Number(x.id)===id);
+      if (p) fillFromProduct(p);
       close();
     });
   })();
