@@ -3,7 +3,7 @@
 <div class="card">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
 
-  <!-- شريط أدوات التحديد الجماعي -->
+  <!-- أدوات جماعية -->
   <div class="row" style="margin:8px 0;gap:10px;align-items:center">
     <label class="row select-all" style="gap:6px">
       <input type="checkbox" id="checkAll"> تحديد الكل
@@ -14,7 +14,7 @@
           onsubmit="return confirm('نقل العمليات المحددة إلى قائمة الراجعات؟')">
       <input type="hidden" name="ids" id="bulkReturnIds">
       <button class="btn secondary" type="submit">
-        <i class="fa fa-arrow-rotate-left"></i> نقل المحدد إلى الراجعات
+        <i class="fa fa-arrow-rotate-left"></i><span>نقل المحدد إلى الراجعات</span>
       </button>
     </form>
 
@@ -23,7 +23,7 @@
           onsubmit="return confirm('حذف نهائي للعمليات المحددة؟ لا يمكن التراجع.')">
       <input type="hidden" name="ids" id="bulkDeleteIds">
       <button class="btn danger" type="submit">
-        <i class="fa fa-trash"></i> حذف المحدد نهائيًا
+        <i class="fa fa-trash"></i><span>حذف المحدد نهائيًا</span>
       </button>
     </form>
   </div>
@@ -38,12 +38,12 @@
         <th>هاتف</th>
         <th>المدينة</th>
 
-        <!-- ترتيب وسط الجدول -->
         <th>كمية</th>
         <th>السعر الأصلي (₪)</th>
         <th>سعر بيع (₪)</th>
         <th>شحن (₪)</th>
-        <!-- ✅ الربح ثم المطلوب (المطلوب يسار الربح بصريًا) -->
+
+        <!-- ✅ المطلوب يسار الربح -->
         <th>الربح (₪)</th>
         <th>المطلوب (₪)</th>
 
@@ -87,7 +87,7 @@
           <td>₪<%= price.toFixed(2) %></td>
           <td>₪<%= ship.toFixed(2) %></td>
 
-          <!-- ✅ أولًا الربح ثم المطلوب -->
+          <!-- ✅ الربح ثم المطلوب -->
           <td>₪<%= profit.toFixed(2) %></td>
           <td><strong>₪<%= requested.toFixed(2) %></strong></td>
 
@@ -114,18 +114,25 @@
           </td>
 
           <td>
-            <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
+            <!-- زر تعديل بشكل نظيف -->
+            <a class="btn edit" href="/sales/<%= s.id %>/edit">
+              <i class="fa fa-pen-to-square"></i><span>تعديل</span>
+            </a>
           </td>
 
           <td class="row" style="gap:6px;justify-content:center">
-            <!-- زر مستقل: نقل للراجعات -->
+            <!-- نقل للراجعات -->
             <form method="post" action="/sales/<%= s.id %>/return" onsubmit="return confirm('نقل العملية إلى قائمة الراجعات؟')">
-              <button class="btn secondary"><i class="fa fa-arrow-rotate-left"></i> نقل للراجعات</button>
+              <button class="btn secondary" type="submit">
+                <i class="fa fa-arrow-rotate-left"></i><span>نقل للراجعات</span>
+              </button>
             </form>
 
             <!-- حذف نهائي -->
             <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف نهائي؟ لا يمكن التراجع.')">
-              <button class="btn danger"><i class="fa fa-trash"></i> حذف نهائي</button>
+              <button class="btn danger" type="submit">
+                <i class="fa fa-trash"></i><span>حذف نهائي</span>
+              </button>
             </form>
           </td>
         </tr>
@@ -135,8 +142,43 @@
   </table>
 </div>
 
+<!-- مودال اختيار المنتج (مع زر ✕) -->
+<div class="modal" id="pickerModal" aria-hidden="true">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <div class="mhead" style="position:relative">
+      <i class="fa fa-grid-2"></i>
+      <div style="font-weight:800">اختيار منتج من الشبكة</div>
+      <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
+      <button type="button" id="pickerClose" aria-label="إغلاق"
+              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">
+        &times;
+      </button>
+    </div>
+    <div class="mgrid" id="gridWrap">
+      <% products.forEach(p=>{ %>
+        <div class="pcard" data-id="<%= p.id %>"
+             data-name="<%- p.name %>"
+             data-img="<%= p.image_path||'' %>"
+             data-sale="<%= Number(p.sale_price||0) %>"
+             data-cost="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= Number(p.stock||0) %>">
+          <img src="<%= p.image_path||'' %>" alt="">
+          <div class="name"><%= p.name %></div>
+          <div style="text-align:center">
+            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
+          </div>
+          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
 <script>
-  // تجميع IDs المحددة في فورمَي النقل والحذف
+  // تحديد/إلغاء تحديد الكل + تعبئة فورمَي النقل/الحذف
   (function(){
     const all = document.getElementById('checkAll');
     const checks = () => [...document.querySelectorAll('.rowChk')];
@@ -149,6 +191,74 @@
     }
     document.getElementById('bulkReturnForm').addEventListener('submit', fillHidden);
     document.getElementById('bulkDeleteForm').addEventListener('submit', fillHidden);
+  })();
+
+  // مودال الشبكة + زر ✕
+  (function(){
+    const modal=document.getElementById('pickerModal');
+    const open=document.getElementById('openPicker');
+    const bg=modal.querySelector('.modal-bg');
+    const closeBtn=document.getElementById('pickerClose');
+    const search=document.getElementById('searchBox');
+    const cards=[...modal.querySelectorAll('.pcard')];
+
+    function show(){ modal.style.display='block'; search.focus(); }
+    function hide(){ modal.style.display='none'; search.value=''; filter(''); }
+
+    if (open) open.addEventListener('click',show);
+    bg.addEventListener('click',hide);
+    closeBtn.addEventListener('click',hide);
+    document.addEventListener('keydown',e=>{
+      if(modal.style.display==='block' && e.key==='Escape') hide();
+    });
+
+    function filter(q){
+      const s=(q||'').trim().toLowerCase();
+      cards.forEach(c=>{ c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'; });
+    }
+    search.addEventListener('input',e=>filter(e.target.value));
+
+    // تعبئة الحقول بعد الاختيار (نفس منطقك)
+    const idF=document.getElementById('productIdField');
+    const nameF=document.getElementById('productNameDisplay');
+    const qtyI=document.getElementById('qtyInput');
+    const saleI=document.getElementById('salePriceInput');
+    const costI=document.getElementById('costPriceInput');
+
+    const mini=document.getElementById('miniPreview');
+    const miniImg=document.getElementById('miniImg');
+    const miniName=document.getElementById('miniName');
+    const miniStock=document.getElementById('miniStock');
+    const miniSale=document.getElementById('miniSale');
+    const miniCost=document.getElementById('miniCost');
+
+    modal.addEventListener('click',e=>{
+      const btn=e.target.closest('.pickBtn');
+      if(!btn) return;
+      const card=btn.closest('.pcard');
+      const id=card.dataset.id, nm=card.dataset.name;
+      const img=card.dataset.img||'';
+      const sale=Number(card.dataset.sale||0);
+      const cost=Number(card.dataset.cost||0);
+      const stock=Number(card.dataset.stock||0);
+
+      if (idF) idF.value=id;
+      if (nameF) nameF.value=nm;
+      if (saleI && !saleI.value) saleI.value=sale;
+      if (costI && !costI.value) costI.value=cost;
+
+      if (mini){
+        mini.style.display='flex';
+        if(img){ miniImg.src=img; miniImg.style.display='block'; } else { miniImg.style.display='none'; }
+        miniName.textContent=nm;
+        miniStock.textContent=stock;
+        miniSale.textContent=sale.toFixed(2);
+        miniCost.textContent=cost.toFixed(2);
+      }
+
+      hide();
+      if (qtyI) qtyI.focus();
+    });
   })();
 
   // قائمة حالة التوصيل

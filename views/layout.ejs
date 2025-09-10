@@ -5,6 +5,26 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Abrar Store</title>
   <link rel="stylesheet" href="<%= faLink %>">
+<style>
+  /* === Fix: زر تعديل – شكل موحّد وأنيق === */
+  .btn { display:inline-flex; align-items:center; gap:8px; line-height:1; }
+  .btn i { font-size:14px; }
+
+  .btn.edit{
+    background:#f9a825;       /* أصفر واضح */
+    color:#111;
+    border:none;
+    border-radius:14px;
+    padding:10px 14px;
+    box-shadow:0 2px 0 rgba(0,0,0,.08);
+  }
+  /* إلغاء أي زخارف/طبقات قديمة كانت عاملة شكل مزدوج */
+  .btn.edit::before,
+  .btn.edit::after{ content:none !important; display:none !important; }
+
+  .btn.edit:hover{ filter:brightness(.97); }
+  .btn.edit:active{ transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.08); }
+</style>
 
   <style>
     /* ===== أساسيات وتوسيع المساحة للحواف ===== */
