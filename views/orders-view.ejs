@@ -1,0 +1,122 @@
+<link rel="stylesheet" href="<%= faLink %>">
+
+<div class="card">
+  <div class="row">
+    <h3><i class="fa fa-receipt"></i> طلب #<%= order.id %></h3>
+    <a class="btn secondary right" href="/orders"><i class="fa fa-arrow-right"></i> رجوع</a>
+  </div>
+
+  <div class="row" style="gap:12px; flex-wrap:wrap">
+    <div class="tag"><i class="fa fa-user"></i> <b><%= order.customer_name||'—' %></b></div>
+    <div class="tag"><i class="fa fa-phone"></i> <%= order.customer_phone||'—' %></div>
+    <div class="tag"><i class="fa fa-city"></i> <%= order.customer_city||'—' %></div>
+    <div class="tag"><i class="fa fa-clock"></i> <%= dayjs(order.created_at).tz("Asia/Hebron").format('YYYY-MM-DD hh:mm A') %></div>
+  </div>
+
+  <form class="row" method="post" action="/orders/<%= order.id %>/status" style="margin-top:10px; gap:10px">
+    <label>حالة الطلب</label>
+    <select name="status">
+      <% ['pending','shipping','delivered','failed'].forEach(st=>{ %>
+        <option value="<%= st %>" <%= (order.status===st?'selected':'') %> >
+          <%= st==='pending'?'قيد المعالجة':st==='shipping'?'قيد التوصيل':st==='delivered'?'تم التسليم':'فشل' %>
+        </option>
+      <% }) %>
+    </select>
+    <label class="row" style="gap:6px"><input type="checkbox" name="apply_to_items"> تطبيق على جميع البنود</label>
+    <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="row">
+    <h4 style="margin:0">بنود الطلب</h4>
+    <div class="right muted">الإيراد: ₪<%= revenue.toFixed(2) %> — الربح: ₪<%= profit.toFixed(2) %></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>المنتج</th>
+        <th>كمية</th>
+        <th>بيع (₪)</th>
+        <th>أصلي (₪)</th>
+        <th>شحن (₪)</th>
+        <th>الربح (₪)</th>
+        <th>توصيل</th>
+        <th>إزالة</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (!items.length){ %>
+        <tr><td colspan="8" class="muted">لا يوجد بنود.</td></tr>
+      <% } %>
+      <% items.forEach(it=>{ 
+           const revenue = Number(it.sale_price)*Number(it.quantity);
+           const profit  = revenue - (Number(it.cost_price)*Number(it.quantity)) - Number(it.shipping_cost||0);
+      %>
+        <tr>
+          <td class="right">
+            <% if (it.product_image) { %>
+              <img src="<%= it.product_image %>" class="thumb" style="width:56px;height:56px;vertical-align:middle;margin-inline-start:6px" alt="">
+            <% } %>
+            <%= it.product_name %>
+          </td>
+          <td><%= it.quantity %></td>
+          <td>₪<%= Number(it.sale_price).toFixed(2) %></td>
+          <td>₪<%= Number(it.cost_price).toFixed(2) %></td>
+          <td>₪<%= Number(it.shipping_cost||0).toFixed(2) %></td>
+          <td>₪<%= profit.toFixed(2) %></td>
+          <td>
+            <div class="status-chip status-<%= it.delivery_status %>">
+              <i class="fa <%= it.delivery_status==='delivered'?'fa-check':it.delivery_status==='shipping'?'fa-truck':it.delivery_status==='failed'?'fa-xmark':'fa-hourglass-half' %>"></i>
+              <%= it.delivery_status==='pending'?'قيد المعالجة':it.delivery_status==='shipping'?'قيد التوصيل':it.delivery_status==='delivered'?'تم التسليم':'فشل' %>
+            </div>
+          </td>
+          <td>
+            <form method="post" action="/orders/<%= order.id %>/items/<%= it.id %>/delete" onsubmit="return confirm('حذف البند؟')">
+              <button class="btn danger"><i class="fa fa-trash"></i></button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h4>إضافة بند جديد</h4>
+  <form method="post" action="/orders/<%= order.id %>/items" class="form-grid" style="grid-template-columns: repeat(5,1fr); gap:12px">
+    <div style="grid-column: span 2">
+      <label>المنتج</label>
+      <select name="product_id" required>
+        <option value="">— اختر —</option>
+        <% products.forEach(p=>{ %>
+          <option value="<%= p.id %>" data-sale="<%= p.sale_price||0 %>" data-cost="<%= p.cost_price||0 %>"><%= p.name %> (مخزون <%= p.stock||0 %>)</option>
+        <% }) %>
+      </select>
+    </div>
+    <div>
+      <label>كمية</label>
+      <input type="number" name="quantity" value="1" min="1" step="1" required>
+    </div>
+    <div>
+      <label>بيع (₪)</label>
+      <input type="number" name="sale_price" step="0.01">
+    </div>
+    <div>
+      <label>أصلي (₪)</label>
+      <input type="number" name="cost_price" step="0.01">
+    </div>
+    <div>
+      <label>شحن (₪)</label>
+      <input type="number" name="shipping_cost" step="0.01" value="0">
+    </div>
+    <div style="grid-column: span 5">
+      <label>ملاحظة</label>
+      <input type="text" name="note">
+    </div>
+    <div class="right" style="grid-column: span 5">
+      <button class="btn save"><i class="fa fa-plus"></i> إضافة</button>
+    </div>
+  </form>
+</div>

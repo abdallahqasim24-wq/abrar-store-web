@@ -1,0 +1,49 @@
+<link rel="stylesheet" href="<%= faLink %>">
+
+<div class="card">
+  <div class="row">
+    <h3><i class="fa fa-basket-shopping"></i> الطلبات</h3>
+    <a class="btn add right" href="/orders/new"><i class="fa fa-plus"></i> طلب جديد</a>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>الزبون</th>
+        <th>الهاتف</th>
+        <th>المدينة</th>
+        <th>عدد الأصناف</th>
+        <th>الإيراد (₪)</th>
+        <th>الربح (₪)</th>
+        <th>الحالة</th>
+        <th>تاريخ</th>
+        <th>عرض</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (!orders.length){ %>
+        <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
+      <% } %>
+      <% orders.forEach(o=>{ %>
+        <tr>
+          <td><b>#<%= o.id %></b></td>
+          <td><%= o.customer_name || '—' %></td>
+          <td><%= o.customer_phone || '—' %></td>
+          <td><%= o.customer_city || '—' %></td>
+          <td><%= o.items_count %></td>
+          <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
+          <td>₪<%= Number(o.profit||0).toFixed(2) %></td>
+          <td>
+            <span class="status-chip status-<%= o.status %>">
+              <i class="fa <%= o.status==='delivered'?'fa-check':o.status==='shipping'?'fa-truck':o.status==='failed'?'fa-xmark':'fa-hourglass-half' %>"></i>
+              <%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'فشل' %>
+            </span>
+          </td>
+          <td><%= dayjs(o.created_at).tz("Asia/Hebron").format('YYYY-MM-DD hh:mm A') %></td>
+          <td><a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>

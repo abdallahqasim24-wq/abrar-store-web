@@ -110,7 +110,21 @@
     .modal{position:fixed;inset:0;display:none;z-index:90}
     .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
     .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
-    .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9}
+
+    /* زر إغلاق دائري أحمر ومباعد عن خانة البحث */
+    .mclose{
+      position:absolute;
+      inset-block-start:10px;        /* أعلى */
+      inset-inline-start:10px;       /* يحترم RTL */
+      width:38px;height:38px;border:0;border-radius:999px;
+      background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;
+      cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5;
+    }
+    .mclose:hover{filter:brightness(.95)}
+
+    .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;
+      padding-inline-start:56px;} /* مساحة للـ X */
+
     .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
     @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
     @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
@@ -129,6 +143,9 @@
         <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
+          <i class="fa fa-basket-shopping"></i> الطلبات
+        </a>
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
         <!-- زر الخروج الدائري الأحمر -->

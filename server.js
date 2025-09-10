@@ -1,4 +1,4 @@
-// server.js — كامل
+// server.js — يدعم الطلبات متعددة المنتجات
 // ===================================================
 import express from "express";
 import path from "path";
@@ -70,7 +70,7 @@ async function initDb() {
   await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
   await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;`);
 
-  // sales
+  // sales (سجلات بنود البيع)
   await query(`
     CREATE TABLE IF NOT EXISTS sales (
       id SERIAL PRIMARY KEY,
@@ -88,6 +88,20 @@ async function initDb() {
   await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_city  TEXT;`);
   await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending';`);
   await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivered_at   TIMESTAMPTZ;`);
+  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_id INT;`);
+
+  // orders (طلب واحد يجمع عدة منتجات)
+  await query(`
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      customer_name  TEXT,
+      customer_phone TEXT,
+      customer_city  TEXT,
+      note TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
 
   // returns_queue
   await query(`
@@ -268,7 +282,7 @@ app.post("/products", (req,res,next)=>{
       if (err) throw err;
       const { name, brand, category, cost_price, sale_price, stock } = req.body;
 
-      let image_path = null;
+    let image_path = null;
       const main = (req.files?.image||[])[0];
       if (main) image_path = `/public/uploads/${main.filename}`;
 
@@ -344,7 +358,7 @@ app.post("/products/bulk-delete", async (req,res)=>{
   res.redirect("/products");
 });
 
-// -------- Sales --------
+// -------- Sales (لا يزال يعمل كالسابق) --------
 app.get("/sales", async (_req,res)=>{
   const sales = (await query(`
     SELECT s.*, p.name AS product_name, p.image_path AS product_image
@@ -357,7 +371,7 @@ app.get("/sales", async (_req,res)=>{
   res.render("sales", { sales, products, dayjs });
 });
 
-// Add sale
+// Add sale (مفرد)
 app.post("/sales", async (req,res)=>{
   const {
     product_id, quantity, sale_price, cost_price, shipping_cost, note,
@@ -389,7 +403,7 @@ app.post("/sales", async (req,res)=>{
   res.redirect("/sales");
 });
 
-// Edit sale page
+// Edit sale (page + save)
 app.get("/sales/:id/edit", async (req,res)=>{
   const id = Number(req.params.id);
   const saleQ = await query(`
@@ -405,7 +419,6 @@ app.get("/sales/:id/edit", async (req,res)=>{
   res.render("sales-edit", { sale, products, productStock, dayjs });
 });
 
-// Save sale update
 app.post("/sales/:id/update", async (req,res)=>{
   const id = Number(req.params.id);
   const {
@@ -450,13 +463,11 @@ app.post("/sales/:id/delivery", async (req,res)=>{
   res.redirect("/sales");
 });
 
-// Delete sale
+// Delete / Return (sales)
 app.post("/sales/:id/delete", async (req,res)=>{
   await query(`DELETE FROM sales WHERE id=$1`, [Number(req.params.id)]);
   res.redirect("/sales");
 });
-
-// Move to returns queue (copy, لا يحذف)
 app.post("/sales/:id/return", async (req,res)=>{
   const id = Number(req.params.id);
   const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
@@ -469,16 +480,12 @@ app.post("/sales/:id/return", async (req,res)=>{
   }
   res.redirect("/sales");
 });
-
-// Bulk delete
 app.post("/sales/bulk-delete", async (req,res)=>{
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw)?raw:String(raw).split(",")).map(n=>Number(n)).filter(Boolean);
   if (ids.length) await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [ids]);
   res.redirect("/sales");
 });
-
-// Bulk return
 app.post("/sales/bulk-return", async (req,res)=>{
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw)?raw:String(raw).split(",")).map(n=>Number(n)).filter(Boolean);
@@ -494,7 +501,163 @@ app.post("/sales/bulk-return", async (req,res)=>{
   res.redirect("/sales");
 });
 
-// -------- Returns actions --------
+// -------- Orders (الطلبات متعددة البنود) --------
+
+// قائمة الطلبات (مجمّعة)
+app.get("/orders", async (_req,res)=>{
+  const orders = (await query(`
+    SELECT
+      o.*,
+      COUNT(s.id)::int AS items_count,
+      COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+      COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity - s.shipping_cost),0)::float8 AS profit
+    FROM orders o
+    LEFT JOIN sales s ON s.order_id = o.id
+    GROUP BY o.id
+    ORDER BY o.created_at DESC
+  `)).rows;
+  res.render("orders", { orders, dayjs });
+});
+
+// نموذج طلب جديد
+app.get("/orders/new", async (_req,res)=>{
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
+  res.render("orders-new", { products, dayjs });
+});
+
+// إنشاء طلب جديد (+ بنود المبيعات المرتبطة)
+app.post("/orders", async (req,res)=>{
+  const {
+    customer_name, customer_phone, customer_city, note,
+    product_id = [], quantity = [], sale_price = [], cost_price = [], shipping_cost = [], item_note = []
+  } = req.body;
+
+  // إنشاء order
+  const orderIns = await query(`
+    INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
+    VALUES ($1,$2,$3,$4,'pending') RETURNING id
+  `, [
+    (customer_name||"").trim(),
+    (customer_phone||"").trim(),
+    (customer_city||"").trim(),
+    (note||"").trim()
+  ]);
+  const orderId = orderIns.rows[0].id;
+
+  // ادراج البنود + خصم المخزون
+  const count = Math.max(
+    [].concat(product_id).length,
+    [].concat(quantity).length
+  );
+  for (let i=0;i<count;i++){
+    const pid = Number([].concat(product_id)[i]);
+    if (!pid) continue;
+
+    const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
+    if (!prodQ.rowCount) continue;
+    const prod = prodQ.rows[0];
+
+    const qty  = Math.max(1, Number([].concat(quantity)[i] || 1));
+    const sp   = Number([].concat(sale_price)[i] || prod.sale_price || 0);
+    const cp   = Number([].concat(cost_price)[i] || prod.cost_price || 0);
+    const ship = Number([].concat(shipping_cost)[i] || 0);
+    const inote= String([].concat(item_note)[i] || "");
+
+    await query(`
+      INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note,
+                         customer_name, customer_phone, customer_city, delivery_status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
+    `, [
+      orderId, pid, qty, sp, cp, ship, inote,
+      (customer_name||"").trim(),
+      (customer_phone||"").trim(),
+      (customer_city||"").trim()
+    ]);
+
+    await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, pid]);
+  }
+
+  res.redirect(`/orders/${orderId}`);
+});
+
+// عرض تفاصيل طلب
+app.get("/orders/:id", async (req,res)=>{
+  const id = Number(req.params.id);
+  const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
+  if (!orderQ.rowCount) return res.redirect("/orders");
+  const order = orderQ.rows[0];
+
+  const items = (await query(`
+    SELECT s.*, p.name AS product_name, p.image_path AS product_image
+    FROM sales s JOIN products p ON p.id=s.product_id
+    WHERE s.order_id=$1 ORDER BY s.id ASC
+  `,[id])).rows;
+
+  // Products for adding more
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
+
+  const revenue = items.reduce((a,s)=>a + Number(s.sale_price)*Number(s.quantity), 0);
+  const profit  = items.reduce((a,s)=>a + ((Number(s.sale_price)-Number(s.cost_price))*Number(s.quantity) - Number(s.shipping_cost||0)), 0);
+
+  res.render("orders-view", { order, items, products, revenue, profit, dayjs });
+});
+
+// إضافة بند جديد لطلب
+app.post("/orders/:id/items", async (req,res)=>{
+  const id = Number(req.params.id);
+  const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
+  if (!orderQ.rowCount) return res.redirect("/orders");
+
+  const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
+  const pid = Number(product_id);
+  const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
+  if (!prodQ.rowCount) return res.redirect(`/orders/${id}`);
+  const prod = prodQ.rows[0];
+
+  const qty = Math.max(1, Number(quantity||1));
+  const sp  = Number(sale_price || prod.sale_price || 0);
+  const cp  = Number(cost_price || prod.cost_price || 0);
+  const ship= Number(shipping_cost || 0);
+
+  await query(`
+    INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note,
+                       customer_name, customer_phone, customer_city, delivery_status)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
+  `, [
+    id, pid, qty, sp, cp, ship, note||"",
+    orderQ.rows[0].customer_name||"",
+    orderQ.rows[0].customer_phone||"",
+    orderQ.rows[0].customer_city||""
+  ]);
+  await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, pid]);
+
+  res.redirect(`/orders/${id}`);
+});
+
+// تغيير حالة الطلب ككل (ينسخها اختياريًا لكل البنود)
+app.post("/orders/:id/status", async (req,res)=>{
+  const id = Number(req.params.id);
+  const { status="pending", apply_to_items="off" } = req.body;
+  await query(`UPDATE orders SET status=$1 WHERE id=$2`, [status, id]);
+  if (apply_to_items === "on") {
+    await query(`
+      UPDATE sales
+      SET delivery_status=$1, delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
+      WHERE order_id=$2
+    `,[status,id]);
+  }
+  res.redirect(`/orders/${id}`);
+});
+
+// حذف بند من الطلب
+app.post("/orders/:id/items/:itemId/delete", async (req,res)=>{
+  const id = Number(req.params.id);
+  const itemId = Number(req.params.itemId);
+  await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [itemId, id]);
+  res.redirect(`/orders/${id}`);
+});
+
+// -------- Returns actions (كما هي) --------
 app.post("/returns/:id/restock", async (req,res)=>{
   const id = Number(req.params.id);
   const rQ = await query(`SELECT * FROM returns_queue WHERE id=$1`, [id]);
