@@ -412,16 +412,17 @@ app.post('/products/bulk-delete', async (req, res) => {
 
 // ---------- Sales ----------
 app.get('/sales', async (_req, res) => {
+  // (1) سجل المبيعات مع اسم وصورة المنتج
   const sales = (await query(`
-    SELECT s., 
-           p.name AS product_name,
+    SELECT s.*,
+           p.name       AS product_name,
            p.image_path AS product_image
-    FROM sales s 
+    FROM sales s
     JOIN products p ON p.id = s.product_id
     ORDER BY s.sold_at DESC
   `)).rows;
 
-  // ✅ نمرّر image_path أيضاً للـ select لكي نعرض المعاينة ونملأ الأسعار تلقائياً
+  // (2) قائمة المنتجات للاختيار في الفورم (تتضمن image_path)
   const products = (await query(`
     SELECT id, name, stock, cost_price, sale_price, image_path
     FROM products
@@ -624,13 +625,13 @@ app.get('/reports/pdf', async (req, res) => {
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      title = `تقرير مبيعات يومي ${dateStr}`;
       rows  = (await query(`
         SELECT s.*, p.name AS product_name, p.image_path AS product_image
         FROM sales s JOIN products p ON p.id=s.product_id
         WHERE DATE(s.sold_at)=DATE($1)
         ORDER BY s.sold_at DESC
       `, [dateStr])).rows;
+      title = `تقرير مبيعات يومي ${dateStr}`;
     }
 
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);

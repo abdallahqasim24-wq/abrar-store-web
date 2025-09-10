@@ -12,6 +12,8 @@
   .pick-preview .meta .name{ font-weight:800 }
   .pick-preview .tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; border:1px solid var(--border); background:#fff7fb; margin-inline-end:6px }
   .muted-sm{ color:#6b7280; font-size:.85rem }
+
+  /* شِيب التوصيل */
   .status-chip{
     display:inline-flex; align-items:center; gap:6px;
     padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
@@ -21,12 +23,12 @@
   .status-shipping { background:#fff3cd }
   .status-delivered{ background:#e6ffed }
   .status-failed   { background:#ffe6e6 }
+  .status-wrap{ position:relative; display:inline-block }
   .status-menu{
     position:absolute; inset:auto auto auto 0; transform:translateY(6px);
     background:#fff; border:1px solid var(--border); border-radius:10px;
     box-shadow: var(--shadow); min-width:180px; padding:6px; z-index:30; display:none;
   }
-  .status-wrap{ position:relative; display:inline-block }
   .status-menu form{ margin:0 }
   .status-menu button{
     width:100%; text-align:right; background:#fff; color:#111; border:0;
@@ -140,7 +142,7 @@
            const costUnit  = Number(s.cost_price);
            const ship      = Number(s.shipping_cost||0);
            const revenue   = price * qty;
-           const requested = revenue + ship;             // المطلوب من الزبون (سعر*كمية + شحن)
+           const requested = revenue + ship;
            const profit    = revenue - (costUnit*qty) - ship;
            const status    = (s.delivery_status || 'pending');
       %>
@@ -218,10 +220,14 @@
   </table>
 </div>
 
-<!-- Lightbox للصور (إن كنت مفعلّه في style العام يكفي) -->
-<div id="imgPreviewBg"></div>
-<img id="imgPreview" alt="">
-<button id="imgPreviewClose" title="إغلاق"><i class="fa fa-xmark"></i></button>
+<!-- Lightbox (صندوق عرض الصور) -->
+<div id="imgPreviewBg" style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:70"></div>
+<img id="imgPreview" alt=""
+     style="position:fixed;inset:0;margin:auto;max-width:min(92vw,900px);max-height:92vh;display:none;z-index:80;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)">
+<button id="imgPreviewClose" title="إغلاق"
+        style="position:fixed;inset:12px 12px auto auto;z-index:85;background:#fff;border:1px solid #e5e7eb;border-radius:999px;width:40px;height:40px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">
+  <i class="fa fa-xmark"></i>
+</button>
 
 <script>
   // تبديل قائمة حالة التوصيل
