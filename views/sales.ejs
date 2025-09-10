@@ -1,30 +1,91 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <div class="card">
+  <h3><i class="fa fa-cart-plus"></i> إضافة عملية بيع</h3>
+
+  <!-- نموذج الإضافة -->
+  <form method="post" action="/sales" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
+    <!-- اختيار المنتج عبر مودال -->
+    <div style="grid-column: span 2;">
+      <label>المنتج</label>
+      <div class="row" style="gap:8px">
+        <input id="productNameDisplay" placeholder="اختر منتج..." readonly style="flex:1">
+        <input type="hidden" id="productIdField" name="product_id" required>
+        <button id="openPicker" class="btn add" type="button"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
+      </div>
+
+      <!-- معاينة مصغّرة للمنتج المختار -->
+      <div id="miniPreview" class="row" style="display:none; margin-top:10px; gap:10px; align-items:center">
+        <div class="thumb" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
+          <img id="miniImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">
+        </div>
+        <div style="font-weight:700" id="miniName"></div>
+        <span class="tag">مخزون: <b id="miniStock"></b></span>
+        <span class="tag">بيع: ₪<b id="miniSale"></b></span>
+        <span class="tag">أصلي: ₪<b id="miniCost"></b></span>
+      </div>
+    </div>
+
+    <div>
+      <label>الكمية</label>
+      <input id="qtyInput" type="number" name="quantity" value="1" min="1" step="1" required>
+    </div>
+    <div>
+      <label>سعر البيع (₪)</label>
+      <input id="salePriceInput" type="number" name="sale_price" step="0.01" required>
+    </div>
+    <div>
+      <label>السعر الأصلي (₪)</label>
+      <input id="costPriceInput" type="number" name="cost_price" step="0.01" required>
+    </div>
+    <div>
+      <label>الشحن (₪)</label>
+      <input type="number" name="shipping_cost" step="0.01" value="0">
+    </div>
+
+    <div>
+      <label>اسم الزبون</label>
+      <input type="text" name="customer_name" placeholder="">
+    </div>
+    <div>
+      <label>هاتف</label>
+      <input type="text" name="customer_phone" placeholder="">
+    </div>
+    <div>
+      <label>المدينة</label>
+      <input type="text" name="customer_city" placeholder="">
+    </div>
+
+    <div style="grid-column: span 2;">
+      <label>ملاحظة (اختياري)</label>
+      <textarea name="note" rows="2" placeholder=""></textarea>
+    </div>
+
+    <div class="right" style="grid-column: span 2;">
+      <button class="btn save" type="submit"><i class="fa fa-plus"></i> إضافة بيع</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
 
-  <!-- أدوات جماعية -->
+  <!-- أدوات جماعية أعلى الجدول -->
   <div class="row" style="margin:8px 0;gap:10px;align-items:center">
     <label class="row select-all" style="gap:6px">
       <input type="checkbox" id="checkAll"> تحديد الكل
     </label>
 
-    <!-- نقل المحدد إلى الراجعات -->
-    <form method="post" action="/sales/bulk-return" id="bulkReturnForm" class="right"
+    <form method="post" action="/sales/bulk-return" id="bulkReturnForm"
           onsubmit="return confirm('نقل العمليات المحددة إلى قائمة الراجعات؟')">
       <input type="hidden" name="ids" id="bulkReturnIds">
-      <button class="btn secondary" type="submit">
-        <i class="fa fa-arrow-rotate-left"></i><span>نقل المحدد إلى الراجعات</span>
-      </button>
+      <button class="btn secondary" type="submit"><i class="fa fa-arrow-rotate-left"></i> نقل المحدد إلى الراجعات</button>
     </form>
 
-    <!-- حذف المحدد نهائيًا -->
     <form method="post" action="/sales/bulk-delete" id="bulkDeleteForm"
           onsubmit="return confirm('حذف نهائي للعمليات المحددة؟ لا يمكن التراجع.')">
       <input type="hidden" name="ids" id="bulkDeleteIds">
-      <button class="btn danger" type="submit">
-        <i class="fa fa-trash"></i><span>حذف المحدد نهائيًا</span>
-      </button>
+      <button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف المحدد نهائيًا</button>
     </form>
   </div>
 
@@ -37,16 +98,13 @@
         <th>الزبون</th>
         <th>هاتف</th>
         <th>المدينة</th>
-
         <th>كمية</th>
         <th>السعر الأصلي (₪)</th>
         <th>سعر بيع (₪)</th>
         <th>شحن (₪)</th>
-
-        <!-- ✅ المطلوب يسار الربح -->
+        <!-- المطلوب يسار الربح -->
         <th>الربح (₪)</th>
         <th>المطلوب (₪)</th>
-
         <th>التوصيل</th>
         <th>تعديل</th>
         <th>إجراء</th>
@@ -69,12 +127,12 @@
 
           <td style="text-align:right">
             <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-              <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+              <div class="thumb" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;overflow:hidden">
                 <% if (s.product_image) { %>
                   <img src="<%= s.product_image %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
                 <% } %>
               </div>
-              <div style="max-width:380px"><%= s.product_name %></div>
+              <div style="max-width:420px"><%= s.product_name %></div>
             </div>
           </td>
 
@@ -86,10 +144,8 @@
           <td>₪<%= costUnit.toFixed(2) %></td>
           <td>₪<%= price.toFixed(2) %></td>
           <td>₪<%= ship.toFixed(2) %></td>
-
-          <!-- ✅ الربح ثم المطلوب -->
           <td>₪<%= profit.toFixed(2) %></td>
-          <td><strong>₪<%= requested.toFixed(2) %></strong></td>
+          <td><b>₪<%= requested.toFixed(2) %></b></td>
 
           <td>
             <div class="status-wrap">
@@ -114,25 +170,15 @@
           </td>
 
           <td>
-            <!-- زر تعديل بشكل نظيف -->
-            <a class="btn edit" href="/sales/<%= s.id %>/edit">
-              <i class="fa fa-pen-to-square"></i><span>تعديل</span>
-            </a>
+            <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i><span>تعديل</span></a>
           </td>
 
           <td class="row" style="gap:6px;justify-content:center">
-            <!-- نقل للراجعات -->
             <form method="post" action="/sales/<%= s.id %>/return" onsubmit="return confirm('نقل العملية إلى قائمة الراجعات؟')">
-              <button class="btn secondary" type="submit">
-                <i class="fa fa-arrow-rotate-left"></i><span>نقل للراجعات</span>
-              </button>
+              <button class="btn secondary" type="submit"><i class="fa fa-arrow-rotate-left"></i><span>نقل للراجعات</span></button>
             </form>
-
-            <!-- حذف نهائي -->
             <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف نهائي؟ لا يمكن التراجع.')">
-              <button class="btn danger" type="submit">
-                <i class="fa fa-trash"></i><span>حذف نهائي</span>
-              </button>
+              <button class="btn danger" type="submit"><i class="fa fa-trash"></i><span>حذف نهائي</span></button>
             </form>
           </td>
         </tr>
@@ -142,7 +188,7 @@
   </table>
 </div>
 
-<!-- مودال اختيار المنتج (مع زر ✕) -->
+<!-- مودال شبكة اختيار المنتج (مع زر ✕) -->
 <div class="modal" id="pickerModal" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
@@ -151,9 +197,7 @@
       <div style="font-weight:800">اختيار منتج من الشبكة</div>
       <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
       <button type="button" id="pickerClose" aria-label="إغلاق"
-              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">
-        &times;
-      </button>
+              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">&times;</button>
     </div>
     <div class="mgrid" id="gridWrap">
       <% products.forEach(p=>{ %>
@@ -183,7 +227,6 @@
     const all = document.getElementById('checkAll');
     const checks = () => [...document.querySelectorAll('.rowChk')];
     if (all) all.addEventListener('change',()=>checks().forEach(c=>c.checked=all.checked));
-
     function fillHidden(){
       const ids = checks().filter(c=>c.checked).map(c=>c.value);
       document.getElementById('bulkReturnIds').value = ids.join(',');
@@ -193,7 +236,7 @@
     document.getElementById('bulkDeleteForm').addEventListener('submit', fillHidden);
   })();
 
-  // مودال الشبكة + زر ✕
+  // مودال الشبكة + زر ✕ + تعبئة الحقول
   (function(){
     const modal=document.getElementById('pickerModal');
     const open=document.getElementById('openPicker');
@@ -218,7 +261,7 @@
     }
     search.addEventListener('input',e=>filter(e.target.value));
 
-    // تعبئة الحقول بعد الاختيار (نفس منطقك)
+    // تعبئة الحقول بعد الاختيار
     const idF=document.getElementById('productIdField');
     const nameF=document.getElementById('productNameDisplay');
     const qtyI=document.getElementById('qtyInput');
@@ -242,22 +285,20 @@
       const cost=Number(card.dataset.cost||0);
       const stock=Number(card.dataset.stock||0);
 
-      if (idF) idF.value=id;
-      if (nameF) nameF.value=nm;
-      if (saleI && !saleI.value) saleI.value=sale;
-      if (costI && !costI.value) costI.value=cost;
+      idF.value=id;
+      nameF.value=nm;
+      if(!saleI.value) saleI.value=sale;
+      if(!costI.value) costI.value=cost;
 
-      if (mini){
-        mini.style.display='flex';
-        if(img){ miniImg.src=img; miniImg.style.display='block'; } else { miniImg.style.display='none'; }
-        miniName.textContent=nm;
-        miniStock.textContent=stock;
-        miniSale.textContent=sale.toFixed(2);
-        miniCost.textContent=cost.toFixed(2);
-      }
+      mini.style.display='flex';
+      if(img){ miniImg.src=img; miniImg.style.display='block'; } else { miniImg.style.display='none'; }
+      miniName.textContent=nm;
+      miniStock.textContent=stock;
+      miniSale.textContent=sale.toFixed(2);
+      miniCost.textContent=cost.toFixed(2);
 
       hide();
-      if (qtyI) qtyI.focus();
+      qtyI.focus();
     });
   })();
 

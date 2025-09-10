@@ -22,18 +22,23 @@
   <form id="reportForm" method="get" action="/reports" class="filters">
     <input type="hidden" name="range" id="rangeInput" value="<%= range || 'daily' %>">
 
-    <button type="button" id="btnDaily"   class="btn-toggle btn-on"><i class="fa fa-calendar-day"></i> تقرير يومي</button>
-    <button type="button" id="btnMonthly" class="btn-toggle btn-ghost"><i class="fa fa-calendar"></i> تقرير شهري</button>
+    <button type="button" id="btnDaily"   class="btn-toggle <%= (range||'daily')==='daily'?'btn-on':'btn-ghost' %>">
+      <i class="fa fa-calendar-day"></i> تقرير يومي
+    </button>
+    <button type="button" id="btnMonthly" class="btn-toggle <%= (range||'daily')==='monthly'?'btn-off':'btn-ghost' %>">
+      <i class="fa fa-calendar"></i> تقرير شهري
+    </button>
 
     <div>
       <label class="muted">السنة</label>
       <select name="year" id="ySel">
         <% 
-          const curY = Number(dayjs().format('YYYY'));
+          const years = (typeof years!=='undefined' && years?.length) ? years : [2024,2025,2026,2027,2028,2029,2030];
+          const curY = Number(dayjs().tz("Asia/Hebron").format('YYYY'));
           const selY = Number(selected?.year || curY);
-          for (let y = curY+1; y >= curY+5; y++) { %>
+          years.forEach(y => { %>
             <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
-        <% } %>
+        <% }) %>
       </select>
     </div>
 
@@ -41,7 +46,7 @@
       <label class="muted">الشهر</label>
       <select name="month" id="mSel">
         <% 
-          const selM = Number(selected?.month || Number(dayjs().format('MM')));
+          const selM = Number(selected?.month || Number(dayjs().tz("Asia/Hebron").format('MM')));
           for (let m=1;m<=12;m++){ %>
             <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
         <% } %>
@@ -52,7 +57,7 @@
       <label class="muted">اليوم</label>
       <select name="day" id="dSel">
         <% 
-          const selD = Number(selected?.day || Number(dayjs().format('DD')));
+          const selD = Number(selected?.day || Number(dayjs().tz("Asia/Hebron").format('DD')));
           for (let d=1; d<=31; d++){ %>
             <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
         <% } %>
@@ -65,21 +70,20 @@
   <div class="cards">
     <div class="kpi">
       <div class="muted">الإيراد</div>
-      <div style="font-size:28px;font-weight:800">₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %></div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %>
+      </div>
     </div>
     <div class="kpi">
       <div class="muted">التكاليف</div>
       <div style="font-size:28px;font-weight:800">
-        ₪<%=
-          (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2)
-        %>
+        ₪<%= (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2) %>
       </div>
     </div>
     <div class="kpi">
       <div class="muted">الربح</div>
       <div style="font-size:28px;font-weight:800">
-        ₪<%=
-          (rows||[]).reduce((a,s)=>{
+        ₪<%= (rows||[]).reduce((a,s)=>{
             const revenue = Number(s.sale_price)*Number(s.quantity);
             const cost    = Number(s.cost_price)*Number(s.quantity) + Number(s.shipping_cost||0);
             return a + (revenue - cost);
@@ -116,7 +120,7 @@
         const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
     %>
       <tr>
-        <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
+        <td><%= dayjs(s.sold_at).tz("Asia/Hebron").format('YYYY-MM-DD hh:mm A') %></td>
         <td class="right">
           <% if (s.product_image) { %>
             <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">

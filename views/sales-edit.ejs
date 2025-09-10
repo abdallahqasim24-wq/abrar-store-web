@@ -1,54 +1,84 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <div class="card">
-  <h3><i class="fa fa-pen-to-square"></i> تعديل عملية #<%= sale.id %></h3>
+  <h3><i class="fa fa-pen-to-square"></i> تعديل عملية بيع</h3>
 
-  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid">
-    <div style="grid-column:1/-1" class="row">
-      <button type="button" class="btn add" id="openPicker"><i class="fa fa-grid-2"></i> اختر منتج</button>
-      <div class="muted">الحقل الحالي: <strong><%= sale.product_name %></strong></div>
+  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
+    <div style="grid-column: span 2;">
+      <label>المنتج</label>
+      <div class="row" style="gap:8px">
+        <input id="productNameDisplay" value="<%= sale.product_name %>" readonly style="flex:1">
+        <input type="hidden" id="productIdField" name="product_id" value="<%= sale.product_id %>">
+        <button id="openPicker" class="btn add" type="button"><i class="fa fa-grid-2"></i> تغيير المنتج</button>
+      </div>
+
+      <div id="miniPreview" class="row" style="display:flex; margin-top:10px; gap:10px; align-items:center">
+        <div class="thumb" style="width:56px;height:56px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
+          <% if (sale.product_image) { %>
+            <img id="miniImg" src="<%= sale.product_image %>" alt="" style="width:100%;height:100%;object-fit:cover">
+          <% } else { %>
+            <img id="miniImg" src="" alt="" style="display:none">
+          <% } %>
+        </div>
+        <div id="miniName" style="font-weight:700"><%= sale.product_name %></div>
+        <span class="tag">مخزون: <b id="miniStock"><%= productStock || 0 %></b></span>
+        <span class="tag">بيع: ₪<b id="miniSale"><%= Number(sale.sale_price||0).toFixed(2) %></b></span>
+        <span class="tag">أصلي: ₪<b id="miniCost"><%= Number(sale.cost_price||0).toFixed(2) %></b></span>
+      </div>
     </div>
-
-    <input type="hidden" name="product_id" id="productIdField" value="<%= sale.product_id %>">
 
     <div>
-      <label>اسم المنتج (للعرض)</label>
-      <input id="productNameDisplay" value="<%= sale.product_name %>" disabled/>
+      <label>الكمية</label>
+      <input id="qtyInput" type="number" name="quantity" value="<%= sale.quantity %>" min="1" step="1" required>
     </div>
-
-    <div><label>كمية</label><input type="number" name="quantity" value="<%= sale.quantity %>" step="1" required></div>
-    <div><label>سعر البيع</label><input type="number" name="sale_price" value="<%= Number(sale.sale_price) %>" step="0.01"></div>
-    <div><label>السعر الأصلي</label><input type="number" name="cost_price" value="<%= Number(sale.cost_price) %>" step="0.01"></div>
-    <div><label>تكلفة الشحن +₪</label><input type="number" name="shipping_cost" value="<%= Number(sale.shipping_cost||0) %>" step="0.01"></div>
-    <div><label>ملاحظة</label><input name="note" value="<%- sale.note||'' %>"></div>
-
-    <div><label>اسم الزبون</label><input name="customer_name" value="<%- sale.customer_name||'' %>"></div>
-    <div><label>رقم الهاتف</label><input name="customer_phone" value="<%- sale.customer_phone||'' %>"></div>
-    <div><label>المدينة/المنطقة</label><input name="customer_city" value="<%- sale.customer_city||'' %>"></div>
+    <div>
+      <label>سعر البيع (₪)</label>
+      <input id="salePriceInput" type="number" name="sale_price" step="0.01" value="<%= sale.sale_price %>" required>
+    </div>
+    <div>
+      <label>السعر الأصلي (₪)</label>
+      <input id="costPriceInput" type="number" name="cost_price" step="0.01" value="<%= sale.cost_price %>" required>
+    </div>
+    <div>
+      <label>الشحن (₪)</label>
+      <input type="number" name="shipping_cost" step="0.01" value="<%= sale.shipping_cost||0 %>">
+    </div>
 
     <div>
-      <label>حالة التوصيل</label>
-      <select name="delivery_status">
-        <option value="pending"   <%= sale.delivery_status==='pending'?'selected':'' %>>قيد المعالجة</option>
-        <option value="shipping"  <%= sale.delivery_status==='shipping'?'selected':'' %>>قيد التوصيل</option>
-        <option value="delivered" <%= sale.delivery_status==='delivered'?'selected':'' %>>تم التسليم</option>
-        <option value="failed"    <%= sale.delivery_status==='failed'?'selected':'' %>>فشل/لم يتم</option>
-      </select>
+      <label>اسم الزبون</label>
+      <input type="text" name="customer_name" value="<%= sale.customer_name||'' %>">
+    </div>
+    <div>
+      <label>هاتف</label>
+      <input type="text" name="customer_phone" value="<%= sale.customer_phone||'' %>">
+    </div>
+    <div>
+      <label>المدينة</label>
+      <input type="text" name="customer_city" value="<%= sale.customer_city||'' %>">
     </div>
 
-    <div class="right"></div>
-    <div class="row right"><button class="btn save"><i class="fa fa-check"></i> حفظ</button></div>
+    <div style="grid-column: span 2;">
+      <label>ملاحظة</label>
+      <textarea name="note" rows="2"><%= sale.note||'' %></textarea>
+    </div>
+
+    <div class="right" style="grid-column: span 2;">
+      <a href="/sales" class="btn secondary"><i class="fa fa-arrow-right"></i> رجوع</a>
+      <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ</button>
+    </div>
   </form>
 </div>
 
-<!-- مودال شبكة (نفس مبدأ sales) -->
+<!-- مودال اختيار المنتج (نفس sales) -->
 <div class="modal" id="pickerModal" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
-    <div class="mhead">
+    <div class="mhead" style="position:relative">
       <i class="fa fa-grid-2"></i>
       <div style="font-weight:800">اختيار منتج</div>
       <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
+      <button type="button" id="pickerClose" aria-label="إغلاق"
+              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">&times;</button>
     </div>
     <div class="mgrid" id="gridWrap">
       <% products.forEach(p=>{ %>
@@ -56,12 +86,14 @@
              data-name="<%- p.name %>"
              data-img="<%= p.image_path||'' %>"
              data-sale="<%= Number(p.sale_price||0) %>"
-             data-cost="<%= Number(p.cost_price||0) %>">
+             data-cost="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= Number(p.stock||0) %>">
           <img src="<%= p.image_path||'' %>" alt="">
           <div class="name"><%= p.name %></div>
           <div style="text-align:center">
             <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
             <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
           </div>
           <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
         </div>
@@ -72,33 +104,50 @@
 
 <script>
   (function(){
+    // مودال
     const modal=document.getElementById('pickerModal');
     const open=document.getElementById('openPicker');
     const bg=modal.querySelector('.modal-bg');
+    const closeBtn=document.getElementById('pickerClose');
     const search=document.getElementById('searchBox');
     const cards=[...modal.querySelectorAll('.pcard')];
-
-    function show(){modal.style.display='block';search.focus()}
-    function hide(){modal.style.display='none';search.value='';filter('')}
-    open.addEventListener('click',show); bg.addEventListener('click',hide);
+    function show(){ modal.style.display='block'; search.focus(); }
+    function hide(){ modal.style.display='none'; search.value=''; filter(''); }
+    if (open) open.addEventListener('click',show);
+    bg.addEventListener('click',hide);
+    closeBtn.addEventListener('click',hide);
     document.addEventListener('keydown',e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
-
-    function filter(q){
-      const s=(q||'').trim().toLowerCase();
-      cards.forEach(c=>{c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none';});
-    }
+    function filter(q){ const s=(q||'').trim().toLowerCase(); cards.forEach(c=>c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'); }
     search.addEventListener('input',e=>filter(e.target.value));
 
-    function pick(card){
-      const id=card.dataset.id, name=card.dataset.name, sale=Number(card.dataset.sale||0), cost=Number(card.dataset.cost||0);
-      document.getElementById('productIdField').value=id;
-      document.getElementById('productNameDisplay').value=name;
-      document.querySelector('input[name="sale_price"]').value=sale.toFixed(2);
-      document.querySelector('input[name="cost_price"]').value=Math.max(cost,0).toFixed(2);
-      hide();
-    }
+    // تعبئة
+    const idF=document.getElementById('productIdField');
+    const nameF=document.getElementById('productNameDisplay');
+    const saleI=document.getElementById('salePriceInput');
+    const costI=document.getElementById('costPriceInput');
+
+    const mini=document.getElementById('miniPreview');
+    const miniImg=document.getElementById('miniImg');
+    const miniName=document.getElementById('miniName');
+    const miniStock=document.getElementById('miniStock');
+    const miniSale=document.getElementById('miniSale');
+    const miniCost=document.getElementById('miniCost');
+
     modal.addEventListener('click',e=>{
-      const b=e.target.closest('.pickBtn'); if(b) pick(b.closest('.pcard'));
+      const btn=e.target.closest('.pickBtn'); if(!btn) return;
+      const card=btn.closest('.pcard');
+      idF.value=card.dataset.id;
+      nameF.value=card.dataset.name;
+
+      const img=card.dataset.img||'';
+      mini.style.display='flex';
+      if(img){ miniImg.src=img; miniImg.style.display='block'; } else { miniImg.style.display='none'; }
+      miniName.textContent=card.dataset.name;
+      miniStock.textContent=Number(card.dataset.stock||0);
+      const sale=Number(card.dataset.sale||0), cost=Number(card.dataset.cost||0);
+      if(!saleI.value) saleI.value=sale; miniSale.textContent=sale.toFixed(2);
+      if(!costI.value) costI.value=cost; miniCost.textContent=cost.toFixed(2);
+      hide();
     });
   })();
 </script>
