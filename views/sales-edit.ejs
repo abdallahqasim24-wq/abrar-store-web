@@ -1,79 +1,245 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
-<div class="card">
-  <h3><i class="fa fa-pen-to-square"></i> تعديل عملية بيع #<%= sale.id %></h3>
+<style>
+  .pick-preview{
+    display:flex; align-items:center; gap:12px;
+    border:1px dashed var(--border); background:#fff;
+    border-radius:14px; padding:10px 12px; min-height:84px;
+  }
+  .pick-preview .thumb{ width:84px; height:84px; border-radius:12px; object-fit:cover; border:1px solid var(--border) }
+  .pick-preview .meta{ line-height:1.35 }
+  .pick-preview .meta .name{ font-weight:800 }
+  .pick-preview .tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; border:1px solid var(--border); background:#fff7fb; margin-inline-end:6px }
 
-  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid">
+  /* منتقي المنتجات */
+  .pp-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:80}
+  .pp-modal{position:fixed; inset:30px; background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:none; z-index:90; padding:14px; overflow:hidden}
+  .pp-head{display:flex; gap:10px; align-items:center; margin-bottom:8px}
+  .pp-search{flex:1; display:flex; gap:8px}
+  .pp-search input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:12px}
+  .pp-close{background:#fff; border:1px solid var(--border); border-radius:10px; padding:8px 10px; cursor:pointer}
+  .pp-grid{height:calc(100% - 56px); overflow:auto; padding:6px}
+  .pp-cards{display:grid; grid-template-columns:repeat(5,minmax(220px,1fr)); gap:14px}
+  @media (max-width:1200px){.pp-cards{grid-template-columns:repeat(4,minmax(220px,1fr))}}
+  @media (max-width:900px){.pp-cards{grid-template-columns:repeat(2,minmax(220px,1fr))}}
+  @media (max-width:600px){.pp-cards{grid-template-columns:1fr}}
+  .pp-card{border:1px solid var(--border); border-radius:16px; padding:10px; background:#fff}
+  .pp-card img{width:100%; height:160px; object-fit:cover; border-radius:12px; border:1px solid var(--border)}
+  .pp-title{font-weight:800; margin:8px 0; text-align:center}
+  .pp-tags{display:flex; gap:8px; flex-wrap:wrap; justify-content:center}
+  .pp-tag{border:1px solid var(--border); padding:4px 8px; border-radius:999px; font-size:.85rem; background:#fff7fb}
+  .pp-foot{display:flex; justify-content:space-between; align-items:center; margin-top:8px}
+  .pp-pick{background:var(--primary); color:#fff; border:0; padding:8px 12px; border-radius:10px; cursor:pointer}
+  .pp-id{color:#6b7280; font-size:.85rem}
+</style>
+
+<div class="card">
+  <h3><i class="fa fa-pen"></i> تعديل عملية بيع</h3>
+
+  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid" id="saleForm">
     <div>
       <label>المنتج</label>
-      <select name="product_id" required>
-        <% products.forEach(p => { %>
-          <option value="<%= p.id %>" <%= p.id===sale.product_id ? 'selected':'' %>>
-            <%= p.name %> (مخزون: <%= p.stock %>)
-          </option>
-        <% }) %>
-      </select>
+      <div class="row" style="gap:8px">
+        <select name="product_id" id="prodSelect" required style="min-width:260px">
+          <% products.forEach(p=> { %>
+            <option
+              value="<%= p.id %>"
+              data-name="<%- p.name %>"
+              data-img="<%= p.image_path || '' %>"
+              data-sale="<%= Number(p.sale_price) %>"
+              data-cost="<%= Number(p.cost_price) %>"
+              data-stock="<%= Number(p.stock) %>"
+              <%= p.id===sale.product_id ? 'selected' : '' %>
+            >
+              <%= p.name %> (مخزون: <%= p.stock %>)
+            </option>
+          <% }) %>
+        </select>
+        <button type="button" class="btn edit" id="btnOpenPicker"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
+      </div>
     </div>
 
-    <div><label>كمية</label>
-      <input type="number" name="quantity" value="<%= sale.quantity %>" step="1" required/>
+    <div>
+      <label>كمية</label>
+      <input type="number" id="qtyInput" name="quantity" value="<%= sale.quantity %>" step="1" required/>
     </div>
 
-    <div><label>سعر البيع (₪)</label>
-      <input type="number" name="sale_price" step="0.01" value="<%= Number(sale.sale_price).toFixed(2) %>"/>
+    <div>
+      <label>سعر البيع</label>
+      <input type="number" id="salePriceInput" name="sale_price" step="0.01" value="<%= Number(sale.sale_price) %>" />
     </div>
 
-    <div><label>السعر الأصلي (₪)</label>
-      <input type="number" name="cost_price" step="0.01" value="<%= Number(sale.cost_price).toFixed(2) %>"/>
+    <div>
+      <label>السعر الأصلي</label>
+      <input type="number" id="costPriceInput" name="cost_price" step="0.01" value="<%= Number(sale.cost_price) %>" />
     </div>
 
-    <div><label>الشحن (₪)</label>
-      <input type="number" name="shipping_cost" step="0.01" value="<%= Number(sale.shipping_cost||0).toFixed(2) %>"/>
+    <div>
+      <label>تكلفة الشحن +₪</label>
+      <input type="number" name="shipping_cost" step="0.01" value="<%= Number(sale.shipping_cost||0) %>"/>
     </div>
 
-    <div><label>ملاحظة</label>
-      <input type="text" name="note" value="<%= sale.note || '' %>"/>
+    <div>
+      <label>ملاحظة</label>
+      <input type="text" name="note" value="<%- sale.note || '' %>"/>
     </div>
 
-    <div><label>اسم الزبون</label>
-      <input type="text" name="customer_name" value="<%= sale.customer_name || '' %>"/>
+    <div>
+      <label>اسم الزبون</label>
+      <input type="text" name="customer_name" value="<%- sale.customer_name||'' %>" />
     </div>
-
-    <div><label>هاتف</label>
-      <input type="tel" name="customer_phone" value="<%= sale.customer_phone || '' %>"/>
+    <div>
+      <label>رقم الهاتف</label>
+      <input type="tel" name="customer_phone" value="<%- sale.customer_phone||'' %>" />
     </div>
-
-    <div><label>المدينة</label>
-      <input type="text" name="customer_city" value="<%= sale.customer_city || '' %>"/>
+    <div>
+      <label>المدينة/المنطقة</label>
+      <input type="text" name="customer_city" value="<%- sale.customer_city||'' %>" />
     </div>
 
     <div>
       <label>حالة التوصيل</label>
       <select name="delivery_status">
-        <option value="pending"   <%= sale.delivery_status==='pending'?'selected':'' %>>قيد المعالجة</option>
-        <option value="shipping"  <%= sale.delivery_status==='shipping'?'selected':'' %>>قيد التوصيل</option>
+        <option value="pending"   <%= sale.delivery_status==='pending'?'selected':'' %>  >قيد المعالجة</option>
+        <option value="shipping"  <%= sale.delivery_status==='shipping'?'selected':'' %> >قيد التوصيل</option>
         <option value="delivered" <%= sale.delivery_status==='delivered'?'selected':'' %>>تم التسليم</option>
-        <option value="failed"    <%= sale.delivery_status==='failed'?'selected':'' %>>فشل/لم يتم</option>
+        <option value="failed"    <%= sale.delivery_status==='failed'?'selected':'' %>   >فشل/لم يتم</option>
       </select>
     </div>
 
+    <!-- معاينة المنتج المختار -->
+    <div style="grid-column:1 / -1">
+      <div id="pickPreview" class="pick-preview">
+        <img id="pickImg" class="thumb js-img" src="<%= sale.product_image || '' %>" alt="">
+        <div class="meta">
+          <div class="name" id="pickName"><%= sale.product_name %></div>
+          <div class="muted-sm">
+            <span class="tag">المخزون: <span id="pickStock">—</span></span>
+            <span class="tag">بيع: ₪<span id="pickSale"><%= Number(sale.sale_price).toFixed(2) %></span></span>
+            <span class="tag">أصلي: ₪<span id="pickCost"><%= Number(sale.cost_price).toFixed(2) %></span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="right"></div>
-    <div class="row right" style="gap:8px">
-      <a class="btn" href="/sales"><i class="fa fa-arrow-right"></i> إلغاء</a>
+    <div class="row right">
+      <a href="/sales" class="btn danger"><i class="fa fa-xmark"></i> إلغاء</a>
       <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ</button>
     </div>
   </form>
 </div>
 
-<div class="card" style="margin-top:12px">
-  <h3><i class="fa fa-box-open"></i> المنتج الحالي</h3>
-  <div class="row" style="align-items:center; gap:12px">
-    <% if (sale.product_image) { %>
-      <img src="<%= sale.product_image %>" class="thumb" style="width:90px;height:90px" />
-    <% } %>
-    <div>
-      <div><b><%= sale.product_name %></b></div>
-      <div>سعر البيع: ₪<%= Number(sale.sale_price).toFixed(2) %> — الكمية: <%= sale.quantity %></div>
+<!-- منتقي المنتجات -->
+<div class="pp-backdrop" id="ppBg"></div>
+<div class="pp-modal" id="ppModal" role="dialog" aria-modal="true" aria-label="منتقي المنتجات">
+  <div class="pp-head">
+    <div class="pp-search">
+      <i class="fa fa-magnifying-glass" style="align-self:center"></i>
+      <input type="search" id="ppSearch" placeholder="ابحث باسم المنتج…">
     </div>
+    <button class="pp-close" id="ppClose"><i class="fa fa-xmark"></i> إغلاق</button>
+  </div>
+  <div class="pp-grid">
+    <div class="pp-cards" id="ppCards"></div>
   </div>
 </div>
+
+<script>
+  // بيانات المنتجات للمودال
+  window.PRODUCTS = <%- JSON.stringify(products || []) %>;
+
+  // المعاينة وتعبئة الحقول
+  (function(){
+    const sel   = document.getElementById('prodSelect');
+    const qty   = document.getElementById('qtyInput');
+    const saleI = document.getElementById('salePriceInput');
+    const costI = document.getElementById('costPriceInput');
+
+    const box   = document.getElementById('pickPreview');
+    const img   = document.getElementById('pickImg');
+    const name  = document.getElementById('pickName');
+    const stock = document.getElementById('pickStock');
+    const saleV = document.getElementById('pickSale');
+    const costV = document.getElementById('pickCost');
+
+    function fillFromOption(opt){
+      const pImg   = opt.getAttribute('data-img') || '';
+      const pName  = opt.getAttribute('data-name') || '';
+      const pSale  = Number(opt.getAttribute('data-sale') || 0);
+      const pCost  = Number(opt.getAttribute('data-cost') || 0);
+      const pStock = Number(opt.getAttribute('data-stock')|| 0);
+
+      if (pImg) img.src = pImg; else img.removeAttribute('src');
+      name.textContent  = pName;
+      stock.textContent = pStock.toLocaleString('en-US');
+      saleV.textContent = pSale.toFixed(2);
+      costV.textContent = pCost.toFixed(2);
+
+      saleI.value = pSale.toFixed(2);
+      costI.value = pCost.toFixed(2);
+      if (!qty.value || Number(qty.value) <= 0) qty.value = 1;
+    }
+
+    sel.addEventListener('change', ()=> {
+      const opt = sel.options[sel.selectedIndex];
+      if (opt && opt.value) fillFromOption(opt);
+    });
+
+    if (sel.value) fillFromOption(sel.options[sel.selectedIndex]);
+  })();
+
+  // منتقي المنتجات الشبكي (لا يفتح تلقائياً)
+  (function(){
+    const bg   = document.getElementById('ppBg');
+    const mod  = document.getElementById('ppModal');
+    const cards= document.getElementById('ppCards');
+    const search = document.getElementById('ppSearch');
+    const btnOpen = document.getElementById('btnOpenPicker');
+    const btnClose= document.getElementById('ppClose');
+    const sel = document.getElementById('prodSelect');
+
+    function open(){ bg.style.display='block'; mod.style.display='block'; search.focus(); render(); }
+    function close(){ bg.style.display='none'; mod.style.display='none'; }
+
+    btnOpen.addEventListener('click', open);
+    btnClose.addEventListener('click', close);
+    bg.addEventListener('click', close);
+    window.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+
+    function render(){
+      const q = (search.value||'').trim().toLowerCase();
+      const data = (window.PRODUCTS||[]).filter(p => !q || String(p.name).toLowerCase().includes(q));
+      cards.innerHTML = '';
+      data.forEach(p=>{
+        const div = document.createElement('div');
+        div.className='pp-card';
+        div.innerHTML = `
+          <img src="${p.image_path||''}" alt="">
+          <div class="pp-title">${p.name}</div>
+          <div class="pp-tags">
+            <span class="pp-tag">بيع: ₪${Number(p.sale_price).toFixed(2)}</span>
+            <span class="pp-tag">أصلي: ₪${Number(p.cost_price).toFixed(2)}</span>
+            <span class="pp-tag">مخزون: ${Number(p.stock||0)}</span>
+          </div>
+          <div class="pp-foot">
+            <span class="pp-id">ID: ${p.id}</span>
+            <button class="pp-pick" data-id="${p.id}"><i class="fa fa-check"></i> اختيار</button>
+          </div>
+        `;
+        cards.appendChild(div);
+      });
+    }
+
+    search.addEventListener('input', render);
+
+    cards.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.pp-pick');
+      if(!btn) return;
+      const id = Number(btn.getAttribute('data-id'));
+      const opt = Array.from(sel.options).find(o => Number(o.value)===id);
+      if (opt){ sel.value = String(id); sel.dispatchEvent(new Event('change')); }
+      close();
+    });
+  })();
+</script>

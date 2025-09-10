@@ -24,52 +24,48 @@
   <!-- نموذج الحذف الجماعي -->
   <form id="bulkForm" method="post" action="/products/bulk-delete"></form>
 
-  <table id="prodTable">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="selectAll"></th>
-        <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
-        <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% products.forEach(p=> { %>
+  <div class="table-scroll">
+    <table id="prodTable">
+      <thead>
         <tr>
-          <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck" form="bulkForm"></td>
-          <td>
-            <% if (p.image_path) { %>
-              <img src="<%= p.image_path %>" class="thumb" alt="<%= p.name %>">
-            <% } else { %> — <% } %>
-          </td>
-          <td><%= p.name %></td>
-          <td><%= p.brand || '—' %></td>
-          <td><%= p.category || '—' %></td>
-          <td>₪<%= Number(p.cost_price).toFixed(2) %></td>
-          <td>₪<%= Number(p.sale_price).toFixed(2) %></td>
-          <td><%= p.stock %></td>
-          <td class="row" style="gap:6px">
-            <form method="post" action="/products/<%= p.id %>/stock" class="row" style="gap:6px">
-              <input type="number" name="delta" value="1" step="1" style="width:80px"/>
-              <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
-            </form>
-
-            <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'>
-              <i class="fa fa-pen"></i> تعديل
-            </button>
-
-            <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')" class="row">
-              <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-            </form>
-          </td>
+          <th><input type="checkbox" id="selectAll"></th>
+          <th>الصورة</th><th>الاسم</th><th>الماركة</th><th>التصنيف</th>
+          <th>شراء</th><th>بيع</th><th>المخزون</th><th>إجراءات</th>
         </tr>
-      <% }) %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% products.forEach(p=> { %>
+          <tr>
+            <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck" form="bulkForm"></td>
+            <td>
+              <% if (p.image_path) { %>
+                <img src="<%= p.image_path %>" class="thumb js-img" alt="<%= p.name %>">
+              <% } else { %> — <% } %>
+            </td>
+            <td><%= p.name %></td>
+            <td><%= p.brand || '—' %></td>
+            <td><%= p.category || '—' %></td>
+            <td>₪<%= Number(p.cost_price).toFixed(2) %></td>
+            <td>₪<%= Number(p.sale_price).toFixed(2) %></td>
+            <td><%= p.stock %></td>
+            <td class="row" style="gap:6px">
+              <form method="post" action="/products/<%= p.id %>/stock" class="row" style="gap:6px">
+                <input type="number" name="delta" value="1" step="1" style="width:80px"/>
+                <button class="btn save" type="submit"><i class="fa fa-boxes-stacked"></i> +/- مخزون</button>
+              </form>
+              <button class="btn edit" type="button" onclick='openEdit(<%- JSON.stringify(p) %>)'><i class="fa fa-pen"></i> تعديل</button>
+              <form method="post" action="/products/<%= p.id %>/delete" onsubmit="return confirm("حذف المنتج؟")" class="row">
+                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
 
   <div class="row right" style="margin-top:10px">
-    <button class="btn danger" type="submit" form="bulkForm">
-      <i class="fa fa-trash"></i> حذف المحدد
-    </button>
+    <button class="btn danger" type="submit" form="bulkForm"><i class="fa fa-trash"></i> حذف المحدد</button>
   </div>
 </div>
 
