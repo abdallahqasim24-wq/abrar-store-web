@@ -1,46 +1,21 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>تسجيل الدخول</title>
-  <link rel="stylesheet" href="/public/style.css"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-</head>
-<body style="background:var(--bg)">
-  <main class="container page" style="display:flex;justify-content:center;align-items:center;min-height:75vh">
-    <form class="card" method="post" action="/login"
-          style="max-width:420px;width:100%;padding:22px" autocomplete="off">
-      <h2 style="margin-top:0"><i class="fa fa-lock"></i> تسجيل الدخول</h2>
-      <p style="margin-top:0;color:var(--muted)">ادخل اسم المستخدم وكلمة المرور للمتابعة</p>
-
-      <% if (typeof error !== 'undefined' && error) { %>
-        <div class="card" style="background:#fff0f0;border-color:#fda4af;color:#b91c1c;margin:8px 0">
-          <i class="fa fa-triangle-exclamation"></i> <%= error %>
-        </div>
-      <% } %>
-
-      <input type="hidden" name="next" value="<%= next || '/' %>"/>
-
-      <div style="margin-bottom:10px">
-        <label>اسم المستخدم</label>
-        <input name="username" placeholder="username"
-               autocomplete="off" autocapitalize="none" spellcheck="false" required />
-      </div>
-
-      <div style="margin-bottom:10px">
-        <label>كلمة المرور</label>
-        <input name="password" type="password" placeholder="••••••••"
-               autocomplete="new-password" required />
-      </div>
-
-      <button class="btn save" style="width:100%">
-        <i class="fa fa-right-to-bracket"></i> دخول
-      </button>
-    </form>
-  </main>
-
-  <footer class="container foot">© <span id="y"></span> Abrar Store</footer>
-  <script>document.getElementById('y').textContent = new Date().getFullYear();</script>
-</body>
-</html>
+<div class="card" style="max-width:520px;margin:40px auto">
+  <h3><i class="fa fa-right-to-bracket"></i> تسجيل الدخول</h3>
+  <% if (error) { %>
+    <div class="card" style="background:#fff3f3;border-color:#fca5a5;margin-bottom:10px;color:#991b1b">
+      <%= error %>
+    </div>
+  <% } %>
+  <form method="post" action="/login" class="form-grid">
+    <input type="hidden" name="next" value="<%= next %>"/>
+    <div>
+      <label>اسم المستخدم</label>
+      <input name="username" value="<%= usernamePrefill %>" required />
+    </div>
+    <div>
+      <label>كلمة المرور</label>
+      <input type="password" name="password" required />
+    </div>
+    <div class="right"></div>
+    <div class="row right"><button class="btn save"><i class="fa fa-check"></i> دخول</button></div>
+  </form>
+</div>

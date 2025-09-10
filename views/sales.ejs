@@ -1,353 +1,276 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
-<style>
-  /* معاينة المنتج المختار */
-  .pick-preview{display:flex;align-items:center;gap:12px;border:1px dashed var(--border);background:#fff;border-radius:14px;padding:10px 12px;min-height:84px}
-  .pick-preview .thumb{width:84px;height:84px;border-radius:12px;object-fit:cover;border:1px solid var(--border)}
-  .pick-preview .meta{line-height:1.35}
-  .pick-preview .meta .name{font-weight:800}
-  .pick-preview .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.8rem;border:1px solid var(--border);background:#fff7fb;margin-inline-end:6px}
-  .muted-sm{color:#6b7280;font-size:.85rem}
-
-  /* منتقي المنتجات (مودال الشبكة) */
-  .pp-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:80}
-  .pp-modal{position:fixed;inset:30px;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:none;z-index:90;padding:14px;overflow:hidden}
-  .pp-head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
-  .pp-search{flex:1;display:flex;gap:8px}
-  .pp-search input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px}
-  .pp-close{background:#fff;border:1px solid var(--border);border-radius:10px;padding:8px 10px;cursor:pointer}
-  .pp-grid{height:calc(100% - 56px);overflow:auto;padding:6px}
-  .pp-cards{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:14px}
-  @media (max-width:1200px){.pp-cards{grid-template-columns:repeat(4,minmax(220px,1fr))}}
-  @media (max-width:900px){.pp-cards{grid-template-columns:repeat(2,minmax(220px,1fr))}}
-  @media (max-width:600px){.pp-cards{grid-template-columns:1fr}}
-  .pp-card{border:1px solid var(--border);border-radius:16px;padding:10px;background:#fff}
-  .pp-card img{width:100%;height:160px;object-fit:cover;border-radius:12px;border:1px solid var(--border)}
-  .pp-title{font-weight:800;margin:8px 0;text-align:center}
-  .pp-tags{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  .pp-tag{border:1px solid var(--border);padding:4px 8px;border-radius:999px;font-size:.85rem;background:#fff7fb}
-  .pp-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-  .pp-pick{background:var(--primary);color:#fff;border:0;padding:8px 12px;border-radius:10px;cursor:pointer}
-  .pp-id{color:#6b7280;font-size:.85rem}
-
-  /* جدول المبيعات */
-  .table-scroll{overflow:auto}
-  .prod-cell{display:flex;align-items:center;gap:10px;justify-content:flex-start}
-  .prod-cell .thumb{width:64px;height:64px;flex:0 0 64px;border-radius:12px;object-fit:cover;border:1px solid var(--border)}
-  .select-all{display:inline-flex;align-items:center;gap:6px}
-  .bulk-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;margin:10px 0}
-</style>
-
-<!-- ========== إنشاء بيع جديد (مع منتقي الشبكة) ========== -->
 <div class="card">
   <h3><i class="fa fa-cart-plus"></i> تسجيل عملية بيع</h3>
 
   <form method="post" action="/sales" class="form-grid" id="saleForm">
-    <input type="hidden" name="product_id" id="productId" required>
+    <div style="grid-column:1/-1" class="row">
+      <button type="button" class="btn add" id="openPicker"><i class="fa fa-grid-2"></i> اختر من الشبكة</button>
+      <div class="muted">اختر بطاقة منتج من الشبكة وسيتم تعبئة الحقول تلقائيًا.</div>
+    </div>
 
-    <div style="grid-column:1 / -1">
-      <label>المنتج</label>
-      <div class="row" style="gap:8px">
-        <button type="button" class="btn edit" id="btnOpenPicker"><i class="fa fa-grid-2"></i> اختيار المنتج من الشبكة</button>
-      </div>
-      <div id="pickPreview" class="pick-preview" style="display:none; margin-top:10px">
-        <img id="pickImg" class="thumb js-img" alt="">
-        <div class="meta">
-          <div class="name" id="pickName"></div>
-          <div class="muted-sm">
-            <span class="tag">المخزون: <span id="pickStock">0</span></span>
-            <span class="tag">بيع: ₪<span id="pickSale">0.00</span></span>
-            <span class="tag">أصلي: ₪<span id="pickCost">0.00</span></span>
+    <input type="hidden" name="product_id" id="productIdField">
+
+    <div>
+      <label>اسم المنتج (يمتلئ تلقائيًا)</label>
+      <input id="productNameDisplay" disabled placeholder="— لم يتم الاختيار بعد —" />
+    </div>
+
+    <div>
+      <label>كمية</label>
+      <input type="number" id="qtyInput" name="quantity" value="1" step="1" required/>
+    </div>
+
+    <div>
+      <label>سعر البيع</label>
+      <input type="number" id="salePriceInput" name="sale_price" step="0.01" />
+    </div>
+
+    <div>
+      <label>السعر الأصلي</label>
+      <input type="number" id="costPriceInput" name="cost_price" step="0.01" />
+    </div>
+
+    <div>
+      <label>تكلفة الشحن +₪</label>
+      <input type="number" name="shipping_cost" step="0.01"/>
+    </div>
+
+    <div>
+      <label>ملاحظة</label>
+      <input type="text" name="note"/>
+    </div>
+
+    <!-- معلومات الزبون -->
+    <div><label>اسم الزبون</label><input type="text" name="customer_name" /></div>
+    <div><label>رقم الهاتف</label><input type="tel" name="customer_phone" /></div>
+    <div><label>المدينة/المنطقة</label><input type="text" name="customer_city" /></div>
+
+    <!-- معاينة مختصرة -->
+    <div style="grid-column:1/-1">
+      <div id="miniPreview" class="row" style="gap:12px;display:none">
+        <img id="miniImg" class="thumb js-img" alt="">
+        <div class="muted-sm">
+          <div style="font-weight:800" id="miniName"></div>
+          <div>
+            <span class="tag">مخزون: <span id="miniStock">0</span></span>
+            <span class="tag">بيع: ₪<span id="miniSale">0.00</span></span>
+            <span class="tag">أصلي: ₪<span id="miniCost">0.00</span></span>
           </div>
         </div>
       </div>
     </div>
-
-    <div><label>كمية</label><input type="number" id="qtyInput" name="quantity" value="1" step="1" required/></div>
-    <div><label>سعر البيع</label><input type="number" id="salePriceInput" name="sale_price" step="0.01"/></div>
-    <div><label>السعر الأصلي</label><input type="number" id="costPriceInput" name="cost_price" step="0.01"/></div>
-    <div><label>تكلفة الشحن +₪</label><input type="number" name="shipping_cost" step="0.01"/></div>
-    <div><label>ملاحظة</label><input type="text" name="note"/></div>
-
-    <div><label>اسم الزبون</label><input type="text" name="customer_name"/></div>
-    <div><label>رقم الهاتف</label><input type="tel" name="customer_phone"/></div>
-    <div><label>المدينة/المنطقة</label><input type="text" name="customer_city"/></div>
 
     <div class="right"></div>
     <div class="row right"><button class="btn save"><i class="fa fa-check"></i> تسجيل</button></div>
   </form>
 </div>
 
-<!-- ========== سجل المبيعات ========== -->
+<!-- سجل المبيعات -->
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
 
-  <!-- شريط الإجراءات الجماعية -->
-  <div class="bulk-bar">
-    <form id="bulkForm" method="post" action="/sales/bulk-return" class="row" style="gap:8px">
-      <span class="select-all">
-        <input type="checkbox" id="selectAll">
-        <label for="selectAll">تحديد الكل</label>
-      </span>
-
-      <button class="btn edit" type="submit" onclick="return confirm('إرجاع المحدد إلى قائمة الراجعة؟')">
-        <i class="fa fa-rotate-left"></i> إرجاع المحدد
-      </button>
-
-      <button class="btn danger" type="submit"
-              formaction="/sales/bulk-delete-final"
-              onclick="return confirm('حذف نهائي للسجلات المحددة؟ لا يمكن التراجع!')">
-        <i class="fa fa-trash"></i> حذف نهائي للمحدد
-      </button>
+  <!-- شريط أدوات التحديد الجماعي -->
+  <div class="row" style="margin:8px 0">
+    <label class="row select-all"><input type="checkbox" id="checkAll"> &nbsp; تحديد الكل</label>
+    <form method="post" action="/sales/bulk-delete" id="bulkForm" class="right" onsubmit="return confirm('نقل المحدد إلى قائمة الراجعات؟')">
+      <input type="hidden" name="ids" id="bulkIds">
+      <button class="btn secondary" type="submit"><i class="fa fa-arrow-rotate-left"></i> نقل المحدد إلى الراجعات</button>
     </form>
   </div>
 
-  <div class="table-scroll">
-    <table>
-      <thead>
+  <table>
+    <thead>
+      <tr>
+        <th></th>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>الزبون</th>
+        <th>هاتف</th>
+        <th>المدينة</th>
+
+        <!-- ترتيب وسط الجدول حسب طلبك -->
+        <th>كمية</th>
+        <th>السعر الأصلي (₪)</th>
+        <th>سعر بيع (₪)</th>
+        <th>شحن (₪)</th>
+        <th>المطلوب (₪)</th>
+        <th>الربح (₪)</th>
+
+        <th>التوصيل</th>
+        <th>تعديل</th>
+        <th>حذف</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% sales.forEach(s=> {
+           const qty       = Number(s.quantity);
+           const price     = Number(s.sale_price);
+           const costUnit  = Number(s.cost_price);
+           const ship      = Number(s.shipping_cost||0);
+           const revenue   = price * qty;
+           const requested = revenue + ship;
+           const profit    = revenue - (costUnit*qty) - ship;
+           const status    = (s.delivery_status || 'pending');
+      %>
         <tr>
-          <th></th>
-          <th>التاريخ</th>
-          <th>المنتج</th>
-          <th>الزبون</th>
-          <th>هاتف</th>
-          <th>المدينة</th>
+          <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
+          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
 
-          <!-- الترتيب المطلوب في منتصف الجدول -->
-          <th>كمية</th>
-          <th>السعر الأصلي (₪)</th>
-          <th>سعر بيع (₪)</th>
-          <th>شحن (₪)</th>
-          <th>الربح (₪)</th>
-          <th>المطلوب (₪)</th>
-
-          <th>التوصيل</th>
-          <th>إرجاع</th>
-          <th>حذف نهائي</th>
-          <th>تعديل</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% sales.forEach(s=> {
-             const qty       = Number(s.quantity);
-             const price     = Number(s.sale_price);
-             const costUnit  = Number(s.cost_price);
-             const ship      = Number(s.shipping_cost||0);
-             const revenue   = price * qty;
-             const requested = revenue + ship;
-             const profit    = revenue - (costUnit*qty) - ship;
-             const status    = (s.delivery_status || 'pending');
-        %>
-          <tr>
-            <!-- تحديد سطر -->
-            <td><input type="checkbox" name="ids" value="<%= s.id %>" class="rowCheck" form="bulkForm"></td>
-
-            <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
-
-            <td class="prod-cell">
-              <% if (s.product_image) { %>
-                <img src="<%= s.product_image %>" class="thumb js-img" alt="product"/>
-              <% } else { %>
-                <div class="thumb" style="background:#f8fafc;border:1px dashed var(--border)"></div>
-              <% } %>
-              <div><%= s.product_name %></div>
-            </td>
-
-            <td><%= s.customer_name || '—' %></td>
-            <td><%= s.customer_phone || '—' %></td>
-            <td><%= s.customer_city || '—' %></td>
-
-            <!-- الترتيب المطلوب -->
-            <td><%= qty %></td>
-            <td>₪<%= costUnit.toFixed(2) %></td>
-            <td>₪<%= price.toFixed(2) %></td>
-            <td>₪<%= ship.toFixed(2) %></td>
-            <td>₪<%= profit.toFixed(2) %></td>
-            <td><strong>₪<%= requested.toFixed(2) %></strong></td>
-
-            <!-- حالة التوصيل -->
-            <td>
-              <div class="status-wrap">
-                <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
-                  <% if (status==='delivered'){ %>
-                    <i class="fa fa-check"></i><span>تم التسليم</span>
-                  <% } else if (status==='failed'){ %>
-                    <i class="fa fa-xmark"></i><span>فشل/لم يتم</span>
-                  <% } else if (status==='shipping'){ %>
-                    <i class="fa fa-truck"></i><span>قيد التوصيل</span>
-                  <% } else { %>
-                    <i class="fa fa-hourglass-half"></i><span>قيد المعالجة</span>
-                  <% } %>
-                </div>
-                <div class="status-menu">
-                  <form method="post" action="/sales/<%= s.id %>/delivery">
-                    <input type="hidden" name="status" value="pending">
-                    <button type="submit"><i class="fa fa-hourglass-half"></i> قيد المعالجة</button>
-                  </form>
-                  <form method="post" action="/sales/<%= s.id %>/delivery">
-                    <input type="hidden" name="status" value="shipping">
-                    <button type="submit"><i class="fa fa-truck"></i> قيد التوصيل</button>
-                  </form>
-                  <form method="post" action="/sales/<%= s.id %>/delivery">
-                    <input type="hidden" name="status" value="delivered">
-                    <button type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-                  </form>
-                  <form method="post" action="/sales/<%= s.id %>/delivery">
-                    <input type="hidden" name="status" value="failed">
-                    <button type="submit"><i class="fa fa-xmark"></i> فشل/لم يتم</button>
-                  </form>
-                </div>
+          <td style="text-align:right">
+            <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
+              <div style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+                <% if (s.product_image) { %>
+                  <img src="<%= s.product_image %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
+                <% } %>
               </div>
-            </td>
+              <div style="max-width:380px"><%= s.product_name %></div>
+            </div>
+          </td>
 
-            <!-- إرجاع مفرد -->
-            <td>
-              <form method="post" action="/sales/<%= s.id %>/return"
-                    onsubmit="return confirm('إرجاع هذا الطلب إلى قائمة الراجعة؟')">
-                <button class="btn edit"><i class="fa fa-rotate-left"></i> إرجاع</button>
-              </form>
-            </td>
+          <td><%= s.customer_name || '—' %></td>
+          <td><%= s.customer_phone || '—' %></td>
+          <td><%= s.customer_city || '—' %></td>
 
-            <!-- حذف نهائي مفرد -->
-            <td>
-              <form method="post" action="/sales/<%= s.id %>/delete-final"
-                    onsubmit="return confirm('حذف نهائي؟ لا يمكن التراجع!')">
-                <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
-              </form>
-            </td>
+          <td><%= qty %></td>
+          <td>₪<%= costUnit.toFixed(2) %></td>
+          <td>₪<%= price.toFixed(2) %></td>
+          <td>₪<%= ship.toFixed(2) %></td>
+          <td><strong>₪<%= requested.toFixed(2) %></strong></td>
+          <td>₪<%= profit.toFixed(2) %></td>
 
-            <td><a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
+          <td>
+            <div class="status-wrap">
+              <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
+                <% if (status==='delivered'){ %><i class="fa fa-check"></i><span>تم التسليم</span>
+                <% } else if (status==='failed'){ %><i class="fa fa-xmark"></i><span>فشل/لم يتم</span>
+                <% } else if (status==='shipping'){ %><i class="fa fa-truck"></i><span>قيد التوصيل</span>
+                <% } else { %><i class="fa fa-hourglass-half"></i><span>قيد المعالجة</span><% } %>
+              </div>
+              <div class="status-menu">
+                <% ['pending','shipping','delivered','failed'].forEach(st=>{ %>
+                <form method="post" action="/sales/<%= s.id %>/delivery">
+                  <input type="hidden" name="status" value="<%= st %>">
+                  <button type="submit">
+                    <i class="fa <%= st==='pending'?'fa-hourglass-half':st==='shipping'?'fa-truck':st==='delivered'?'fa-check':'fa-xmark' %>"></i>
+                    <%= st==='pending'?'قيد المعالجة':st==='shipping'?'قيد التوصيل':st==='delivered'?'تم التسليم':'فشل/لم يتم' %>
+                  </button>
+                </form>
+                <% }) %>
+              </div>
+            </div>
+          </td>
+
+          <td>
+            <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
+          </td>
+
+          <td>
+            <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('نقل العملية إلى قائمة الراجعات؟')">
+              <button class="btn danger"><i class="fa fa-trash"></i> نقل للراجعات</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!sales.length){ %><tr><td colspan="15" class="muted">لا توجد عمليات بعد.</td></tr><% } %>
+    </tbody>
+  </table>
 </div>
 
-<!-- ===== منتقي المنتجات (شبكة) ===== -->
-<div class="pp-backdrop" id="ppBg"></div>
-<div class="pp-modal" id="ppModal" role="dialog" aria-modal="true" aria-label="منتقي المنتجات">
-  <div class="pp-head">
-    <div class="pp-search">
-      <i class="fa fa-magnifying-glass" style="align-self:center"></i>
-      <input type="search" id="ppSearch" placeholder="ابحث باسم المنتج…">
+<!-- مودال شبكة اختيار المنتج -->
+<div class="modal" id="pickerModal" aria-hidden="true">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <div style="font-weight:800">اختيار منتج من الشبكة</div>
+      <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
     </div>
-    <button class="pp-close" id="ppClose"><i class="fa fa-xmark"></i> إغلاق</button>
-  </div>
-  <div class="pp-grid">
-    <div class="pp-cards" id="ppCards"></div>
+    <div class="mgrid" id="gridWrap">
+      <% products.forEach(p=>{ %>
+        <div class="pcard" data-id="<%= p.id %>"
+             data-name="<%- p.name %>"
+             data-img="<%= p.image_path||'' %>"
+             data-sale="<%= Number(p.sale_price||0) %>"
+             data-cost="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= Number(p.stock||0) %>">
+          <img src="<%= p.image_path||'' %>" alt="">
+          <div class="name"><%= p.name %></div>
+          <div style="text-align:center">
+            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
+          </div>
+          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
+        </div>
+      <% }) %>
+    </div>
   </div>
 </div>
 
 <script>
-  // تمرير المنتجات للواجهة
-  window.PRODUCTS = <%- JSON.stringify(products || []) %>;
-
-  // حالة التوصيل
-  function toggleMenu(el){
-    const menu = el.parentElement.querySelector('.status-menu');
-    const open = menu.style.display === 'block';
-    document.querySelectorAll('.status-menu').forEach(m => m.style.display='none');
-    menu.style.display = open ? 'none' : 'block';
-  }
-  document.addEventListener('click', (e)=>{
-    const wrap = e.target.closest('.status-wrap');
-    if(!wrap) document.querySelectorAll('.status-menu').forEach(m => m.style.display='none');
-  });
-
-  // اختيار المنتج ➜ تعبئة الحقول + معاينة
-  function fillFromProduct(p){
-    const idI  = document.getElementById('productId');
-    const qty  = document.getElementById('qtyInput');
-    const saleI= document.getElementById('salePriceInput');
-    const costI= document.getElementById('costPriceInput');
-    const box  = document.getElementById('pickPreview');
-    const img  = document.getElementById('pickImg');
-    const name = document.getElementById('pickName');
-    const stock= document.getElementById('pickStock');
-    const saleV= document.getElementById('pickSale');
-    const costV= document.getElementById('pickCost');
-
-    idI.value = p.id;
-    box.style.display = 'flex';
-    if (p.image_path) img.src = p.image_path; else img.removeAttribute('src');
-    name.textContent  = p.name;
-    stock.textContent = Number(p.stock||0).toLocaleString('en-US');
-    saleV.textContent = Number(p.sale_price).toFixed(2);
-    costV.textContent = Number(p.cost_price).toFixed(2);
-    saleI.value = Number(p.sale_price).toFixed(2);
-    costI.value = Number(p.cost_price).toFixed(2);
-    if (!qty.value || Number(qty.value) <= 0) qty.value = 1;
-  }
-
-  // منتقي الشبكة
+  // فتح/إغلاق مودال الشبكة + بحث + تعبئة الحقول
   (function(){
-    const bg   = document.getElementById('ppBg');
-    const mod  = document.getElementById('ppModal');
-    const cards= document.getElementById('ppCards');
-    const search = document.getElementById('ppSearch');
-    const btnOpen = document.getElementById('btnOpenPicker');
-    const btnClose= document.getElementById('ppClose');
+    const modal=document.getElementById('pickerModal');
+    const open=document.getElementById('openPicker');
+    const bg=modal.querySelector('.modal-bg');
+    const search=document.getElementById('searchBox');
+    const cards=[...modal.querySelectorAll('.pcard')];
 
-    function open(){ bg.style.display='block'; mod.style.display='block'; search.focus(); render(); }
-    function close(){ bg.style.display='none'; mod.style.display='none'; }
+    function show(){modal.style.display='block';search.focus()}
+    function hide(){modal.style.display='none';search.value='';filter('')}
 
-    btnOpen.addEventListener('click', open);
-    btnClose.addEventListener('click', close);
-    bg.addEventListener('click', close);
-    window.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+    open.addEventListener('click',show); bg.addEventListener('click',hide);
+    document.addEventListener('keydown',e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
 
-    function render(){
-      const q = (search.value||'').trim().toLowerCase();
-      const data = (window.PRODUCTS||[]).filter(p => !q || String(p.name).toLowerCase().includes(q));
-      cards.innerHTML = '';
-      data.forEach(p=>{
-        const div = document.createElement('div');
-        div.className='pp-card';
-        div.innerHTML = `
-          <img src="${p.image_path||''}" alt="">
-          <div class="pp-title">${p.name}</div>
-          <div class="pp-tags">
-            <span class="pp-tag">بيع: ₪${Number(p.sale_price).toFixed(2)}</span>
-            <span class="pp-tag">أصلي: ₪${Number(p.cost_price).toFixed(2)}</span>
-            <span class="pp-tag">مخزون: ${Number(p.stock||0)}</span>
-          </div>
-          <div class="pp-foot">
-            <span class="pp-id">ID: ${p.id}</span>
-            <button class="pp-pick" data-id="${p.id}"><i class="fa fa-check"></i> اختيار</button>
-          </div>
-        `;
-        cards.appendChild(div);
+    function filter(q){
+      const s=(q||'').trim().toLowerCase();
+      cards.forEach(c=>{
+        const ok=c.dataset.name.toLowerCase().includes(s);
+        c.style.display=ok?'flex':'none';
       });
     }
-    search.addEventListener('input', render);
+    search.addEventListener('input',e=>filter(e.target.value));
 
-    cards.addEventListener('click', (e)=>{
-      const btn = e.target.closest('.pp-pick');
-      if(!btn) return;
-      const id = Number(btn.getAttribute('data-id'));
-      const p = (window.PRODUCTS||[]).find(x => Number(x.id)===id);
-      if (p) fillFromProduct(p);
-      close();
-    });
+    // اختيار
+    function pick(card){
+      const id=card.dataset.id;
+      const name=card.dataset.name;
+      const img=card.dataset.img||'';
+      const sale=Number(card.dataset.sale||0);
+      const cost=Number(card.dataset.cost||0);
+      const stock=Number(card.dataset.stock||0);
 
-    // إلزام اختيار المنتج قبل الإرسال
-    document.getElementById('saleForm').addEventListener('submit', (e)=>{
-      if (!document.getElementById('productId').value) {
-        e.preventDefault();
-        open();
-      }
+      document.getElementById('productIdField').value=id;
+      document.getElementById('productNameDisplay').value=name;
+      document.getElementById('salePriceInput').value=sale.toFixed(2);
+      document.getElementById('costPriceInput').value=Math.max(cost,0).toFixed(2);
+
+      const box=document.getElementById('miniPreview');
+      box.style.display='flex';
+      document.getElementById('miniName').textContent=name;
+      document.getElementById('miniSale').textContent=sale.toFixed(2);
+      document.getElementById('miniCost').textContent=Math.max(cost,0).toFixed(2);
+      document.getElementById('miniStock').textContent=stock;
+      const im=document.getElementById('miniImg');
+      if(img){im.src=img}else{im.removeAttribute('src')}
+
+      hide();
+    }
+    modal.addEventListener('click',e=>{
+      const b=e.target.closest('.pickBtn');
+      if(b) pick(b.closest('.pcard'));
     });
   })();
 
-  // تحديد الكل
+  // تحديد الكل للجداول
   (function(){
-    const selectAll = document.getElementById('selectAll');
-    const checks = () => Array.from(document.querySelectorAll('.rowCheck'));
-    if(selectAll){
-      selectAll.addEventListener('change', e=>{
-        checks().forEach(c => c.checked = e.target.checked);
-      });
-    }
+    const all=document.getElementById('checkAll');
+    const chks=[...document.querySelectorAll('.rowChk')];
+    const bulkIds=document.getElementById('bulkIds');
+    function sync(){ bulkIds.value=chks.filter(c=>c.checked).map(c=>c.value).join(',') }
+    if(all){ all.addEventListener('change',()=>{ chks.forEach(c=>c.checked=all.checked); sync(); }); }
+    chks.forEach(c=>c.addEventListener('change',sync));
+    sync();
   })();
 </script>

@@ -1,53 +1,27 @@
-<section class="cards">
-  <div class="card"><h3><i class="fa fa-boxes"></i> قيمة المخزون (بيع)</h3><div class="kpi">₪<%= stats.total_sale_value.toFixed(2) %></div></div>
-  <div class="card"><h3><i class="fa fa-hand-holding-dollar"></i> قيمة المخزون (تكلفة)</h3><div class="kpi">₪<%= stats.total_cost_value.toFixed(2) %></div></div>
-  <div class="card"><h3><i class="fa fa-chart-line"></i> إيراد الشهر</h3><div class="kpi">₪<%= stats.month_revenue.toFixed(2) %></div></div>
-  <div class="card"><h3><i class="fa fa-sack-dollar"></i> ربح الشهر</h3><div class="kpi">₪<%= stats.month_profit.toFixed(2) %></div></div>
-</section>
+<div class="card">
+  <h3><i class="fa fa-gauge"></i> ملخص سريع</h3>
+  <div class="row" style="flex-wrap:wrap;gap:12px">
+    <div class="card" style="min-width:220px"><div class="muted">عدد المنتجات</div><div style="font-weight:800;font-size:26px"><%= stats.products_count %></div></div>
+    <div class="card" style="min-width:220px"><div class="muted">وحدات بالمخزون</div><div style="font-weight:800;font-size:26px"><%= stats.total_units %></div></div>
+    <div class="card" style="min-width:220px"><div class="muted">قيمة الشراء</div><div style="font-weight:800;font-size:26px">₪<%= Number(stats.total_cost_value||0).toFixed(2) %></div></div>
+    <div class="card" style="min-width:220px"><div class="muted">قيمة البيع</div><div style="font-weight:800;font-size:26px">₪<%= Number(stats.total_sale_value||0).toFixed(2) %></div></div>
+  </div>
+</div>
 
-<section class="grid-2" style="margin-top:14px">
-  <div class="card">
-    <h3><i class="fa fa-cash-register"></i> آخر المبيعات 🧾</h3>
-    <% if(!lastSales.length){ %><p>لا توجد مبيعات بعد.</p><% } else { %>
-    <table>
-      <thead><tr><th>التاريخ</th><th>المنتج</th><th>كمية</th><th>سعر</th></tr></thead>
-      <tbody>
-      <% lastSales.forEach(s => { %>
+<div class="card" style="margin-top:14px">
+  <h3><i class="fa fa-clock-rotate-left"></i> آخر عمليات البيع</h3>
+  <table>
+    <thead><tr><th>التاريخ</th><th>المنتج</th><th>كمية</th><th>سعر بيع</th></tr></thead>
+    <tbody>
+      <% (lastSales||[]).forEach(r=>{ %>
         <tr>
-          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
-          <td><%= s.product_name %></td>
-          <td><%= s.quantity %></td>
-          <td>₪<%= (s.sale_price*s.quantity).toFixed(2) %></td>
+          <td><%= dayjs(r.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
+          <td><%= r.product_name %></td>
+          <td><%= r.quantity %></td>
+          <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
         </tr>
       <% }) %>
-      </tbody>
-    </table>
-    <% } %>
-  </div>
-  <div class="card">
-    <h3><i class="fa fa-box-open"></i> تنبيهات المخزون المنخفض</h3>
-    <% if(!lowStock.length){ %><p>لا توجد تنبيهات ✅</p><% } else { %>
-    <table>
-      <thead><tr><th>المنتج</th><th>الكمية</th></tr></thead>
-      <tbody>
-      <% lowStock.forEach(p => { %>
-        <tr><td><%= p.name %></td><td><%= p.stock %></td></tr>
-      <% }) %>
-      </tbody>
-    </table>
-    <% } %>
-  </div>
-</section>
-
-<section class="card" style="margin-top:14px">
-  <h3><i class="fa fa-chart-pie"></i> توزيع الإيراد حسب التصنيف</h3>
-  <canvas id="byCat"></canvas>
-</section>
-
-<script>
-  const data = {
-    labels: <%- JSON.stringify(byCat.map(x=>x.label||'غير مصنّف')) %>,
-    datasets: [{ label: 'الإيراد', data: <%- JSON.stringify(byCat.map(x=>x.value)) %> }]
-  };
-  new Chart(document.getElementById('byCat'), { type: 'pie', data });
-</script>
+      <% if(!(lastSales||[]).length){ %><tr><td colspan="4" class="muted">لا يوجد بيانات</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
