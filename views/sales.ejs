@@ -1,27 +1,108 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
+<style>
+  /* بطاقة معاينة المنتج المختار */
+  .pick-preview{
+    display:flex; align-items:center; gap:12px;
+    border:1px dashed var(--border); background:#fff;
+    border-radius:14px; padding:10px 12px; min-height:84px;
+  }
+  .pick-preview .thumb{ width:84px; height:84px; border-radius:12px; object-fit:cover; border:1px solid var(--border) }
+  .pick-preview .meta{ line-height:1.35 }
+  .pick-preview .meta .name{ font-weight:800 }
+  .pick-preview .tag{ display:inline-block; padding:2px 8px; border-radius:999px; font-size:.8rem; border:1px solid var(--border); background:#fff7fb; margin-inline-end:6px }
+  .muted-sm{ color:#6b7280; font-size:.85rem }
+  .status-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
+    border:1px solid var(--border); cursor:pointer; user-select:none;
+  }
+  .status-pending  { background:#fff7e6 }
+  .status-shipping { background:#fff3cd }
+  .status-delivered{ background:#e6ffed }
+  .status-failed   { background:#ffe6e6 }
+  .status-menu{
+    position:absolute; inset:auto auto auto 0; transform:translateY(6px);
+    background:#fff; border:1px solid var(--border); border-radius:10px;
+    box-shadow: var(--shadow); min-width:180px; padding:6px; z-index:30; display:none;
+  }
+  .status-wrap{ position:relative; display:inline-block }
+  .status-menu form{ margin:0 }
+  .status-menu button{
+    width:100%; text-align:right; background:#fff; color:#111; border:0;
+    padding:8px 10px; border-radius:8px; cursor:pointer;
+  }
+  .status-menu button:hover{ background:#f8fafc }
+</style>
+
 <div class="card">
   <h3><i class="fa fa-cart-plus"></i> تسجيل عملية بيع</h3>
-  <form method="post" action="/sales" class="form-grid">
+
+  <!-- فورم التسجيل -->
+  <form method="post" action="/sales" class="form-grid" id="saleForm">
     <div>
       <label>المنتج</label>
-      <select name="product_id" required>
+      <select name="product_id" id="prodSelect" required>
         <option value="">اختر المنتج</option>
         <% products.forEach(p=> { %>
-          <option value="<%= p.id %>"><%= p.name %> (مخزون: <%= p.stock %>)</option>
+          <option
+            value="<%= p.id %>"
+            data-name="<%- p.name %>"
+            data-img="<%= p.image_path || '' %>"
+            data-sale="<%= Number(p.sale_price) %>"
+            data-cost="<%= Number(p.cost_price) %>"
+            data-stock="<%= Number(p.stock) %>"
+          >
+            <%= p.name %> (مخزون: <%= p.stock %>)
+          </option>
         <% }) %>
       </select>
     </div>
-    <div><label>كمية</label><input type="number" name="quantity" value="1" step="1" required/></div>
-    <div><label>سعر البيع</label><input type="number" name="sale_price" step="0.01"/></div>
-    <div><label>السعر الأصلي</label><input type="number" name="cost_price" step="0.01"/></div>
-    <div><label>تكلفة الشحن +₪</label><input type="number" name="shipping_cost" step="0.01"/></div>
-    <div><label>ملاحظة</label><input type="text" name="note"/></div>
+
+    <div>
+      <label>كمية</label>
+      <input type="number" id="qtyInput" name="quantity" value="1" step="1" required/>
+    </div>
+
+    <div>
+      <label>سعر البيع</label>
+      <input type="number" id="salePriceInput" name="sale_price" step="0.01" />
+    </div>
+
+    <div>
+      <label>السعر الأصلي</label>
+      <input type="number" id="costPriceInput" name="cost_price" step="0.01" />
+    </div>
+
+    <div>
+      <label>تكلفة الشحن +₪</label>
+      <input type="number" name="shipping_cost" step="0.01"/>
+    </div>
+
+    <div>
+      <label>ملاحظة</label>
+      <input type="text" name="note"/>
+    </div>
 
     <!-- معلومات الزبون -->
     <div><label>اسم الزبون</label><input type="text" name="customer_name" /></div>
     <div><label>رقم الهاتف</label><input type="tel" name="customer_phone" /></div>
     <div><label>المدينة/المنطقة</label><input type="text" name="customer_city" /></div>
+
+    <!-- معاينة المنتج المختار -->
+    <div style="grid-column:1 / -1">
+      <div id="pickPreview" class="pick-preview" style="display:none">
+        <img id="pickImg" class="thumb js-img" src="" alt="">
+        <div class="meta">
+          <div class="name" id="pickName"></div>
+          <div class="muted-sm">
+            <span class="tag">المخزون: <span id="pickStock">0</span></span>
+            <span class="tag">بيع: ₪<span id="pickSale">0.00</span></span>
+            <span class="tag">أصلي: ₪<span id="pickCost">0.00</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="right"></div>
     <div class="row right">
@@ -30,13 +111,13 @@
   </form>
 </div>
 
+<!-- سجل المبيعات -->
 <div class="card" style="margin-top:12px">
   <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
   <table>
     <thead>
       <tr>
         <th>التاريخ</th>
-        <th>الصورة</th>
         <th>المنتج</th>
         <th>الزبون</th>
         <th>هاتف</th>
@@ -59,28 +140,18 @@
            const costUnit  = Number(s.cost_price);
            const ship      = Number(s.shipping_cost||0);
            const revenue   = price * qty;
-           const requested = revenue + ship;             
+           const requested = revenue + ship;             // المطلوب من الزبون (سعر*كمية + شحن)
            const profit    = revenue - (costUnit*qty) - ship;
            const status    = (s.delivery_status || 'pending');
-
-           const statusMap = {
-             pending:   { label: 'قيد المعالجة',  icon: 'fa-hourglass-half', cls: 'status-pending' },
-             shipping:  { label: 'قيد التوصيل',    icon: 'fa-truck',          cls: 'status-shipping' },
-             delivered: { label: 'تم التسليم',     icon: 'fa-check',          cls: 'status-delivered' },
-             failed:    { label: 'فشل/لم يتم',     icon: 'fa-xmark',          cls: 'status-failed' }
-           };
-           const _st = statusMap[status] || statusMap.pending;
       %>
         <tr>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
-          <td>
+          <td class="right">
             <% if (s.product_image) { %>
-              <img src="<%= s.product_image %>" class="thumb" style="width:60px;height:60px;object-fit:cover;border-radius:8px" alt="صورة المنتج">
-            <% } else { %>
-              —
+              <img src="<%= s.product_image %>" class="thumb js-img" style="width:56px;height:56px;vertical-align:middle;margin-inline-start:6px" alt="product"/>
             <% } %>
+            <%= s.product_name %>
           </td>
-          <td><%= s.product_name %></td>
           <td><%= s.customer_name || '—' %></td>
           <td><%= s.customer_phone || '—' %></td>
           <td><%= s.customer_city || '—' %></td>
@@ -91,12 +162,18 @@
           <td>₪<%= ship.toFixed(2) %></td>
           <td>₪<%= profit.toFixed(2) %></td>
 
-          <!-- حالة التوصيل -->
           <td>
             <div class="status-wrap">
-              <div class="status-chip <%= _st.cls %>" onclick="toggleMenu(this)">
-                <i class="fa <%= _st.icon %>"></i>
-                <span><%= _st.label %></span>
+              <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
+                <% if (status==='delivered'){ %>
+                  <i class="fa fa-check"></i><span>تم التسليم</span>
+                <% } else if (status==='failed'){ %>
+                  <i class="fa fa-xmark"></i><span>فشل/لم يتم</span>
+                <% } else if (status==='shipping'){ %>
+                  <i class="fa fa-truck"></i><span>قيد التوصيل</span>
+                <% } else { %>
+                  <i class="fa fa-hourglass-half"></i><span>قيد المعالجة</span>
+                <% } %>
               </div>
               <div class="status-menu">
                 <form method="post" action="/sales/<%= s.id %>/delivery">
@@ -126,12 +203,10 @@
             </div>
           </td>
 
-          <!-- تعديل -->
           <td>
             <a class="btn edit" href="/sales/<%= s.id %>/edit"><i class="fa fa-pen-to-square"></i> تعديل</a>
           </td>
 
-          <!-- حذف -->
           <td>
             <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف العملية؟ سيُنقل الطلب إلى قائمة الراجعات.')">
               <button class="btn danger"><i class="fa fa-trash"></i> حذف</button>
@@ -143,7 +218,13 @@
   </table>
 </div>
 
+<!-- Lightbox للصور (إن كنت مفعلّه في style العام يكفي) -->
+<div id="imgPreviewBg"></div>
+<img id="imgPreview" alt="">
+<button id="imgPreviewClose" title="إغلاق"><i class="fa fa-xmark"></i></button>
+
 <script>
+  // تبديل قائمة حالة التوصيل
   function toggleMenu(el){
     const menu = el.parentElement.querySelector('.status-menu');
     const open = menu.style.display === 'block';
@@ -154,4 +235,67 @@
     const wrap = e.target.closest('.status-wrap');
     if(!wrap) document.querySelectorAll('.status-menu').forEach(m => m.style.display='none');
   });
+
+  // ربط اختيار المنتج: عرض معاينة + تعبئة أسعار الحقول
+  (function(){
+    const sel   = document.getElementById('prodSelect');
+    const qty   = document.getElementById('qtyInput');
+    const saleI = document.getElementById('salePriceInput');
+    const costI = document.getElementById('costPriceInput');
+
+    const box   = document.getElementById('pickPreview');
+    const img   = document.getElementById('pickImg');
+    const name  = document.getElementById('pickName');
+    const stock = document.getElementById('pickStock');
+    const saleV = document.getElementById('pickSale');
+    const costV = document.getElementById('pickCost');
+
+    function updatePreview(){
+      const opt = sel.options[sel.selectedIndex];
+      if (!opt || !opt.value) { box.style.display='none'; return; }
+
+      const pImg   = opt.getAttribute('data-img') || '';
+      const pName  = opt.getAttribute('data-name') || '';
+      const pSale  = Number(opt.getAttribute('data-sale') || 0);
+      const pCost  = Number(opt.getAttribute('data-cost') || 0);
+      const pStock = Number(opt.getAttribute('data-stock')|| 0);
+
+      // اظهر بطاقة المعاينة
+      box.style.display = 'flex';
+      if (pImg) img.src = pImg; else img.removeAttribute('src');
+      name.textContent  = pName;
+      stock.textContent = pStock.toLocaleString('en-US');
+      saleV.textContent = pSale.toFixed(2);
+      costV.textContent = pCost.toFixed(2);
+
+      // عبّي الحقول تلقائيًا (مع إمكانية تعديل المستخدم بعد ذلك)
+      saleI.value = pSale.toFixed(2);
+      costI.value = pCost.toFixed(2);
+
+      // في أول اختيار، تأكد أن الكمية ≥ 1
+      if (!qty.value || Number(qty.value) <= 0) qty.value = 1;
+    }
+
+    sel.addEventListener('change', updatePreview);
+    // لو الصفحة رجعت من فشل تحقق أو رجع اختيار محفوظ
+    if (sel.value) updatePreview();
+  })();
+
+  // Lightbox بسيط للصور (يفتح أي عنصر يحمل .js-img)
+  (function(){
+    const bg = document.getElementById('imgPreviewBg');
+    const im = document.getElementById('imgPreview');
+    const x  = document.getElementById('imgPreviewClose');
+    function close(){ bg.style.display=im.style.display=x.style.display='none'; }
+    function open(src){ im.src=src; bg.style.display=im.style.display='block'; x.style.display='flex'; }
+    document.addEventListener('click', (e)=>{
+      const t = e.target;
+      if (t.classList && t.classList.contains('js-img') && t.src) {
+        open(t.src);
+      } else if (t===bg || t===x) {
+        close();
+      }
+    });
+    window.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+  })();
 </script>

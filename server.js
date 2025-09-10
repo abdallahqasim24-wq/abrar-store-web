@@ -413,7 +413,7 @@ app.post('/products/bulk-delete', async (req, res) => {
 // ---------- Sales ----------
 app.get('/sales', async (_req, res) => {
   const sales = (await query(`
-    SELECT s.*, 
+    SELECT s., 
            p.name AS product_name,
            p.image_path AS product_image
     FROM sales s 
@@ -421,8 +421,11 @@ app.get('/sales', async (_req, res) => {
     ORDER BY s.sold_at DESC
   `)).rows;
 
+  // ✅ نمرّر image_path أيضاً للـ select لكي نعرض المعاينة ونملأ الأسعار تلقائياً
   const products = (await query(`
-    SELECT id, name, stock, cost_price, sale_price FROM products ORDER BY name
+    SELECT id, name, stock, cost_price, sale_price, image_path
+    FROM products
+    ORDER BY name
   `)).rows;
 
   res.render('sales', { sales, products, dayjs });
