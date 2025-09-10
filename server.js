@@ -1,15 +1,16 @@
-// ===[ 1) .env ]===
+// server.js — نسخة كاملة وجاهزة
+// ===========================================
+// 1) .env
 import dotenv from 'dotenv';
 dotenv.config();
 
-// ===[ 2) Imports ]===
+// 2) Imports
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
-import { query, initDb } from './db.js';
 import puppeteer from 'puppeteer';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
@@ -19,11 +20,12 @@ import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
 import pg from 'pg';
 import connectPgSimple from 'connect-pg-simple';
+import { query, initDb } from './db.js';
 
 dayjs.extend(utc);
 dayjs.extend(tz);
 
-// ===[ 3) Base ]===
+// 3) Base
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -37,10 +39,10 @@ const AUTH_USER = process.env.AUTH_USER || 'abrar';
 const AUTH_PASS = process.env.AUTH_PASS || '1143';
 const AUTH_ENABLED = (process.env.AUTH_ENABLED ?? '1') !== '0';
 
-// ===[ 4) DB & migrations ]===
+// 4) DB & migrations
 await initDb();
 
-// returns_queue table (if missing)
+// returns_queue (إن لم يوجد)
 await query(`
   CREATE TABLE IF NOT EXISTS returns_queue (
     id SERIAL PRIMARY KEY,
@@ -58,7 +60,7 @@ await query(`
   );
 `);
 
-// add columns to sales if missing
+// أعمدة إضافية لـ sales إن لم توجد
 await query(`
   ALTER TABLE sales
     ADD COLUMN IF NOT EXISTS customer_name   TEXT,
@@ -68,7 +70,17 @@ await query(`
     ADD COLUMN IF NOT EXISTS delivered_at    TIMESTAMPTZ;
 `);
 
-// ===[ 5) Uploads (Cloudinary/Local) ]===
+// جدول صور المنتجات الفرعية (جديد)
+await query(`
+  CREATE TABLE IF NOT EXISTS product_images (
+    id SERIAL PRIMARY KEY,
+    product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+`);
+
+// 5) Uploads (Cloudinary/Local)
 const hasCloud =
   !!process.env.CLOUDINARY_URL ||
   (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
@@ -78,7 +90,7 @@ if (process.env.CLOUDINARY_URL) {
 } else if (hasCloud) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
+    api_key:    process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
   });
 } else {
@@ -118,7 +130,7 @@ if (hasCloud) {
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5*1024*1024 }});
 
-// ===[ Views ]===
+// 6) Views
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
@@ -130,13 +142,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===[ Parsers & Static ]===
+// 7) Parsers & static
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.use((req, res, next) => { res.locals.currentPath = req.path; next(); });
 
-// ===[ Sessions / Login ]===
+// 8) Sessions / Login
 const PgStore = connectPgSimple(session);
 const pgPool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -171,10 +183,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===[ Health ]===
-app.get('/healthz', (req,res)=>res.status(200).send('OK'));
+// 9) Health
+app.get('/healthz', (_req,res)=>res.status(200).send('OK'));
 
-// ===[ Auth guard (اختياري) ]===
+// 10) Auth guard (اختياري)
 const openPaths = new Set(['/login','/logout','/healthz']);
 function requireAuth(req, res, next){
   if (openPaths.has(req.path)) return next();
@@ -186,7 +198,7 @@ function requireAuth(req, res, next){
 }
 if (AUTH_ENABLED) app.use(requireAuth);
 
-// ===[ Login routes ]===
+// 11) Login routes
 app.get('/login', (req, res) => {
   if (req.session.user) return res.redirect(req.query.next || '/');
   res.render('login', { error: null, next: req.query.next || '/', usernamePrefill: '' });
@@ -202,7 +214,7 @@ app.post('/login', (req, res) => {
 });
 app.post('/logout', (req, res) => req.session.destroy(() => res.redirect('/login')));
 
-// ===[ Helpers ]===
+// Helpers
 const profitOf = (s) =>
   (Number(s.sale_price) * Number(s.quantity))
   - (Number(s.cost_price) * Number(s.quantity))
@@ -272,22 +284,32 @@ app.get('/products', async (_req, res) => {
   res.render('products', { products, returnsList, dayjs });
 });
 
+// ⬇️ إضافة منتج: صورة رئيسية + صور فرعية متعددة
 app.post('/products', (req, res, next) => {
-  upload.single('image')(req, res, async (err) => {
+  const uploader = upload.fields([
+    { name: 'image',  maxCount: 1 },   // صورة الغلاف
+    { name: 'images', maxCount: 15 }   // صور فرعية
+  ]);
+
+  uploader(req, res, async (err) => {
     try {
       if (err) throw err;
       const { name, brand, category, cost_price, sale_price, stock } = req.body;
 
+      // مسار صورة الغلاف
+      const main = (req.files?.image || [])[0] || null;
       let image_path = null;
-      if (req.file) {
+      if (main) {
         image_path = hasCloud
-          ? (req.file.path || req.file.secure_url || null)
-          : `/public/uploads/${req.file.filename}`;
+          ? (main.path || main.secure_url || null)
+          : `/public/uploads/${main.filename}`;
       }
 
-      await query(`
+      // إدراج المنتج وإرجاع id
+      const ins = await query(`
         INSERT INTO products (name, brand, category, cost_price, sale_price, stock, image_path)
         VALUES ($1,$2,$3,$4,$5,$6,$7)
+        RETURNING id
       `, [
         name,
         brand || '',
@@ -297,6 +319,19 @@ app.post('/products', (req, res, next) => {
         Number(stock || 0),
         image_path
       ]);
+      const productId = ins.rows[0].id;
+
+      // إدراج الصور الفرعية (إن وُجدت)
+      const extras = req.files?.images || [];
+      if (extras.length) {
+        for (const f of extras) {
+          const url = hasCloud ? (f.path || f.secure_url || null)
+                               : `/public/uploads/${f.filename}`;
+          if (url) {
+            await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [productId, url]);
+          }
+        }
+      }
 
       res.redirect('/products');
     } catch (e) {
@@ -306,8 +341,14 @@ app.post('/products', (req, res, next) => {
   });
 });
 
+// ⬇️ تعديل منتج: يمكن استبدال الصورة الرئيسية + إضافة صور فرعية جديدة (اختياري)
 app.post('/products/:id/update', (req, res, next) => {
-  upload.single('image')(req, res, async (err) => {
+  const uploader = upload.fields([
+    { name: 'image',  maxCount: 1 },
+    { name: 'images', maxCount: 15 }
+  ]);
+
+  uploader(req, res, async (err) => {
     try {
       if (err) throw err;
       const id  = Number(req.params.id);
@@ -317,10 +358,11 @@ app.post('/products/:id/update', (req, res, next) => {
       const { name, brand, category, cost_price, sale_price, stock } = req.body;
 
       let image_path = old.image_path;
-      if (req.file) {
+      const main = (req.files?.image || [])[0] || null;
+      if (main) {
         image_path = hasCloud
-          ? (req.file.path || req.file.secure_url || old.image_path)
-          : `/public/uploads/${req.file.filename}`;
+          ? (main.path || main.secure_url || image_path)
+          : `/public/uploads/${main.filename}`;
       }
 
       await query(`
@@ -337,6 +379,18 @@ app.post('/products/:id/update', (req, res, next) => {
         image_path,
         id
       ]);
+
+      // صور فرعية جديدة (اختياري)
+      const extras = req.files?.images || [];
+      if (extras.length) {
+        for (const f of extras) {
+          const url = hasCloud ? (f.path || f.secure_url || null)
+                               : `/public/uploads/${f.filename}`;
+          if (url) {
+            await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [id, url]);
+          }
+        }
+      }
 
       res.redirect('/products');
     } catch (e) {
@@ -534,18 +588,24 @@ app.get('/reports', async (req, res) => {
 
   const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const totalCost    = rows.reduce((a, s) => a + (Number(s.cost_price) * Number(s.quantity)) + Number(s.shipping_cost || 0), 0);
-  const totalProfit  = totalRevenue - totalCost;
 
   res.render('reports', {
-    rows, title, range,
-    totalRevenue, totalCost, totalProfit,
-    selected: { year: Number(year) || null, month: Number(month) || null, day: Number(day) || null },
+    title,
+    rows,
+    totalRevenue,
+    totalCost,
+    range,
+    selected: {
+      year:  Number(year)  || Number(dayjs().tz(TZ_NAME).format('YYYY')),
+      month: Number(month) || Number(dayjs().tz(TZ_NAME).format('MM')),
+      day:   Number(day)   || Number(dayjs().tz(TZ_NAME).format('DD')),
+    },
     dayjs
   });
 });
 
-// ---------- Reports (PDF) ----------
-app.get('/reports/pdf', async (req, res) => {
+// ---------- Reports PDF ----------
+app.get('/reports/pdf', async (req, res, next) => {
   try {
     const { range = 'daily', year, month, day } = req.query;
 
@@ -555,11 +615,11 @@ app.get('/reports/pdf', async (req, res) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format('YYYY'));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const ym = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}`;
-      title = `تقرير مبيعات شهري ${ym}`;
+      title = `تقرير شهري ${ym}`;
       rows  = (await query(`
         SELECT s.*, p.name AS product_name, p.image_path AS product_image
-        FROM sales s JOIN products p ON p.id=s.product_id
-        WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1
+        FROM sales s JOIN products p ON p.id = s.product_id
+        WHERE TO_CHAR(s.sold_at,'YYYY-MM') = $1
         ORDER BY s.sold_at DESC
       `, [ym])).rows;
     } else {
@@ -567,54 +627,48 @@ app.get('/reports/pdf', async (req, res) => {
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format('MM'));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format('DD'));
       const dateStr = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      title = `تقرير يومي ${dateStr}`;
       rows  = (await query(`
         SELECT s.*, p.name AS product_name, p.image_path AS product_image
-        FROM sales s JOIN products p ON p.id=s.product_id
-        WHERE DATE(s.sold_at)=DATE($1)
+        FROM sales s JOIN products p ON p.id = s.product_id
+        WHERE DATE(s.sold_at) = DATE($1)
         ORDER BY s.sold_at DESC
       `, [dateStr])).rows;
-      title = `تقرير مبيعات يومي ${dateStr}`;
     }
 
     const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-    const totalProfit  = rows.reduce((a, s) => a + profitOf(s), 0);
+    const totalProfit  = rows.reduce((a, s) => a + (
+      (Number(s.sale_price) * Number(s.quantity)) -
+      (Number(s.cost_price) * Number(s.quantity)) -
+      Number(s.shipping_cost || 0)
+    ), 0);
 
+    // Render EJS -> HTML
     const html = await new Promise((resolve, reject) => {
-      req.app.render('report-pdf', { rows, title, totalRevenue, totalProfit, dayjs }, (err, str) => {
-        if (err) reject(err); else resolve(str);
+      app.render('report-pdf', { title, rows, totalRevenue, totalProfit, dayjs }, (err, str) => {
+        if (err) return reject(err);
+        resolve(str);
       });
     });
 
-    if (!process.env.PUPPETEER_CACHE_DIR) process.env.PUPPETEER_CACHE_DIR = '/opt/render/.cache/puppeteer';
-
     const browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-      args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu','--no-zygote','--single-process']
+      args: ['--no-sandbox','--disable-setuid-sandbox']
     });
-
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 60000 });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top:'10mm', right:'10mm', bottom:'10mm', left:'10mm' } });
     await browser.close();
 
-    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Type','application/pdf');
     res.setHeader('Content-Disposition', 'inline; filename="report.pdf"');
-    res.end(pdf);
-
-  } catch (err) {
-    console.error('PDF error:', err);
-    res.status(500).send('PDF generation failed');
+    res.send(pdf);
+  } catch (e) {
+    console.error('PDF error:', e?.message, e);
+    next(e);
   }
 });
 
-// ===[ Error handler ]===
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err?.message, err?.stack);
-  if (req.accepts('html')) return res.status(500).send('حدث خطأ أثناء معالجة الطلب.');
-  res.status(500).json({ error: err?.message || 'Server error' });
-});
-
+// ========= Start =========
 app.listen(PORT, HOST, () => {
-  console.log(`Server running on http://${HOST}:${PORT}`);
+  console.log(`✅ Abrar Store running on http://${HOST}:${PORT}`);
 });

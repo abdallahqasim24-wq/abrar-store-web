@@ -2,6 +2,7 @@
 
 <div class="card" style="margin-bottom:12px">
   <div class="row">
+    <!-- نموذج إضافة منتج جديد -->
     <form method="post" action="/products" enctype="multipart/form-data" class="form-grid" style="width:100%">
       <div><label>الاسم</label><input name="name" required placeholder=""/></div>
       <div><label>الشركة</label><input name="brand" placeholder="MAC, Fenty"/></div>
@@ -9,7 +10,21 @@
       <div><label>سعر الشراء ₪</label><input name="cost_price" type="number" step="0.01" required/></div>
       <div><label>سعر البيع ₪</label><input name="sale_price" type="number" step="0.01" required/></div>
       <div><label>الكمية</label><input name="stock" type="number" step="1" value="0"/></div>
-      <div><label>صورة (اختياري)</label><input name="image" type="file" accept="image/*"/></div>
+
+      <!-- صورة الغلاف (الرئيسية) -->
+      <div>
+        <label>الصورة الرئيسية (اختياري)</label>
+        <input name="image" type="file" accept="image/*"/>
+        <div class="muted" style="font-size:.9rem">هاي بتظهر كصورة المنتج في الجدول.</div>
+      </div>
+
+      <!-- صور فرعية متعددة -->
+      <div>
+        <label>صور فرعية (اختياري)</label>
+        <input name="images" type="file" accept="image/*" multiple />
+        <div class="muted" style="font-size:.9rem">بتقدر تختار أكثر من صورة معًا (CTRL/SHIFT).</div>
+      </div>
+
       <div class="right"></div>
       <div class="row right">
         <button class="btn add"><i class="fa fa-plus"></i> إضافة منتج</button>
@@ -39,7 +54,12 @@
             <td><input type="checkbox" name="ids" value="<%= p.id %>" class="rowCheck" form="bulkForm"></td>
             <td>
               <% if (p.image_path) { %>
-                <img src="<%= p.image_path %>" class="thumb js-img" alt="<%= p.name %>">
+                <div style="display:flex;align-items:center;gap:6px;justify-content:center">
+                  <img src="<%= p.image_path %>" class="thumb js-img" alt="<%= p.name %>">
+                  <% if (p.extra_images_count>0) { %>
+                    <span class="tag" title="عدد الصور الفرعية">+<%= p.extra_images_count %></span>
+                  <% } %>
+                </div>
               <% } else { %> — <% } %>
             </td>
             <td><%= p.name %></td>
@@ -127,7 +147,7 @@
   <% } %>
 </div>
 
-<!-- Modal تعديل منتج -->
+<!-- Modal تعديل منتج (نفس الموجود عندك) -->
 <div id="editModal" class="card" style="position:fixed;inset:0;max-width:760px;margin:auto;display:none;z-index:50">
   <h3><i class="fa fa-pen"></i> تعديل منتج</h3>
   <form id="editForm" method="post" enctype="multipart/form-data" class="form-grid">
@@ -145,33 +165,31 @@
     </div>
   </form>
 </div>
-<div id="editBg" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40" onclick="closeEdit()"></div>
+<div id="editBg" style="position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:40"></div>
 
 <script>
+  // تحديد/إلغاء تحديد الكل
+  (function(){
+    const all = document.getElementById('selectAll');
+    const rows = [...document.querySelectorAll('.rowCheck')];
+    if (all) all.addEventListener('change',()=>rows.forEach(r=>r.checked=all.checked));
+  })();
+
+  // فتح / غلق مودال التعديل
   function openEdit(p){
+    document.getElementById('editModal').style.display='block';
+    document.getElementById('editBg').style.display='block';
+    const f = document.getElementById('editForm');
+    f.action = '/products/'+p.id+'/update';
     document.getElementById('e_name').value = p.name||'';
     document.getElementById('e_brand').value = p.brand||'';
     document.getElementById('e_category').value = p.category||'';
-    document.getElementById('e_cost').value = p.cost_price;
-    document.getElementById('e_sale').value = p.sale_price;
-    document.getElementById('e_stock').value = p.stock;
-    document.getElementById('editForm').action = '/products/'+p.id+'/update';
-    document.getElementById('editModal').style.display='block';
-    document.getElementById('editBg').style.display='block';
+    document.getElementById('e_cost').value = Number(p.cost_price||0);
+    document.getElementById('e_sale').value = Number(p.sale_price||0);
+    document.getElementById('e_stock').value = Number(p.stock||0);
   }
   function closeEdit(){
     document.getElementById('editModal').style.display='none';
     document.getElementById('editBg').style.display='none';
   }
-
-  // select all
-  document.addEventListener("DOMContentLoaded", () => {
-    const selectAll = document.getElementById("selectAll");
-    const checks = document.querySelectorAll(".rowCheck");
-    if(selectAll){
-      selectAll.addEventListener("change", e=>{
-        checks.forEach(c => c.checked = e.target.checked);
-      });
-    }
-  });
 </script>
