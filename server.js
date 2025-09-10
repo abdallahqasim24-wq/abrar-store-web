@@ -240,7 +240,7 @@ app.get('/', async (_req, res) => {
   const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [month])).rows;
 
   const rev  = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-  const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
+  const prof = (rows) => rows.reduce((a, s) => a + ((Number(s.sale_price)*Number(s.quantity)) - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0)), 0);
 
   const stats = {
     ...t.rows[0],
@@ -250,6 +250,7 @@ app.get('/', async (_req, res) => {
     month_profit : prof(monthRows)
   };
 
+  // توزيع حسب التصنيف (كما هو)
   const byCat = (await query(`
     SELECT p.category AS label,
            COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
@@ -259,16 +260,26 @@ app.get('/', async (_req, res) => {
     ORDER BY value DESC
   `)).rows;
 
-  const lowStock = (await query(`SELECT * FROM products WHERE stock <= $1 ORDER BY stock ASC LIMIT 8`, [5])).rows;
+  // المنتجات منخفضة المخزون (≤ 5)
+  const lowStock = (await query(`
+    SELECT * FROM products
+    WHERE stock <= $1
+    ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
+    LIMIT 12
+  `, [5])).rows;
 
+  // آخر المبيعات + صورة المنتج
   const lastSales = (await query(`
-    SELECT s.*, p.name AS product_name
-    FROM sales s JOIN products p ON p.id = s.product_id
-    ORDER BY s.sold_at DESC LIMIT 8
+    SELECT s.*, p.name AS product_name, p.image_path AS product_image
+    FROM sales s
+    JOIN products p ON p.id = s.product_id
+    ORDER BY s.sold_at DESC
+    LIMIT 10
   `)).rows;
 
   res.render('index', { stats, byCat, lowStock, lastSales, dayjs });
 });
+
 
 // ---------- Products ----------
 app.get('/products', async (_req, res) => {

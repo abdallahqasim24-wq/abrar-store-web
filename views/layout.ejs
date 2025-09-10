@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Abrar Store</title>
   <link rel="stylesheet" href="<%= faLink %>">
+
 <style>
   /* === Fix: زر تعديل – شكل موحّد وأنيق === */
   .btn { display:inline-flex; align-items:center; gap:8px; line-height:1; }
@@ -67,6 +68,20 @@
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .right{margin-inline-start:auto}
 
+    /* زر خروج الدائري الأحمر */
+    .logout-btn{
+      display:inline-flex; align-items:center; gap:8px;
+      background:var(--danger); color:#fff; border:none; border-radius:999px;
+      padding:8px 14px; font-weight:800; cursor:pointer;
+      box-shadow:0 2px 6px rgba(0,0,0,.15); transition:.18s;
+    }
+    .logout-btn i{
+      background:#fff; color:var(--danger);
+      width:22px; height:22px; border-radius:50%;
+      display:inline-flex; align-items:center; justify-content:center; font-size:12px;
+    }
+    .logout-btn:hover{ filter:brightness(.95) }
+
     /* مدخلات */
     input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);
       border-radius:12px;padding:10px 12px}
@@ -115,7 +130,14 @@
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
-        <form class="right" method="post" action="/logout"><button class="btab" style="background:#fff"><i class="fa fa-right-from-bracket"></i> خروج</button></form>
+
+        <!-- زر الخروج الدائري الأحمر -->
+        <form class="right" method="post" action="/logout" style="margin:0">
+          <button class="logout-btn" type="submit" title="تسجيل الخروج">
+            <i class="fa fa-arrow-right-from-bracket"></i>
+            <span>خروج</span>
+          </button>
+        </form>
       <% } else { %>
         <a class="btab right" href="/login">تسجيل الدخول</a>
       <% } %>

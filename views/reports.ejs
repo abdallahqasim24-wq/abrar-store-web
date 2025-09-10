@@ -31,7 +31,7 @@
         <% 
           const curY = Number(dayjs().format('YYYY'));
           const selY = Number(selected?.year || curY);
-          for (let y = curY+1; y >= curY-5; y--) { %>
+          for (let y = curY+1; y >= curY+5; y++) { %>
             <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
         <% } %>
       </select>
