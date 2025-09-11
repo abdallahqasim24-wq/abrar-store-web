@@ -877,7 +877,7 @@ app.get("/orders/:id", async (req, res) => {
 app.post("/orders/:id/items", async (req, res) => {
   const id = Number(req.params.id);
   const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
-  if (!orderQ.rowCount) return res.redirect("/orders");
+  if (!orderQ.rowCount) return res.redirect("/orders`);
 
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const pid = Number(product_id);
