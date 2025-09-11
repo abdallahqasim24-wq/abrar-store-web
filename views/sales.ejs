@@ -1,5 +1,30 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
+<!-- (اختياري) تحسينات بسيطة محلية لو ما كانت موجودة بالـ layout -->
+<style>
+  .thumb{width:64px;height:64px;border-radius:10px;border:1px solid var(--border);object-fit:cover;background:#fff}
+  .status-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;border:1px solid var(--border);cursor:pointer}
+  .status-pending{background:#fff7e6}.status-shipping{background:#fff3cd}
+  .status-delivered{background:#e6ffed}.status-failed{background:#ffe6e6}
+  .status-wrap{position:relative;display:inline-block}
+  .status-menu{position:absolute;inset:auto auto auto 0;transform:translateY(6px);background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.08);min-width:180px;padding:6px;z-index:30;display:none}
+  .status-menu button{width:100%;text-align:right;background:#fff;color:#111;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
+  .status-menu button:hover{background:#f8fafc}
+
+  .modal{position:fixed;inset:0;display:none;z-index:90}
+  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+  .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
+  .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
+  .mhead{display:flex;gap:10px;align-items:center;padding:12px 12px 12px 56px;border-bottom:1px solid #f1f5f9}
+  .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
+  .pcard{border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);border-radius:12px}
+  .tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
+  .name{font-weight:800;text-align:center;min-height:48px}
+</style>
+
 <div class="card">
   <h3><i class="fa fa-cart-plus"></i> إضافة عملية بيع</h3>
 
@@ -11,12 +36,12 @@
       <div class="row" style="gap:8px">
         <input id="productNameDisplay" placeholder="اختر منتج..." readonly style="flex:1">
         <input type="hidden" id="productIdField" name="product_id" required>
-        <button id="openPicker" class="btn add" type="button"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
+        <button id="openPicker" class="btn add" type="button"><i class="fa fa-grid-2"></i> اختيار المنتج</button>
       </div>
 
       <!-- معاينة مصغّرة للمنتج المختار -->
       <div id="miniPreview" class="row" style="display:none; margin-top:10px; gap:10px; align-items:center">
-        <div class="thumb" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
+        <div class="thumb" style="width:56px;height:56px;display:flex;align-items:center;justify-content:center;overflow:hidden">
           <img id="miniImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">
         </div>
         <div style="font-weight:700" id="miniName"></div>
@@ -59,6 +84,28 @@
     <div style="grid-column: span 2;">
       <label>ملاحظة (اختياري)</label>
       <textarea name="note" rows="2" placeholder=""></textarea>
+    </div>
+
+    <!-- تجميع كبنود ضمن طلب -->
+    <div style="grid-column: span 2; border-top:1px dashed #f1f5f9; padding-top:10px">
+      <label class="row" style="gap:8px;align-items:center">
+        <input type="checkbox" name="as_order" id="asOrderChk">
+        <span>ضمّ هذه العملية ضمن <b>طلب</b> (ينشأ تلقائيًا حسب رقم الهاتف إن لم تُحدّد)</span>
+      </label>
+
+      <% if (typeof openOrders !== 'undefined' && openOrders.length) { %>
+        <div class="row" style="gap:8px; margin-top:8px">
+          <select name="order_id" id="orderSel" disabled style="min-width:280px">
+            <option value="">— اختيار طلب مفتوح (اختياري) —</option>
+            <% openOrders.forEach(o=>{ %>
+              <option value="<%= o.id %>">#<%= o.id %> — <%= o.customer_name||'بدون اسم' %> — <%= o.customer_phone||'—' %> — <%= o.status==='shipping'?'قيد التوصيل':'قيد المعالجة' %></option>
+            <% }) %>
+          </select>
+          <span class="muted">لو تركته فارغًا ومعك رقم هاتف: رح نلحقها تلقائيًا بأقرب طلب مفتوح لنفس الرقم خلال 48 ساعة، أو ننشئ واحد جديد.</span>
+        </div>
+      <% } else { %>
+        <div class="muted" style="margin-top:6px">ما في طلبات مفتوحة حالياً. إذا فعلت الخيار، رح ننشئ طلب جديد تلقائيًا.</div>
+      <% } %>
     </div>
 
     <div class="right" style="grid-column: span 2;">
@@ -111,7 +158,6 @@
         <th>السعر الأصلي (₪)</th>
         <th>سعر بيع (₪)</th>
         <th>شحن (₪)</th>
-        <!-- المطلوب يسار الربح -->
         <th>الربح (₪)</th>
         <th>المطلوب (₪)</th>
         <th>التوصيل</th>
@@ -128,7 +174,7 @@
            const revenue   = price * qty;
            const requested = revenue + ship;
            const profit    = revenue - (costUnit*qty) - ship;
-           const status    = (s.delivery_status || 'pending'); // قيم: pending/shipping/delivered/failed
+           const status    = (s.delivery_status || 'pending');
       %>
         <tr data-status="<%= status %>">
           <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
@@ -141,7 +187,7 @@
 
           <td style="text-align:right">
             <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-              <div class="thumb" style="width:64px;height:64px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+              <div class="thumb" style="display:flex;align-items:center;justify-content:center;overflow:hidden">
                 <% if (s.product_image) { %>
                   <img src="<%= s.product_image %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
                 <% } %>
@@ -202,16 +248,15 @@
   </table>
 </div>
 
-<!-- مودال شبكة اختيار المنتج (مع زر ✕ داخل دائرة حمراء) -->
+<!-- مودال شبكة اختيار المنتج -->
 <div class="modal" id="pickerModal" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
-    <!-- زر الإغلاق الأحمر -->
     <button type="button" id="pickerClose" class="mclose" aria-label="إغلاق">
       <i class="fa fa-xmark"></i>
     </button>
 
-    <div class="mhead" style="position:relative; padding-inline-start:56px">
+    <div class="mhead">
       <i class="fa fa-grid-2"></i>
       <div style="font-weight:800">اختيار منتج من الشبكة</div>
       <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
@@ -240,6 +285,16 @@
 </div>
 
 <script>
+  // تفعيل/تعطيل اختيار الطلب المفتوح بناءً على خيار "ضمّ إلى طلب"
+  (function(){
+    const chk = document.getElementById('asOrderChk');
+    const sel = document.getElementById('orderSel');
+    if (!chk || !sel) return;
+    const sync = ()=> sel.disabled = !chk.checked;
+    chk.addEventListener('change', sync);
+    sync();
+  })();
+
   // تحديد/إلغاء تحديد الكل + تعبئة فورمَي النقل/الحذف
   (function(){
     const all = document.getElementById('checkAll');
@@ -262,9 +317,8 @@
     const btnOrd = document.getElementById('filterOrders');
     const btnSal = document.getElementById('filterSales');
 
-    // عدّل regex حسب قيم حالتك إن كانت مختلفة
-    const isOrder = st => /^(pending|shipping)$/i.test(st||'');   // مثال: اعتبر الطلبات = قيد معالجة/توصيل
-    const isSale  = st => /^(delivered|failed)$/i.test(st||'');   // مثال: اعتبر المبيعات = تم/فشل
+    const isOrder = st => /^(pending|shipping)$/i.test(st||'');
+    const isSale  = st => /^(delivered|failed)$/i.test(st||'');
 
     function show(which){
       rows.forEach(tr=>{
