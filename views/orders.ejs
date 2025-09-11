@@ -25,6 +25,7 @@
       <% if (!orders.length){ %>
         <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
       <% } %>
+
       <% orders.forEach(o=>{ %>
         <tr>
           <td><b>#<%= o.id %></b></td>
@@ -40,7 +41,12 @@
               <%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'فشل' %>
             </span>
           </td>
-          <td><%= dayjs(o.created_at).tz("Asia/Hebron").format('YYYY-MM-DD hh:mm A') %></td>
+          <td>
+            <%= (dayjs && dayjs.tz)
+                  ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                  : (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
+            %>
+          </td>
           <td><a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
         </tr>
       <% }) %>

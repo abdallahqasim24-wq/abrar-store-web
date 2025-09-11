@@ -20,15 +20,15 @@
 
 <%
   // حراس أمان: لو ما مرّر السيرفر dayjs/selected/years
-  const dj   = (typeof dayjs !== 'undefined' && dayjs) ? dayjs : (s=>s);
-  const NOW  = dj().tz ? dj().tz("Asia/Hebron") : dj();
+  const dj   = (typeof dayjs !== 'undefined' && dayjs) ? dayjs : null;
+  const NOW  = dj && dj.tz ? dj().tz('Asia/Hebron') : null;
   const sel  = (typeof selected === 'object' && selected) ? selected : {};
   const RANGE= (typeof range==='string'&&range) ? range : 'daily';
   const YEARS= Array.isArray(years)&&years.length ? years : [2024,2025,2026,2027,2028,2029,2030];
 
-  const curY = Number(NOW.format ? NOW.format('YYYY') : new Date().getFullYear());
-  const curM = Number(NOW.format ? NOW.format('MM')   : (new Date().getMonth()+1));
-  const curD = Number(NOW.format ? NOW.format('DD')   : new Date().getDate());
+  const curY = Number(NOW ? NOW.format('YYYY') : new Date().getFullYear());
+  const curM = Number(NOW ? NOW.format('MM')   : (new Date().getMonth()+1));
+  const curD = Number(NOW ? NOW.format('DD')   : new Date().getDate());
 
   const selY = Number(sel.year  ?? curY);
   const selM = Number(sel.month ?? curM);
@@ -129,7 +129,12 @@
         const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
     %>
       <tr>
-        <td><%= (dayjs?.(s.sold_at)?.tz ? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A') : s.sold_at) %></td>
+        <td>
+          <%= (dayjs && dayjs.tz)
+                ? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
+          %>
+        </td>
         <td class="right">
           <% if (s.product_image) { %>
             <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">

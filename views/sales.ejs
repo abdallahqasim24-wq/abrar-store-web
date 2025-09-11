@@ -132,7 +132,12 @@
       %>
         <tr data-status="<%= status %>">
           <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
-          <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
+          <td>
+            <%= (dayjs && dayjs.tz)
+                  ? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                  : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
+            %>
+          </td>
 
           <td style="text-align:right">
             <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
@@ -197,17 +202,21 @@
   </table>
 </div>
 
-<!-- مودال شبكة اختيار المنتج (مع زر ✕) -->
+<!-- مودال شبكة اختيار المنتج (مع زر ✕ داخل دائرة حمراء) -->
 <div class="modal" id="pickerModal" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
-    <div class="mhead" style="position:relative">
+    <!-- زر الإغلاق الأحمر -->
+    <button type="button" id="pickerClose" class="mclose" aria-label="إغلاق">
+      <i class="fa fa-xmark"></i>
+    </button>
+
+    <div class="mhead" style="position:relative; padding-inline-start:56px">
       <i class="fa fa-grid-2"></i>
       <div style="font-weight:800">اختيار منتج من الشبكة</div>
       <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
-      <button type="button" id="pickerClose" aria-label="إغلاق"
-              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">&times;</button>
     </div>
+
     <div class="mgrid" id="gridWrap">
       <% products.forEach(p=>{ %>
         <div class="pcard" data-id="<%= p.id %>"
@@ -254,8 +263,8 @@
     const btnSal = document.getElementById('filterSales');
 
     // عدّل regex حسب قيم حالتك إن كانت مختلفة
-    const isOrder = st => /^(pending|shipping)$/i.test(st||'');
-    const isSale  = st => /^(delivered|failed)$/i.test(st||'');
+    const isOrder = st => /^(pending|shipping)$/i.test(st||'');   // مثال: اعتبر الطلبات = قيد معالجة/توصيل
+    const isSale  = st => /^(delivered|failed)$/i.test(st||'');   // مثال: اعتبر المبيعات = تم/فشل
 
     function show(which){
       rows.forEach(tr=>{
