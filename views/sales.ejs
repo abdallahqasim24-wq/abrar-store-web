@@ -68,7 +68,16 @@
 </div>
 
 <div class="card">
-  <h3><i class="fa fa-receipt"></i> سجل المبيعات</h3>
+  <div class="row" style="justify-content:space-between;align-items:center">
+    <h3 style="margin:0"><i class="fa fa-arrows-rotate"></i> سجل المعاملات</h3>
+
+    <!-- فلاتر العرض: الواجهة فقط -->
+    <div class="row" style="gap:8px">
+      <button id="filterAll" class="btn secondary" type="button">الكل</button>
+      <button id="filterOrders" class="btn add" type="button">الطلبات</button>
+      <button id="filterSales" class="btn save" type="button">المبيعات</button>
+    </div>
+  </div>
 
   <!-- أدوات جماعية أعلى الجدول -->
   <div class="row" style="margin:8px 0;gap:10px;align-items:center">
@@ -110,7 +119,7 @@
         <th>إجراء</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="txBody">
       <% sales.forEach(s=> {
            const qty       = Number(s.quantity);
            const price     = Number(s.sale_price);
@@ -119,9 +128,9 @@
            const revenue   = price * qty;
            const requested = revenue + ship;
            const profit    = revenue - (costUnit*qty) - ship;
-           const status    = (s.delivery_status || 'pending');
+           const status    = (s.delivery_status || 'pending'); // قيم: pending/shipping/delivered/failed
       %>
-        <tr>
+        <tr data-status="<%= status %>">
           <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
           <td><%= dayjs(s.sold_at).format('YYYY-MM-DD hh:mm A') %></td>
 
@@ -234,6 +243,32 @@
     }
     document.getElementById('bulkReturnForm').addEventListener('submit', fillHidden);
     document.getElementById('bulkDeleteForm').addEventListener('submit', fillHidden);
+  })();
+
+  // فلاتر المعاملات (واجهة فقط)
+  (function(){
+    const body  = document.getElementById('txBody');
+    const rows  = Array.from(body.querySelectorAll('tr'));
+    const btnAll = document.getElementById('filterAll');
+    const btnOrd = document.getElementById('filterOrders');
+    const btnSal = document.getElementById('filterSales');
+
+    // عدّل regex حسب قيم حالتك إن كانت مختلفة
+    const isOrder = st => /^(pending|shipping)$/i.test(st||'');
+    const isSale  = st => /^(delivered|failed)$/i.test(st||'');
+
+    function show(which){
+      rows.forEach(tr=>{
+        const st = (tr.getAttribute('data-status')||'').toLowerCase();
+        let ok = true;
+        if (which==='orders') ok = isOrder(st);
+        if (which==='sales')  ok = isSale(st);
+        tr.style.display = ok ? '' : 'none';
+      });
+    }
+    btnAll && (btnAll.onclick = ()=>show('all'));
+    btnOrd && (btnOrd.onclick = ()=>show('orders'));
+    btnSal && (btnSal.onclick = ()=>show('sales'));
   })();
 
   // مودال الشبكة + زر ✕ + تعبئة الحقول

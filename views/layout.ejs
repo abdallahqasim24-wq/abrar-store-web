@@ -6,29 +6,17 @@
   <title>Abrar Store</title>
   <link rel="stylesheet" href="<%= faLink %>">
 
-<style>
-  /* === Fix: زر تعديل – شكل موحّد وأنيق === */
-  .btn { display:inline-flex; align-items:center; gap:8px; line-height:1; }
-  .btn i { font-size:14px; }
-
-  .btn.edit{
-    background:#f9a825;       /* أصفر واضح */
-    color:#111;
-    border:none;
-    border-radius:14px;
-    padding:10px 14px;
-    box-shadow:0 2px 0 rgba(0,0,0,.08);
-  }
-  /* إلغاء أي زخارف/طبقات قديمة كانت عاملة شكل مزدوج */
-  .btn.edit::before,
-  .btn.edit::after{ content:none !important; display:none !important; }
-
-  .btn.edit:hover{ filter:brightness(.97); }
-  .btn.edit:active{ transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.08); }
-</style>
+  <!-- زر تعديل موحّد -->
+  <style>
+    .btn{display:inline-flex;align-items:center;gap:8px;line-height:1}
+    .btn i{font-size:14px}
+    .btn.edit{background:#f9a825;color:#111;border:none;border-radius:14px;padding:10px 14px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
+    .btn.edit::before,.btn.edit::after{content:none !important;display:none !important}
+    .btn.edit:hover{filter:brightness(.97)}
+    .btn.edit:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
+  </style>
 
   <style>
-    /* ===== أساسيات وتوسيع المساحة للحواف ===== */
     :root{
       --bg:#fff7fb; --text:#1f2937; --muted:#6b7280; --card:#fff;
       --border:#f7cfe1; --accent1:#ff7eb3; --accent2:#ffb07b;
@@ -40,7 +28,7 @@
     html{font-family:'Tajawal','Cairo',system-ui;line-height:1.65;background:var(--bg);color:var(--text)}
     body{margin:0}
     a{color:inherit;text-decoration:none}
-    .container{max-width:1400px;margin:0 auto;padding:0 24px} /* ▶️ أوسع */
+    .container{max-width:1400px;margin:0 auto;padding:0 24px}
     .page{padding:20px 0}
 
     /* شريط علوي */
@@ -60,15 +48,14 @@
     th,td{padding:10px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
     thead th{background:#feeef5}
 
-    /* أزرار */
+    /* أزرار عامة */
     .btn{padding:10px 14px;border-radius:12px;border:0;color:#fff;font-weight:700;cursor:pointer}
     .btn.add{background:#2563eb}.btn.save{background:#16a34a}
-    .btn.edit{background:#f59e0b;color:#111}.btn.danger{background:#ef4444}
-    .btn.secondary{background:#475569}
+    .btn.danger{background:#ef4444}.btn.secondary{background:#475569}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .right{margin-inline-start:auto}
 
-    /* زر خروج الدائري الأحمر */
+    /* زر خروج */
     .logout-btn{
       display:inline-flex; align-items:center; gap:8px;
       background:var(--danger); color:#fff; border:none; border-radius:999px;
@@ -80,7 +67,7 @@
       width:22px; height:22px; border-radius:50%;
       display:inline-flex; align-items:center; justify-content:center; font-size:12px;
     }
-    .logout-btn:hover{ filter:brightness(.95) }
+    .logout-btn:hover{filter:brightness(.95)}
 
     /* مدخلات */
     input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);
@@ -89,14 +76,14 @@
     .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media(max-width:800px){.form-grid{grid-template-columns:1fr}}
 
-    /* صور مصغّرة + لايت بوكس */
+    /* صور + لايت بوكس */
     .thumb{width:var(--thumb);height:var(--thumb);border-radius:12px;object-fit:cover;border:1px solid var(--border)}
     .js-img{cursor:zoom-in}
     #imgPreviewBg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:70}
     #imgPreview{position:fixed;inset:0;margin:auto;max-width:min(92vw,900px);max-height:92vh;display:none;z-index:80;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
     #imgPreviewClose{position:fixed;inset:12px 12px auto auto;z-index:85;background:#fff;border:1px solid #e5e7eb;border-radius:999px;width:40px;height:40px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 
-    /* شِيب حالة التوصيل */
+    /* Chips الحالة */
     .status-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.88rem;border:1px solid var(--border);cursor:pointer}
     .status-pending{background:#fff7e6}.status-shipping{background:#fff3cd}
     .status-delivered{background:#e6ffed}.status-failed{background:#ffe6e6}
@@ -106,25 +93,17 @@
     .status-menu button:hover{background:#f8fafc}
     .muted{color:var(--muted)} .muted-sm{color:#6b7280;font-size:.85rem}
 
-    /* مودال شبكة اختيار المنتج (مُدمج) */
+    /* مودال اختيار المنتج */
     .modal{position:fixed;inset:0;display:none;z-index:90}
     .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
     .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
-
-    /* زر إغلاق دائري أحمر ومباعد عن خانة البحث */
     .mclose{
-      position:absolute;
-      inset-block-start:10px;        /* أعلى */
-      inset-inline-start:10px;       /* يحترم RTL */
-      width:38px;height:38px;border:0;border-radius:999px;
-      background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;
-      cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5;
+      position:absolute;inset-block-start:10px;inset-inline-start:10px;
+      width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5;
     }
     .mclose:hover{filter:brightness(.95)}
-
-    .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;
-      padding-inline-start:56px;} /* مساحة للـ X */
-
+    .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;padding-inline-start:56px}
     .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
     @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
     @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
@@ -143,16 +122,12 @@
         <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
-        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
-          <i class="fa fa-basket-shopping"></i> الطلبات
-        </a>
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders"><i class="fa fa-basket-shopping"></i> الطلبات</a>
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
-        <!-- زر الخروج الدائري الأحمر -->
         <form class="right" method="post" action="/logout" style="margin:0">
           <button class="logout-btn" type="submit" title="تسجيل الخروج">
-            <i class="fa fa-arrow-right-from-bracket"></i>
-            <span>خروج</span>
+            <i class="fa fa-arrow-right-from-bracket"></i><span>خروج</span>
           </button>
         </form>
       <% } else { %>
@@ -169,7 +144,7 @@
   <button id="imgPreviewClose"><i class="fa fa-xmark"></i></button>
 
   <script>
-    // Lightbox لأي صورة تحمل .js-img
+    // Lightbox
     (function(){
       const bg=document.getElementById('imgPreviewBg');
       const im=document.getElementById('imgPreview');
