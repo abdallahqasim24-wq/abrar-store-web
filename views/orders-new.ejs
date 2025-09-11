@@ -1,118 +1,47 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <div class="card">
-  <div class="row">
-    <h3><i class="fa fa-plus"></i> طلب جديد (عدة منتجات لنفس الزبون)</h3>
-    <a class="btn secondary right" href="/orders"><i class="fa fa-arrow-right"></i> رجوع</a>
-  </div>
+  <h3><i class="fa fa-plus"></i> إنشاء طلب جديد</h3>
 
-  <form method="post" action="/orders" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
-    <div>
-      <label>اسم الزبون</label>
-      <input name="customer_name" required>
-    </div>
-    <div>
-      <label>الهاتف</label>
-      <input name="customer_phone">
-    </div>
-    <div>
-      <label>المدينة</label>
-      <input name="customer_city">
-    </div>
-    <div style="grid-column: span 2;">
-      <label>ملاحظات للطلب</label>
-      <textarea name="note" rows="2"></textarea>
-    </div>
+  <form method="post" action="/orders" class="form-grid" style="grid-template-columns:1fr 1fr; gap:14px">
+    <div><label>اسم الزبون</label><input name="customer_name"></div>
+    <div><label>الهاتف</label><input name="customer_phone"></div>
+    <div><label>المدينة</label><input name="customer_city"></div>
+    <div style="grid-column:span 2"><label>ملاحظة</label><input name="note"></div>
 
-    <div style="grid-column: span 2">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <h4 style="margin:0">المنتجات</h4>
-        <button type="button" id="addRow" class="btn add"><i class="fa fa-plus"></i> إضافة صف</button>
-      </div>
-
-      <table style="width:100%; margin-top:8px">
-        <thead>
-          <tr>
-            <th style="text-align:right">المنتج</th>
-            <th>كمية</th>
-            <th>بيع (₪)</th>
-            <th>أصلي (₪)</th>
-            <th>شحن (₪)</th>
-            <th>ملاحظة</th>
-            <th>حذف</th>
-          </tr>
-        </thead>
-        <tbody id="rows"></tbody>
+    <div style="grid-column:span 2">
+      <table class="items-grid" id="itemsTable">
+        <thead><tr><th>المنتج</th><th>كمية</th><th>سعر بيع</th><th>سعر أصلي</th><th>شحن</th><th>ملاحظة</th><th>إجراء</th></tr></thead>
+        <tbody id="itemsBody"></tbody>
       </table>
+      <div class="right" style="margin-top:8px"><button class="btn add" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة سطر</button></div>
     </div>
 
-    <div class="right" style="grid-column: span 2;">
-      <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ الطلب</button>
+    <div class="right" style="grid-column:span 2">
+      <a class="btn secondary" href="/orders"><i class="fa fa-list-check"></i> الطلبات</a>
+      <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ</button>
     </div>
   </form>
 </div>
 
 <script>
-  (function(){
-    const products = <%- JSON.stringify(products||[]) %>;
-    const rows = document.getElementById('rows');
-    document.getElementById('addRow').addEventListener('click', addRow);
-
-    function addRow(pref = {}){
-      const tr = document.createElement('tr');
-
-      const sel = document.createElement('select');
-      sel.name = 'product_id';
-      sel.required = true;
-      sel.innerHTML = '<option value="">— اختر —</option>' + products.map(p=>(
-        `<option value="${p.id}" data-cost="${p.cost_price||0}" data-sale="${p.sale_price||0}">
-           ${p.name} (مخزون ${p.stock||0})
-         </option>`
-      )).join('');
-      if (pref.product_id) sel.value = pref.product_id;
-
-      const qty = input('number','quantity', pref.quantity||1, {min:1, step:1});
-      const sale= input('number','sale_price',pref.sale_price||'', {step:'0.01'});
-      const cost= input('number','cost_price',pref.cost_price||'', {step:'0.01'});
-      const ship= input('number','shipping_cost',pref.shipping_cost||0, {step:'0.01'});
-      const note= input('text','item_note',pref.item_note||'', {});
-
-      sel.addEventListener('change',()=>{
-        const opt = sel.options[sel.selectedIndex];
-        if (opt && !sale.value) sale.value = opt.dataset.sale || '';
-        if (opt && !cost.value) cost.value = opt.dataset.cost || '';
-      });
-
-      tr.appendChild(tcell(sel, true));
-      tr.appendChild(tcell(qty));
-      tr.appendChild(tcell(sale));
-      tr.appendChild(tcell(cost));
-      tr.appendChild(tcell(ship));
-      tr.appendChild(tcell(note));
-
-      const delBtn = document.createElement('button');
-      delBtn.type='button';
-      delBtn.className='btn danger';
-      delBtn.innerHTML='<i class="fa fa-trash"></i>';
-      delBtn.addEventListener('click', ()=> tr.remove());
-      tr.appendChild(tcell(delBtn));
-
-      rows.appendChild(tr);
-    }
-
-    function input(type,name,val,attrs){
-      const i = document.createElement('input');
-      i.type = type; i.name = name; i.value = val ?? '';
-      Object.entries(attrs||{}).forEach(([k,v])=> i.setAttribute(k, v));
-      return i;
-    }
-    function tcell(child, right){
-      const td = document.createElement('td');
-      if (right) td.style.textAlign='right';
-      td.appendChild(child); return td;
-    }
-
-    // صف افتراضي أول
-    addRow();
-  })();
+(function(){
+  const products = <%- JSON.stringify(products||[]) %>;
+  const body=document.getElementById('itemsBody'); document.getElementById('addRow').addEventListener('click', add);
+  function add(){
+    const tr=document.createElement('tr');
+    const sel=document.createElement('select'); sel.name='product_id'; sel.required=true;
+    sel.innerHTML = '<option value="">— اختر —</option>' + products.map(p=>`<option value="${p.id}" data-sale="${p.sale_price}" data-cost="${p.cost_price}">${p.name}</option>`).join('');
+    const qty=inp('number','quantity','1',{min:'1',step:'1'});
+    const sp =inp('number','sale_price','',{step:'0.01'}), cp=inp('number','cost_price','',{step:'0.01'}), sh=inp('number','shipping_cost','0',{step:'0.01'});
+    const note=inp('text','item_note','',{});
+    sel.addEventListener('change',()=>{ const o=sel.options[sel.selectedIndex]; sp.value=o.dataset.sale||''; cp.value=o.dataset.cost||''; });
+    tr.appendChild(td(sel,true)); tr.appendChild(td(qty)); tr.appendChild(td(sp)); tr.appendChild(td(cp)); tr.appendChild(td(sh)); tr.appendChild(td(note));
+    const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.onclick=()=>tr.remove(); tr.appendChild(td(del));
+    body.appendChild(tr);
+  }
+  function inp(t,n,v,a){ const i=document.createElement('input'); i.type=t;i.name=n;i.value=v||''; Object.entries(a||{}).forEach(([k,val])=>i.setAttribute(k,val)); return i; }
+  function td(el,first){ const td=document.createElement('td'); if(first) td.style.textAlign='right'; td.appendChild(el); return td; }
+  add();
+})();
 </script>
