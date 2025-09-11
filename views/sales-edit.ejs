@@ -3,29 +3,149 @@
 <div class="card">
   <h3><i class="fa fa-pen-to-square"></i> تعديل عملية بيع</h3>
 
-  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid" style="grid-template-columns:1fr 1fr; gap:14px">
-    <div>
+  <form method="post" action="/sales/<%= sale.id %>/update" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
+    <div style="grid-column: span 2;">
       <label>المنتج</label>
-      <select name="product_id" required>
-        <% products.forEach(p=>{ %>
-          <option value="<%= p.id %>" <%= p.id===sale.product_id?'selected':'' %>><%= p.name %></option>
-        <% }) %>
-      </select>
-      <div class="muted">المخزون الحالي: <b><%= productStock %></b></div>
+      <div class="row" style="gap:8px">
+        <input id="productNameDisplay" value="<%= sale.product_name %>" readonly style="flex:1">
+        <input type="hidden" id="productIdField" name="product_id" value="<%= sale.product_id %>">
+        <button id="openPicker" class="btn add" type="button"><i class="fa fa-grid-2"></i> تغيير المنتج</button>
+      </div>
+
+      <div id="miniPreview" class="row" style="display:flex; margin-top:10px; gap:10px; align-items:center">
+        <div class="thumb" style="width:56px;height:56px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
+          <% if (sale.product_image) { %>
+            <img id="miniImg" src="<%= sale.product_image %>" alt="" style="width:100%;height:100%;object-fit:cover">
+          <% } else { %>
+            <img id="miniImg" src="" alt="" style="display:none">
+          <% } %>
+        </div>
+        <div id="miniName" style="font-weight:700"><%= sale.product_name %></div>
+        <span class="tag">مخزون: <b id="miniStock"><%= productStock || 0 %></b></span>
+        <span class="tag">بيع: ₪<b id="miniSale"><%= Number(sale.sale_price||0).toFixed(2) %></b></span>
+        <span class="tag">أصلي: ₪<b id="miniCost"><%= Number(sale.cost_price||0).toFixed(2) %></b></span>
+      </div>
     </div>
-    <div><label>كمية</label><input type="number" name="quantity" step="1" min="1" value="<%= sale.quantity %>"></div>
-    <div><label>سعر بيع (₪)</label><input type="number" name="sale_price" step="0.01" value="<%= sale.sale_price %>"></div>
-    <div><label>سعر أصلي (₪)</label><input type="number" name="cost_price" step="0.01" value="<%= sale.cost_price %>"></div>
-    <div><label>شحن (₪)</label><input type="number" name="shipping_cost" step="0.01" value="<%= sale.shipping_cost||0 %>"></div>
-    <div style="grid-column:span 2"><label>ملاحظة</label><input type="text" name="note" value="<%= sale.note||'' %>"></div>
 
-    <div><label>اسم الزبون</label><input name="customer_name" value="<%= sale.customer_name||'' %>"></div>
-    <div><label>الهاتف</label><input name="customer_phone" value="<%= sale.customer_phone||'' %>"></div>
-    <div><label>المدينة</label><input name="customer_city" value="<%= sale.customer_city||'' %>"></div>
+    <div>
+      <label>الكمية</label>
+      <input id="qtyInput" type="number" name="quantity" value="<%= sale.quantity %>" min="1" step="1" required>
+    </div>
+    <div>
+      <label>سعر البيع (₪)</label>
+      <input id="salePriceInput" type="number" name="sale_price" step="0.01" value="<%= sale.sale_price %>" required>
+    </div>
+    <div>
+      <label>السعر الأصلي (₪)</label>
+      <input id="costPriceInput" type="number" name="cost_price" step="0.01" value="<%= sale.cost_price %>" required>
+    </div>
+    <div>
+      <label>الشحن (₪)</label>
+      <input type="number" name="shipping_cost" step="0.01" value="<%= sale.shipping_cost||0 %>">
+    </div>
 
-    <div class="right" style="grid-column:span 2">
-      <a class="btn secondary" href="/orders"><i class="fa fa-arrow-right-from-bracket"></i> الرجوع</a>
-      <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ</button>
+    <div>
+      <label>اسم الزبون</label>
+      <input type="text" name="customer_name" value="<%= sale.customer_name||'' %>">
+    </div>
+    <div>
+      <label>هاتف</label>
+      <input type="text" name="customer_phone" value="<%= sale.customer_phone||'' %>">
+    </div>
+    <div>
+      <label>المدينة</label>
+      <input type="text" name="customer_city" value="<%= sale.customer_city||'' %>">
+    </div>
+
+    <div style="grid-column: span 2;">
+      <label>ملاحظة</label>
+      <textarea name="note" rows="2"><%= sale.note||'' %></textarea>
+    </div>
+
+    <div class="right" style="grid-column: span 2;">
+      <a href="/sales" class="btn secondary"><i class="fa fa-arrow-right"></i> رجوع</a>
+      <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ</button>
     </div>
   </form>
 </div>
+
+<!-- مودال اختيار المنتج -->
+<div class="modal" id="pickerModal" aria-hidden="true">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <div class="mhead" style="position:relative">
+      <i class="fa fa-grid-2"></i>
+      <div style="font-weight:800">اختيار منتج</div>
+      <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
+      <button type="button" id="pickerClose" aria-label="إغلاق"
+              style="position:absolute; left:10px; top:8px; border:none; background:transparent; font-size:20px; line-height:1; cursor:pointer">&times;</button>
+    </div>
+    <div class="mgrid" id="gridWrap">
+      <% products.forEach(p=>{ %>
+        <div class="pcard" data-id="<%= p.id %>"
+             data-name="<%- p.name %>"
+             data-img="<%= p.image_path||'' %>"
+             data-sale="<%= Number(p.sale_price||0) %>"
+             data-cost="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= Number(p.stock||0) %>">
+          <img src="<%= p.image_path||'' %>" alt="">
+          <div class="name"><%= p.name %></div>
+          <div style="text-align:center">
+            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
+          </div>
+          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const modal=document.getElementById('pickerModal');
+    const open=document.getElementById('openPicker');
+    const bg=modal.querySelector('.modal-bg');
+    const closeBtn=document.getElementById('pickerClose');
+    const search=document.getElementById('searchBox');
+    const cards=[...modal.querySelectorAll('.pcard')];
+    function show(){ modal.style.display='block'; search.focus(); }
+    function hide(){ modal.style.display='none'; search.value=''; filter(''); }
+    if (open) open.addEventListener('click',show);
+    bg.addEventListener('click',hide);
+    closeBtn.addEventListener('click',hide);
+    document.addEventListener('keydown',e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
+    function filter(q){ const s=(q||'').trim().toLowerCase(); cards.forEach(c=>c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'); }
+    search.addEventListener('input',e=>filter(e.target.value));
+
+    const idF=document.getElementById('productIdField');
+    const nameF=document.getElementById('productNameDisplay');
+    const saleI=document.getElementById('salePriceInput');
+    const costI=document.getElementById('costPriceInput');
+
+    const mini=document.getElementById('miniPreview');
+    const miniImg=document.getElementById('miniImg');
+    const miniName=document.getElementById('miniName');
+    const miniStock=document.getElementById('miniStock');
+    const miniSale=document.getElementById('miniSale');
+    const miniCost=document.getElementById('miniCost');
+
+    modal.addEventListener('click',e=>{
+      const btn=e.target.closest('.pickBtn'); if(!btn) return;
+      const card=btn.closest('.pcard');
+      idF.value=card.dataset.id;
+      nameF.value=card.dataset.name;
+
+      const img=card.dataset.img||'';
+      mini.style.display='flex';
+      if(img){ miniImg.src=img; miniImg.style.display='block'; } else { miniImg.style.display='none'; }
+      miniName.textContent=card.dataset.name;
+      miniStock.textContent=Number(card.dataset.stock||0);
+      const sale=Number(card.dataset.sale||0), cost=Number(card.dataset.cost||0);
+      if(!saleI.value) saleI.value=sale; miniSale.textContent=sale.toFixed(2);
+      if(!costI.value) costI.value=cost; miniCost.textContent=cost.toFixed(2);
+      hide();
+    });
+  })();
+</script>

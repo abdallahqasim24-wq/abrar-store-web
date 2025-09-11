@@ -1,49 +1,78 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title><%= title %></title>
-  <style>
-    body{font-family:'Tajawal','Cairo',Arial; font-size:12px; color:#111}
-    h1{font-size:18px; margin:0 0 10px}
-    table{width:100%; border-collapse:collapse}
-    th,td{border:1px solid #eee; padding:6px; vertical-align:middle; text-align:center}
-    th{background:#feeef5}
-    .right{text-align:right}
-    .thumb{width:48px;height:48px;border-radius:10px;border:1px solid #f1f5f9;overflow:hidden}
-  </style>
-</head>
-<body>
-  <h1><%= title %></h1>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 20mm 12mm 16mm 12mm; }
+  body { direction: rtl; font-family: "Noto Kufi Arabic", Arial, sans-serif; font-size:13px; }
+  h1 { margin: 0 0 14px; font-size: 20px; }
+  .meta { margin-bottom: 12px; color:#555; font-size: 12px; }
+  table { width:100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; }
+  th { background:#f5f6f8; text-align: center; }
+  td { vertical-align: top; }
+  tfoot th, tfoot td { background:#fafafa; font-weight: 600; }
+  .right { text-align: right; }
+  .center { text-align: center; }
+  .kpis { display:flex; gap:10px; margin: 10px 0 16px; }
+  .kpi { border:1px solid #eee; padding:10px 12px; border-radius:8px; background:#fcfcfc; }
+  .muted { color:#666; }
+</style>
+
+<h1><%= title %></h1>
+<div class="meta">
+  تم التوليد: <%= dayjs().format('YYYY-MM-DD HH:mm') %>
+</div>
+
+<% if (!rows.length) { %>
+  <p class="muted">لا توجد بيانات لهذا النطاق الزمني.</p>
+<% } else { %>
+
+  <div class="kpis">
+    <div class="kpi">الإيراد: <strong>₪<%= Number(totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></strong></div>
+    <div class="kpi">الربح: <strong>₪<%= Number(totalProfit).toLocaleString('en-US',{minimumFractionDigits:2}) %></strong></div>
+  </div>
 
   <table>
     <thead>
       <tr>
-        <th>التاريخ</th><th class="right">المنتج</th><th>الصورة</th><th>الكمية</th><th>سعر بيع (₪)</th><th>السعر الأصلي (₪)</th><th>الشحن (₪)</th><th>الربح (₪)</th>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>الكمية</th>
+        <th>سعر البيع</th>
+        <th>السعر الأصلي</th>
+        <th>الشحن</th>
+        <th>الربح</th>
+        <th>ملاحظة</th>
       </tr>
     </thead>
     <tbody>
-      <% (rows||[]).forEach(s=>{
-           const qty=Number(s.quantity||0), sale=Number(s.sale_price||0), cost=Number(s.cost_price||0), ship=Number(s.shipping_cost||0);
-           const profit = (sale*qty) - (cost*qty);
-           const _img=(s.product_image||''); const _src=_img?(_img.startsWith('/')?_img:'/'+_img):'';
+      <% rows.forEach(s => {
+         const sale = Number(s.sale_price);
+         const cost = Number(s.cost_price);
+         const ship = Number(s.shipping_cost || 0);
+         const qty  = Number(s.quantity || 0);
+         const profit = (sale * qty) - (cost * qty) - ship;
       %>
         <tr>
-          <td><%= (dayjs&&dayjs.tz)? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A') : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %></td>
+          <td class="center"><%= dayjs(s.sold_at).format('YYYY-MM-DD HH:mm') %></td>
           <td class="right"><%= s.product_name %></td>
-          <td><div class="thumb"><% if(_src){ %><img src="<%= _src %>" alt="" style="width:100%;height:100%;object-fit:cover"><% } %></div></td>
-          <td><%= qty %></td><td>₪<%= sale.toFixed(2) %></td><td>₪<%= cost.toFixed(2) %></td><td>₪<%= ship.toFixed(2) %></td><td>₪<%= profit.toFixed(2) %></td>
+          <td class="center"><%= qty.toLocaleString('en-US') %></td>
+          <td class="center">₪<%= sale.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= cost.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= ship.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="center">₪<%= profit.toLocaleString('en-US',{minimumFractionDigits:2}) %></td>
+          <td class="right"><%= (s.note || '') %></td>
         </tr>
       <% }) %>
-      <% if (!(rows||[]).length){ %><tr><td colspan="8">لا توجد بيانات</td></tr><% } %>
     </tbody>
-    <% if ((rows||[]).length){ 
-         const totalRevenue=(rows||[]).reduce((a,s)=> a+Number(s.sale_price||0)*Number(s.quantity||0),0);
-         const totalProfit =(rows||[]).reduce((a,s)=> a+(Number(s.sale_price||0)*Number(s.quantity||0)-Number(s.cost_price||0)*Number(s.quantity||0)),0);
-         const totalShip   =(rows||[]).reduce((a,s)=> a+Number(s.shipping_cost||0),0);
-    %>
-      <tfoot><tr><th class="right" colspan="4">الإجماليات</th><th>₪<%= totalRevenue.toFixed(2) %></th><th>—</th><th>₪<%= totalShip.toFixed(2) %></th><th>₪<%= totalProfit.toFixed(2) %></th></tr></tfoot>
-    <% } %>
+    <tfoot>
+      <tr>
+        <th class="right" colspan="3">الإجمالي</th>
+        <th class="center">₪<%= Number(totalRevenue).toLocaleString('en-US',{minimumFractionDigits:2}) %></th>
+        <th></th>
+        <th></th>
+        <th class="center">₪<%= Number(totalProfit).toLocaleString('en-US',{minimumFractionDigits:2}) %></th>
+        <th></th>
+      </tr>
+    </tfoot>
   </table>
-</body>
-</html>
+
+<% } %>
