@@ -69,7 +69,7 @@
   </form>
 </div>
 
-<!-- مودال اختيار المنتج (نفس sales) -->
+<!-- مودال اختيار المنتج -->
 <div class="modal" id="pickerModal" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
@@ -104,7 +104,6 @@
 
 <script>
   (function(){
-    // مودال
     const modal=document.getElementById('pickerModal');
     const open=document.getElementById('openPicker');
     const bg=modal.querySelector('.modal-bg');
@@ -120,7 +119,6 @@
     function filter(q){ const s=(q||'').trim().toLowerCase(); cards.forEach(c=>c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'); }
     search.addEventListener('input',e=>filter(e.target.value));
 
-    // تعبئة
     const idF=document.getElementById('productIdField');
     const nameF=document.getElementById('productNameDisplay');
     const saleI=document.getElementById('salePriceInput');

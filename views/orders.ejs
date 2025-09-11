@@ -1,14 +1,14 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .orders-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .orders-head h3{ margin:0; display:flex; align-items:center; gap:8px }
-  .table-scroll{ overflow:auto }
-  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.9rem;border:1px solid var(--border)}
+  .orders-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .orders-head h3{margin:0;display:flex;align-items:center;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;border:1px solid var(--border)}
   .chip.pending{background:#fff7e6}
   .chip.shipping{background:#fff3cd}
   .chip.delivered{background:#e6ffed}
   .chip.failed{background:#ffe6e6}
+  .table-scroll{overflow:auto}
 </style>
 
 <div class="card">
@@ -34,11 +34,11 @@
         </tr>
       </thead>
       <tbody>
-        <% if (!orders || !orders.length) { %>
+        <% if (!orders || !orders.length){ %>
           <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
         <% } %>
 
-        <% (orders||[]).forEach(o => { %>
+        <% (orders||[]).forEach(o=>{ %>
           <tr>
             <td><b>#<%= o.id %></b></td>
             <td><%= o.customer_name || '—' %></td>
@@ -54,13 +54,11 @@
               </span>
             </td>
             <td>
-              <%= (dayjs && dayjs.tz)
-                    ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                    : new Date(o.created_at).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
+              <%= (dayjs&&dayjs.tz)
+                 ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                 : new Date(o.created_at).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
             </td>
-            <td>
-              <a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a>
-            </td>
+            <td><a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
           </tr>
         <% }) %>
       </tbody>
