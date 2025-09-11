@@ -39,6 +39,11 @@
   <!-- نموذج الحذف الجماعي -->
   <form id="bulkForm" method="post" action="/products/bulk-delete"></form>
 
+  <!-- زر الحذف فوق الجدول -->
+  <div class="row right" style="margin-bottom:10px">
+    <button class="btn danger" type="submit" form="bulkForm"><i class="fa fa-trash"></i> حذف المحدد</button>
+  </div>
+
   <div class="table-scroll">
     <table id="prodTable">
       <thead>
@@ -87,10 +92,6 @@
         <% }) %>
       </tbody>
     </table>
-  </div>
-
-  <div class="row right" style="margin-top:10px">
-    <button class="btn danger" type="submit" form="bulkForm"><i class="fa fa-trash"></i> حذف المحدد</button>
   </div>
 </div>
 
