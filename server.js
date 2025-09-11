@@ -1,4 +1,4 @@
-// server.js — يدعم الطلبات متعددة المنتجات + إدخال عدّة بنود دفعة واحدة
+// server.js — يدعم الطلبات متعددة المنتجات + تجميع حسب الزبون + إدخال عدّة بنود
 // ===================================================
 import express from "express";
 import path from "path";
@@ -17,7 +17,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Dayjs + Timezone (فلسطين/الخليل)
+// Dayjs + Timezone
 const dayjs = dayjsBase;
 dayjs.extend(utc);
 dayjs.extend(tz);
@@ -27,7 +27,7 @@ if (dayjs.tz?.setDefault) dayjs.tz.setDefault(TZ_NAME);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ================== إعدادات أساسية ==================
+// ================== إعدادات ==================
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = "0.0.0.0";
@@ -51,8 +51,7 @@ const pool = new Pool({
 async function query(sql, params = []) {
   const client = await pool.connect();
   try {
-    const res = await client.query(sql, params);
-    return res;
+    return await client.query(sql, params);
   } finally {
     client.release();
   }
@@ -60,23 +59,20 @@ async function query(sql, params = []) {
 
 // إنشاء/ترقية الجداول
 async function initDb() {
-  // products
   await query(`
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      brand TEXT,
-      category TEXT,
+      brand TEXT, category TEXT,
       cost_price NUMERIC(12,2) DEFAULT 0,
       sale_price NUMERIC(12,2) DEFAULT 0,
       stock INT DEFAULT 0,
-      image_path TEXT
+      image_path TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ
     );
   `);
-  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();`);
-  await query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;`);
 
-  // sales (بنود البيع)
   await query(`
     CREATE TABLE IF NOT EXISTS sales (
       id SERIAL PRIMARY KEY,
@@ -86,17 +82,16 @@ async function initDb() {
       cost_price NUMERIC(12,2) NOT NULL,
       shipping_cost NUMERIC(12,2) DEFAULT 0,
       note TEXT,
-      sold_at TIMESTAMPTZ DEFAULT NOW()
+      sold_at TIMESTAMPTZ DEFAULT NOW(),
+      customer_name  TEXT,
+      customer_phone TEXT,
+      customer_city  TEXT,
+      delivery_status TEXT DEFAULT 'pending',
+      delivered_at TIMESTAMPTZ,
+      order_id INT
     );
   `);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_name  TEXT;`);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_phone TEXT;`);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_city  TEXT;`);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivery_status TEXT DEFAULT 'pending';`);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS delivered_at   TIMESTAMPTZ;`);
-  await query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS order_id INT;`);
 
-  // orders (طلب يجمع عدّة بنود)
   await query(`
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -109,7 +104,6 @@ async function initDb() {
     );
   `);
 
-  // returns_queue
   await query(`
     CREATE TABLE IF NOT EXISTS returns_queue (
       id SERIAL PRIMARY KEY,
@@ -125,7 +119,6 @@ async function initDb() {
     );
   `);
 
-  // product_images (معرض صور)
   await query(`
     CREATE TABLE IF NOT EXISTS product_images (
       id SERIAL PRIMARY KEY,
@@ -208,17 +201,9 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
   const { username = "", password = "", next = "/" } = req.body || {};
   if (username !== AUTH_USER)
-    return res.status(401).render("login", {
-      error: "❌ اسم المستخدم غير صحيح",
-      next,
-      usernamePrefill: username,
-    });
+    return res.status(401).render("login", { error: "❌ اسم المستخدم غير صحيح", next, usernamePrefill: username });
   if (password !== AUTH_PASS)
-    return res.status(401).render("login", {
-      error: "❌ كلمة المرور غير صحيحة",
-      next,
-      usernamePrefill: username,
-    });
+    return res.status(401).render("login", { error: "❌ كلمة المرور غير صحيحة", next, usernamePrefill: username });
   req.session.user = { username };
   res.redirect(next || "/");
 });
@@ -247,11 +232,8 @@ app.get("/", async (_req, res) => {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today]))
-    .rows;
-  const monthRows = (
-    await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])
-  ).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
   const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -327,24 +309,13 @@ app.post("/products", (req, res, next) => {
         INSERT INTO products (name, brand, category, cost_price, sale_price, stock, image_path, created_at)
         VALUES ($1,$2,$3,$4,$5,$6,$7,NOW()) RETURNING id
       `,
-        [
-          name,
-          brand || "",
-          category || "",
-          Number(cost_price || 0),
-          Number(sale_price || 0),
-          Number(stock || 0),
-          image_path,
-        ]
+        [name, brand || "", category || "", Number(cost_price || 0), Number(sale_price || 0), Number(stock || 0), image_path]
       );
       const productId = ins.rows[0].id;
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
-          productId,
-          `/public/uploads/${f.filename}`,
-        ]);
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [productId, `/public/uploads/${f.filename}`]);
       }
 
       res.redirect("/products");
@@ -395,10 +366,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
-          id,
-          `/public/uploads/${f.filename}`,
-        ]);
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [id, `/public/uploads/${f.filename}`]);
       }
 
       res.redirect("/products");
@@ -410,10 +378,10 @@ app.post("/products/:id/update", (req, res, next) => {
 });
 
 app.post("/products/:id/stock", async (req, res) => {
-  await query(
-    `UPDATE products SET stock = GREATEST(0, stock + $1), updated_at=NOW() WHERE id=$2`,
-    [Number(req.body.delta || 0), Number(req.params.id)]
-  );
+  await query(`UPDATE products SET stock = GREATEST(0, stock + $1), updated_at=NOW() WHERE id=$2`, [
+    Number(req.body.delta || 0),
+    Number(req.params.id),
+  ]);
   res.redirect("/products");
 });
 app.post("/products/:id/delete", async (req, res) => {
@@ -442,31 +410,14 @@ app.get("/sales", async (_req, res) => {
     await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
 
-  // جلب طلبات مفتوحة حديثًا (آخر 7 أيام)
-  const openOrders = (
-    await query(`
-      SELECT id, customer_name, customer_phone, status, created_at
-      FROM orders
-      WHERE status IN ('pending','shipping') AND created_at >= NOW() - INTERVAL '7 days'
-      ORDER BY created_at DESC
-    `)
-  ).rows;
-
-  res.render("sales", { sales, products, openOrders, dayjs });
+  res.render("sales", { sales, products, dayjs });
 });
 
 // إضافة بيع مفرد
 app.post("/sales", async (req, res) => {
   const {
-    product_id,
-    quantity,
-    sale_price,
-    cost_price,
-    shipping_cost,
-    note,
-    customer_name,
-    customer_phone,
-    customer_city,
+    product_id, quantity, sale_price, cost_price, shipping_cost, note,
+    customer_name, customer_phone, customer_city,
   } = req.body;
 
   const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)]);
@@ -481,8 +432,7 @@ app.post("/sales", async (req, res) => {
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
   `,
     [
-      prod.id,
-      qty,
+      prod.id, qty,
       Number(sale_price || prod.sale_price),
       Number(cost_price || prod.cost_price),
       Number(shipping_cost || 0),
@@ -493,69 +443,46 @@ app.post("/sales", async (req, res) => {
     ]
   );
 
-  await query(
-    `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-    [qty, prod.id]
-  );
+  await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, prod.id]);
 
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة ===
+// === إضافة عدة بنود (دائمًا نربطها بطلب تلقائي لنفس الرقم) ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
-      product_id = [],
-      quantity = [],
-      sale_price = [],
-      cost_price = [],
-      shipping_cost = [],
-      item_note = [],
-
-      customer_name = "",
-      customer_phone = "",
-      customer_city = "",
-      as_order = "off",
-      order_id = ""
+      product_id = [], quantity = [], sale_price = [], cost_price = [], shipping_cost = [], item_note = [],
+      customer_name = "", customer_phone = "", customer_city = "",
     } = req.body;
 
-    // ربط كطلب (إن لزم)
-    let orderId = null;
-    if (as_order === "on") {
-      if (order_id) {
-        orderId = Number(order_id) || null;
-      } else {
-        if (customer_phone) {
-          const openQ = await query(
-            `
-            SELECT id FROM orders
-            WHERE status IN ('pending','shipping')
-              AND customer_phone = $1
-              AND created_at >= NOW() - INTERVAL '48 hours'
-            ORDER BY created_at DESC LIMIT 1
-          `,
-            [String(customer_phone).trim()]
-          );
-          if (openQ.rowCount) orderId = openQ.rows[0].id;
-        }
-        if (!orderId) {
-          const ins = await query(
-            `
-            INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
-            VALUES ($1,$2,$3,$4,'pending') RETURNING id
-          `,
-            [(customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim(), ""]
-          );
-          orderId = ins.rows[0].id;
-        }
-      }
+    // نبحث عن طلب مفتوح لنفس الرقم (48 ساعة) أو ننشيء جديد
+    let orderId: number | null = null;
+    if (customer_phone) {
+      const openQ = await query(
+        `
+        SELECT id FROM orders
+        WHERE status IN ('pending','shipping')
+          AND customer_phone = $1
+          AND created_at >= NOW() - INTERVAL '48 hours'
+        ORDER BY created_at DESC LIMIT 1
+      `,
+        [String(customer_phone).trim()]
+      );
+      if (openQ.rowCount) orderId = openQ.rows[0].id;
+    }
+    if (!orderId) {
+      const ins = await query(
+        `
+        INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
+        VALUES ($1,$2,$3,$4,'pending') RETURNING id
+      `,
+        [(customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim(), ""]
+      );
+      orderId = ins.rows[0].id;
     }
 
-    const count = Math.max(
-      [].concat(product_id).length,
-      [].concat(quantity).length,
-      [].concat(sale_price).length
-    );
+    const count = Math.max([].concat(product_id).length, [].concat(quantity).length, [].concat(sale_price).length);
 
     for (let i = 0; i < count; i++) {
       const pid = Number([].concat(product_id)[i]);
@@ -569,7 +496,7 @@ app.post("/sales/multi", async (req, res) => {
       const sp   = Number([].concat(sale_price)[i] || prod.sale_price || 0);
       const cp   = Number([].concat(cost_price)[i] || prod.cost_price || 0);
       const ship = Number([].concat(shipping_cost)[i] || 0);
-      const inote= String([].concat(item_note)[i] || "");
+      const note = String([].concat(item_note)[i] || "");
 
       await query(
         `
@@ -577,22 +504,13 @@ app.post("/sales/multi", async (req, res) => {
                            customer_name, customer_phone, customer_city, delivery_status)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
       `,
-        [
-          orderId, pid, qty, sp, cp, ship, inote,
-          (customer_name || "").trim(),
-          (customer_phone || "").trim(),
-          (customer_city || "").trim()
-        ]
+        [orderId, pid, qty, sp, cp, ship, note, (customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim()]
       );
 
-      await query(
-        `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-        [qty, pid]
-      );
+      await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, pid]);
     }
 
-    if (orderId) return res.redirect(`/orders/${orderId}`);
-    return res.redirect("/sales");
+    return res.redirect(`/orders/${orderId}`);
   } catch (e) {
     console.error("multi-sale error:", e);
     res.redirect("/sales");
@@ -611,9 +529,7 @@ app.get("/sales/:id/edit", async (req, res) => {
   );
   if (!saleQ.rowCount) return res.redirect("/sales");
   const sale = saleQ.rows[0];
-  const products = (
-    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
   const stockQ = await query(`SELECT stock FROM products WHERE id=$1`, [sale.product_id]);
   const productStock = stockQ.rowCount ? stockQ.rows[0].stock : 0;
 
@@ -623,15 +539,8 @@ app.get("/sales/:id/edit", async (req, res) => {
 app.post("/sales/:id/update", async (req, res) => {
   const id = Number(req.params.id);
   const {
-    product_id,
-    quantity,
-    sale_price,
-    cost_price,
-    shipping_cost,
-    note,
-    customer_name,
-    customer_phone,
-    customer_city,
+    product_id, quantity, sale_price, cost_price, shipping_cost, note,
+    customer_name, customer_phone, customer_city,
   } = req.body;
 
   const oldQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
@@ -692,33 +601,20 @@ app.post("/sales/:id/return", async (req, res) => {
       INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     `,
-      [
-        s.id,
-        s.product_id,
-        s.quantity,
-        s.sale_price,
-        s.cost_price,
-        s.shipping_cost || 0,
-        s.note || "",
-        s.sold_at,
-      ]
+      [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
     );
   }
   res.redirect("/sales");
 });
 app.post("/sales/bulk-delete", async (req, res) => {
   const raw = req.body.ids || "";
-  const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
-    .map((n) => Number(n))
-    .filter(Boolean);
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map((n) => Number(n)).filter(Boolean);
   if (ids.length) await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [ids]);
   res.redirect("/sales");
 });
 app.post("/sales/bulk-return", async (req, res) => {
   const raw = req.body.ids || "";
-  const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
-    .map((n) => Number(n))
-    .filter(Boolean);
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map((n) => Number(n)).filter(Boolean);
   for (const id of ids) {
     const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
     if (!sQ.rowCount) continue;
@@ -728,22 +624,15 @@ app.post("/sales/bulk-return", async (req, res) => {
       INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
     `,
-      [
-        s.id,
-        s.product_id,
-        s.quantity,
-        s.sale_price,
-        s.cost_price,
-        s.shipping_cost || 0,
-        s.note || "",
-        s.sold_at,
-      ]
+      [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
     );
   }
   res.redirect("/sales");
 });
 
-// -------- Orders (الطلبات متعددة البنود) --------
+// -------- Orders (الطلبات) --------
+// 1) قائمة الطلبات الكلاسيكية
+// 2) customers: تجميع حسب الزبون مع كل المنتجات التي طلبها
 app.get("/orders", async (_req, res) => {
   const orders = (
     await query(`
@@ -758,30 +647,50 @@ app.get("/orders", async (_req, res) => {
       ORDER BY o.created_at DESC
     `)
   ).rows;
-  res.render("orders", { orders, dayjs });
+
+  const customers = (
+    await query(`
+      SELECT
+        COALESCE(s.customer_phone,'') AS phone,
+        COALESCE(s.customer_name,'')  AS name,
+        COALESCE(s.customer_city,'')  AS city,
+        COUNT(DISTINCT s.order_id)::int AS orders_count,
+        COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+        COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity - s.shipping_cost),0)::float8 AS profit,
+        MAX(s.sold_at) AS last_at,
+        JSON_AGG(
+          JSON_BUILD_OBJECT(
+            'order_id', s.order_id,
+            'sale_id',  s.id,
+            'product_name', p.name,
+            'quantity', s.quantity,
+            'sale_price', s.sale_price,
+            'shipping_cost', s.shipping_cost,
+            'status', s.delivery_status,
+            'sold_at', s.sold_at
+          ) ORDER BY s.sold_at DESC
+        ) AS items
+      FROM sales s
+      JOIN products p ON p.id = s.product_id
+      GROUP BY name, phone, city
+      ORDER BY last_at DESC NULLS LAST
+    `)
+  ).rows;
+
+  res.render("orders", { orders, customers, dayjs });
 });
 
 // نموذج طلب جديد
 app.get("/orders/new", async (_req, res) => {
-  const products = (
-    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
   res.render("orders-new", { products, dayjs });
 });
 
-// إنشاء طلب جديد (+ بنود المبيعات المرتبطة)
+// إنشاء طلب جديد
 app.post("/orders", async (req, res) => {
   const {
-    customer_name,
-    customer_phone,
-    customer_city,
-    note,
-    product_id = [],
-    quantity = [],
-    sale_price = [],
-    cost_price = [],
-    shipping_cost = [],
-    item_note = [],
+    customer_name, customer_phone, customer_city, note,
+    product_id = [], quantity = [], sale_price = [], cost_price = [], shipping_cost = [], item_note = [],
   } = req.body;
 
   const orderIns = await query(
@@ -814,24 +723,10 @@ app.post("/orders", async (req, res) => {
                          customer_name, customer_phone, customer_city, delivery_status)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
     `,
-      [
-        orderId,
-        pid,
-        qty,
-        sp,
-        cp,
-        ship,
-        inote,
-        (customer_name || "").trim(),
-        (customer_phone || "").trim(),
-        (customer_city || "").trim(),
-      ]
+      [orderId, pid, qty, sp, cp, ship, inote, (customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim()]
     );
 
-    await query(
-      `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-      [qty, pid]
-    );
+    await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, pid]);
   }
 
   res.redirect(`/orders/${orderId}`);
@@ -855,18 +750,10 @@ app.get("/orders/:id", async (req, res) => {
     )
   ).rows;
 
-  const products = (
-    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
 
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-  const profit = items.reduce(
-    (a, s) =>
-      a +
-      (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) -
-      Number(s.shipping_cost || 0),
-    0
-  );
+  const profit = items.reduce((a, s) => a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) - Number(s.shipping_cost || 0), 0);
 
   res.render("orders-view", { order, items, products, revenue, profit, dayjs });
 });
@@ -894,28 +781,14 @@ app.post("/orders/:id/items", async (req, res) => {
                        customer_name, customer_phone, customer_city, delivery_status)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
   `,
-    [
-      id,
-      pid,
-      qty,
-      sp,
-      cp,
-      ship,
-      note || "",
-      orderQ.rows[0].customer_name || "",
-      orderQ.rows[0].customer_phone || "",
-      orderQ.rows[0].customer_city || "",
-    ]
+    [id, pid, qty, sp, cp, ship, note || "", orderQ.rows[0].customer_name || "", orderQ.rows[0].customer_phone || "", orderQ.rows[0].customer_city || ""]
   );
-  await query(
-    `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-    [qty, pid]
-  );
+  await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [qty, pid]);
 
   res.redirect(`/orders/${id}`);
 });
 
-// ✅ تعديل عدّة بنود دفعة واحدة داخل الطلب
+// تعديل عدّة بنود داخل الطلب
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const orderId = Number(req.params.id);
 
@@ -939,16 +812,7 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
           delivered_at = CASE WHEN $6='delivered' THEN NOW() ELSE NULL END
       WHERE id=$7 AND order_id=$8
     `,
-      [
-        Number(quantities[i] ?? 1),
-        Number(sale_prices[i] ?? 0),
-        Number(cost_prices[i] ?? 0),
-        Number(shipping_costs[i] ?? 0),
-        String(notes[i] ?? ""),
-        String(statuses[i] ?? "pending"),
-        rowId,
-        orderId,
-      ]
+      [Number(quantities[i] ?? 1), Number(sale_prices[i] ?? 0), Number(cost_prices[i] ?? 0), Number(shipping_costs[i] ?? 0), String(notes[i] ?? ""), String(statuses[i] ?? "pending"), rowId, orderId]
     );
   }
 
@@ -981,16 +845,13 @@ app.post("/orders/:id/items/:itemId/delete", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// -------- Returns actions --------
+// -------- Returns --------
 app.post("/returns/:id/restock", async (req, res) => {
   const id = Number(req.params.id);
   const rQ = await query(`SELECT * FROM returns_queue WHERE id=$1`, [id]);
   if (rQ.rowCount) {
     const r = rQ.rows[0];
-    await query(`UPDATE products SET stock = stock + $1, updated_at=NOW() WHERE id=$2`, [
-      r.quantity,
-      r.product_id,
-    ]);
+    await query(`UPDATE products SET stock = stock + $1, updated_at=NOW() WHERE id=$2`, [r.quantity, r.product_id]);
     await query(`DELETE FROM returns_queue WHERE id=$1`, [id]);
   }
   res.redirect("/products");
@@ -1000,23 +861,13 @@ app.post("/returns/:id/reorder", async (req, res) => {
   const rQ = await query(`SELECT * FROM returns_queue WHERE id=$1`, [id]);
   if (rQ.rowCount) {
     const r = rQ.rows[0];
-    await query(
-      `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-      [r.quantity, r.product_id]
-    );
+    await query(`UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`, [r.quantity, r.product_id]);
     await query(
       `
       INSERT INTO sales (product_id, quantity, sale_price, cost_price, shipping_cost, note)
       VALUES ($1,$2,$3,$4,$5,$6)
     `,
-      [
-        r.product_id,
-        r.quantity,
-        r.sale_price,
-        r.cost_price,
-        r.shipping_cost || 0,
-        (r.note || "") + " (من طلب راجع)",
-      ]
+      [r.product_id, r.quantity, r.sale_price, r.cost_price, r.shipping_cost || 0, (r.note || "") + " (من طلب راجع)"]
     );
     await query(`DELETE FROM returns_queue WHERE id=$1`, [id]);
   }
@@ -1027,12 +878,11 @@ app.post("/returns/:id/delete", async (req, res) => {
   res.redirect("/products");
 });
 
-// -------- Reports (HTML) --------
+// -------- Reports --------
 app.get("/reports", async (req, res) => {
   const { range = "daily", year, month, day } = req.query;
 
-  let rows = [],
-    title = "";
+  let rows = [], title = "";
   if (range === "monthly") {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1052,10 +902,7 @@ app.get("/reports", async (req, res) => {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
     const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-      2,
-      "0"
-    )}`;
+    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     title = `تقرير يومي ${ds}`;
     rows = (
       await query(
@@ -1070,9 +917,7 @@ app.get("/reports", async (req, res) => {
   }
 
   res.render("reports", {
-    title,
-    rows,
-    range,
+    title, rows, range,
     selected: {
       year: Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY")),
       month: Number(month) || Number(dayjs().tz(TZ_NAME).format("MM")),
@@ -1087,8 +932,7 @@ app.get("/reports", async (req, res) => {
 app.get("/reports/pdf", async (req, res, next) => {
   try {
     const { range = "daily", year, month, day } = req.query;
-    let rows = [],
-      title = "";
+    let rows = [], title = "";
     if (range === "monthly") {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1108,10 +952,7 @@ app.get("/reports/pdf", async (req, res, next) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-        2,
-        "0"
-      )}`;
+      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       title = `تقرير يومي ${ds}`;
       rows = (
         await query(
@@ -1125,38 +966,20 @@ app.get("/reports/pdf", async (req, res, next) => {
       ).rows;
     }
 
-    const totalRevenue = rows.reduce(
-      (a, s) => a + Number(s.sale_price) * Number(s.quantity),
-      0
-    );
-    const totalProfit = rows.reduce(
-      (a, s) =>
-        a +
-        (Number(s.sale_price) * Number(s.quantity) -
-          Number(s.cost_price) * Number(s.quantity) -
-          Number(s.shipping_cost || 0)),
-      0
-    );
+    const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
+    const totalProfit  = rows.reduce((a, s) => a + (Number(s.sale_price) * Number(s.quantity) - Number(s.cost_price) * Number(s.quantity) - Number(s.shipping_cost || 0)), 0);
 
     const html = await new Promise((resolve, reject) => {
-      app.render(
-        "report-pdf",
-        { title, rows, totalRevenue, totalProfit, dayjs },
-        (err, str) => {
-          if (err) return reject(err);
-          resolve(str);
-        }
-      );
+      app.render("report-pdf", { title, rows, totalRevenue, totalProfit, dayjs }, (err, str) => {
+        if (err) return reject(err);
+        resolve(str);
+      });
     });
 
     const browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
-    });
+    const pdf = await page.pdf({ format: "A4", printBackground: true, margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" } });
     await browser.close();
 
     res.setHeader("Content-Type", "application/pdf");
