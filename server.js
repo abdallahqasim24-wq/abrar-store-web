@@ -455,7 +455,7 @@ app.get("/sales", async (_req, res) => {
   res.render("sales", { sales, products, openOrders, dayjs });
 });
 
-// إضافة بيع مفرد (موجودة لمن يحب يستعملها)
+// إضافة بيع مفرد
 app.post("/sales", async (req, res) => {
   const {
     product_id,
@@ -505,7 +505,6 @@ app.post("/sales", async (req, res) => {
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
-      // مصفوفات البنود
       product_id = [],
       quantity = [],
       sale_price = [],
@@ -513,7 +512,6 @@ app.post("/sales/multi", async (req, res) => {
       shipping_cost = [],
       item_note = [],
 
-      // معلومات الزبون + ربط كطلب
       customer_name = "",
       customer_phone = "",
       customer_city = "",
@@ -521,7 +519,7 @@ app.post("/sales/multi", async (req, res) => {
       order_id = ""
     } = req.body;
 
-    // لو بنربطهم كطلب: إمّا نستعمل order_id المرسل، أو ننشئ جديد/نلحق بطلب قائم لنفس الهاتف
+    // ربط كطلب (إن لزم)
     let orderId = null;
     if (as_order === "on") {
       if (order_id) {
@@ -873,11 +871,11 @@ app.get("/orders/:id", async (req, res) => {
   res.render("orders-view", { order, items, products, revenue, profit, dayjs });
 });
 
-// إضافة بند جديد لطلب
+// إضافة بند جديد لطلب  ✅ (تم إصلاح السطر)
 app.post("/orders/:id/items", async (req, res) => {
   const id = Number(req.params.id);
   const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
-  if (!orderQ.rowCount) return res.redirect("/orders`);
+  if (!orderQ.rowCount) return res.redirect("/orders");
 
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const pid = Number(product_id);
