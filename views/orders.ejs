@@ -1,53 +1,69 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
+<style>
+  .orders-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .orders-head h3{ margin:0; display:flex; align-items:center; gap:8px }
+  .table-scroll{ overflow:auto }
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.9rem;border:1px solid var(--border)}
+  .chip.pending{background:#fff7e6}
+  .chip.shipping{background:#fff3cd}
+  .chip.delivered{background:#e6ffed}
+  .chip.failed{background:#ffe6e6}
+</style>
+
 <div class="card">
-  <div class="row" style="align-items:center">
-    <h3 style="margin:0"><i class="fa fa-basket-shopping"></i> الطلبات</h3>
-    <a class="btn add right" href="/orders/new"><i class="fa fa-plus"></i> طلب جديد</a>
+  <div class="orders-head">
+    <h3><i class="fa fa-basket-shopping"></i> الطلبات</h3>
+    <a class="btn add" href="/orders/new"><i class="fa fa-plus"></i> طلب جديد</a>
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>الزبون</th>
-        <th>الهاتف</th>
-        <th>المدينة</th>
-        <th>عدد الأصناف</th>
-        <th>(₪) الإيراد</th>
-        <th>(₪) الربح</th>
-        <th>الحالة</th>
-        <th>تاريخ</th>
-        <th>عرض</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (!orders.length){ %>
-        <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
-      <% } %>
-      <% orders.forEach(o=>{ %>
+  <div class="table-scroll" style="margin-top:10px">
+    <table>
+      <thead>
         <tr>
-          <td><b>#<%= o.id %></b></td>
-          <td><%= o.customer_name  || '—' %></td>
-          <td><%= o.customer_phone || '—' %></td>
-          <td><%= o.customer_city  || '—' %></td>
-          <td><%= o.items_count %></td>
-          <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
-          <td>₪<%= Number(o.profit ||0).toFixed(2) %></td>
-          <td>
-            <span class="status-chip status-<%= o.status %>">
-              <i class="fa <%= o.status==='delivered'?'fa-check':o.status==='shipping'?'fa-truck':o.status==='failed'?'fa-xmark':'fa-hourglass-half' %>"></i>
-              <%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'فشل' %>
-            </span>
-          </td>
-          <td>
-            <%= (dayjs && dayjs.tz)
-                  ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                  : (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
-          </td>
-          <td><a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
+          <th>#</th>
+          <th>الزبون</th>
+          <th>الهاتف</th>
+          <th>المدينة</th>
+          <th>عدد الأصناف</th>
+          <th>(₪) الإيراد</th>
+          <th>(₪) الربح</th>
+          <th>الحالة</th>
+          <th>تاريخ</th>
+          <th>عرض</th>
         </tr>
-      <% }) %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% if (!orders || !orders.length) { %>
+          <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
+        <% } %>
+
+        <% (orders||[]).forEach(o => { %>
+          <tr>
+            <td><b>#<%= o.id %></b></td>
+            <td><%= o.customer_name || '—' %></td>
+            <td><%= o.customer_phone || '—' %></td>
+            <td><%= o.customer_city || '—' %></td>
+            <td><%= Number(o.items_count||0) %></td>
+            <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
+            <td>₪<%= Number(o.profit||0).toFixed(2) %></td>
+            <td>
+              <span class="chip <%= o.status %>">
+                <i class="fa <%= o.status==='delivered'?'fa-check':o.status==='shipping'?'fa-truck':o.status==='failed'?'fa-xmark':'fa-hourglass-half' %>"></i>
+                <%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'فشل' %>
+              </span>
+            </td>
+            <td>
+              <%= (dayjs && dayjs.tz)
+                    ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                    : new Date(o.created_at).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
+            </td>
+            <td>
+              <a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
 </div>
