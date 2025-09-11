@@ -226,10 +226,10 @@ app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login
 app.get("/healthz", (_req, res) => res.send("OK"));
 
 // ================== Helpers ==================
+// ⚠️ تم تعديل معادلة الربح حسب طلبك: بدون طرح الشحن
 const profitOf = (s) =>
   Number(s.sale_price) * Number(s.quantity) -
-  Number(s.cost_price) * Number(s.quantity) -
-  Number(s.shipping_cost || 0);
+  Number(s.cost_price) * Number(s.quantity);
 
 // ================== Routes ==================
 
@@ -717,7 +717,7 @@ app.get("/orders", async (_req, res) => {
         o.*,
         COUNT(s.id)::int AS items_count,
         COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
-        COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity - s.shipping_cost),0)::float8 AS profit
+        COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
       FROM orders o
       LEFT JOIN sales s ON s.order_id = o.id
       GROUP BY o.id
@@ -821,20 +821,15 @@ app.get("/orders/:id", async (req, res) => {
     )
   ).rows;
 
-  const products = (
-    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
-
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
+  // ⚠️ ربح الطلب بدون الشحن
   const profit = items.reduce(
     (a, s) =>
-      a +
-      (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) -
-      Number(s.shipping_cost || 0),
+      a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity),
     0
   );
 
-  res.render("orders-view", { order, items, products, revenue, profit, dayjs });
+  res.render("orders-view", { order, items, products: [], revenue, profit, dayjs });
 });
 
 // إضافة بند جديد لطلب
@@ -1135,12 +1130,12 @@ app.get("/reports/pdf", async (req, res, next) => {
       (a, s) => a + Number(s.sale_price) * Number(s.quantity),
       0
     );
+    // ⚠️ إجمالي الربح للـ PDF — بدون الشحن
     const totalProfit = rows.reduce(
       (a, s) =>
         a +
         (Number(s.sale_price) * Number(s.quantity) -
-          Number(s.cost_price) * Number(s.quantity) -
-          Number(s.shipping_cost || 0)),
+          Number(s.cost_price) * Number(s.quantity)),
       0
     );
 
