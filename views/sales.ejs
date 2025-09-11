@@ -20,7 +20,7 @@
   .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
   .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
   .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
-  .mhead{display:flex;gap:10px;align-items:center;padding:12px;position:relative;padding-inline-start:56px}
+  .mhead{display:flex;gap:10px;align-items:center;padding:12px 12px 12px 56px;border-bottom:1px solid #f1f5f9}
   .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
   @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
   @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
@@ -39,8 +39,9 @@
     <div><label>الهاتف</label><input type="text" name="customer_phone" placeholder=""></div>
     <div><label>المدينة</label><input type="text" name="customer_city" placeholder=""></div>
     <div class="right">
+      <!-- أزرار تنقّل واضحة -->
+      <a class="btn secondary" href="/sales"><i class="fa fa-list"></i> المعاملات</a>
       <a class="btn add" href="/orders"><i class="fa fa-basket-shopping"></i> الطلبات</a>
-      <a class="btn save" href="/sales"><i class="fa fa-tags"></i> المبيعات</a>
     </div>
 
     <!-- جدول البنود -->
@@ -64,6 +65,8 @@
       </div>
     </div>
 
+    <!-- تم حذف “ضمّ البنود ضمن طلب واحد” بالكامل حسب طلبك -->
+
     <div class="right" style="grid-column: span 2;">
       <button class="btn save" type="submit"><i class="fa fa-plus"></i> إضافة البنود</button>
     </div>
@@ -74,7 +77,10 @@
 <div class="card">
   <div class="row" style="justify-content:space-between;align-items:center">
     <h3 style="margin:0"><i class="fa fa-arrows-rotate"></i> سجل المعاملات</h3>
+
+    <!-- تنقّل بدل الفلاتر -->
     <div class="row" style="gap:8px">
+      <a class="btn secondary" href="/sales"><i class="fa fa-list"></i> الكل</a>
       <a class="btn add" href="/orders"><i class="fa fa-basket-shopping"></i> الطلبات</a>
       <a class="btn save" href="/sales"><i class="fa fa-tags"></i> المبيعات</a>
     </div>
@@ -126,10 +132,10 @@
            const ship      = Number(s.shipping_cost||0);
            const revenue   = price * qty;
            const requested = revenue + ship;
-           const profit    = revenue - (costUnit*qty); // الربح بدون الشحن
-           const _img = (s.product_image||''); const _src = _img ? (_img.startsWith('/')?_img:'/'+_img) : '';
+           const profit    = revenue - (costUnit*qty) - ship;
+           const status    = (s.delivery_status || 'pending');
       %>
-        <tr data-status="<%= (s.delivery_status || 'pending') %>">
+        <tr data-status="<%= status %>">
           <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
           <td>
             <%= (dayjs && dayjs.tz)
@@ -140,10 +146,8 @@
           <td style="text-align:right">
             <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
               <div class="thumb" style="display:flex;align-items:center;justify-content:center;overflow:hidden">
-                <% if (_src) { %>
-                  <img src="<%= _src %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
-                <% } else { %>
-                  <span class="muted">لا صورة</span>
+                <% if (s.product_image) { %>
+                  <img src="<%= s.product_image %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
                 <% } %>
               </div>
               <div style="max-width:420px"><%= s.product_name %></div>
@@ -160,10 +164,10 @@
           <td><b>₪<%= requested.toFixed(2) %></b></td>
           <td>
             <div class="status-wrap">
-              <div class="status-chip status-<%= s.delivery_status %>" onclick="toggleMenu(this)">
-                <% if (s.delivery_status==='delivered'){ %><i class="fa fa-check"></i><span>تم التسليم</span>
-                <% } else if (s.delivery_status==='failed'){ %><i class="fa fa-xmark"></i><span>فشل/لم يتم</span>
-                <% } else if (s.delivery_status==='shipping'){ %><i class="fa fa-truck"></i><span>قيد التوصيل</span>
+              <div class="status-chip status-<%= status %>" onclick="toggleMenu(this)">
+                <% if (status==='delivered'){ %><i class="fa fa-check"></i><span>تم التسليم</span>
+                <% } else if (status==='failed'){ %><i class="fa fa-xmark"></i><span>فشل/لم يتم</span>
+                <% } else if (status==='shipping'){ %><i class="fa fa-truck"></i><span>قيد التوصيل</span>
                 <% } else { %><i class="fa fa-hourglass-half"></i><span>قيد المعالجة</span><% } %>
               </div>
               <div class="status-menu">
@@ -232,114 +236,153 @@
 </div>
 
 <script>
-(function(){
-  // ===== Helpers =====
-  function tcell(el, first){ const td=document.createElement('td'); if(first){td.style.textAlign='right'} td.appendChild(el); return td; }
-  function input(type,name,val,attrs){ const i=document.createElement('input'); i.type=type; i.name=name; i.value=(val??''); Object.entries(attrs||{}).forEach(([k,v])=>i.setAttribute(k,v)); return i; }
-  function selectProduct(name){
-    const sel=document.createElement('button'); sel.type='button'; sel.className='btn add pick-btn'; sel.textContent='اختيار';
-    const display=document.createElement('div'); display.style.minWidth='180px'; display.style.textAlign='right'; display.textContent='— لم يتم الاختيار —';
-    const wrap=document.createElement('div'); wrap.className='row'; wrap.style.justifyContent='flex-start'; wrap.appendChild(display); wrap.appendChild(sel);
-    const hidden=document.createElement('input'); hidden.type='hidden'; hidden.name=name;
-
-    sel.addEventListener('click',()=>{ openPicker((p)=>{ hidden.value=p.id; display.textContent=p.name; sale.value=p.sale; cost.value=p.cost; }); });
-
-    const sale = input('number','sale_price','', {step:'0.01'});
-    const cost = input('number','cost_price','', {step:'0.01'});
-
-    return {cell:tcell(wrap,true), hidden, sale, cost, display};
+  // مولّد صف بند جديد
+  function makeRow(idx){
+    return `
+      <tr data-idx="${idx}">
+        <td style="text-align:right">
+          <input type="hidden" name="product_id" class="pid">
+          <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
+            <img class="thumb pimg" style="display:none">
+            <div class="pname" style="max-width:320px">— لم يتم الاختيار —</div>
+            <button class="btn add pick-btn" type="button"><i class="fa fa-grid-2"></i> اختيار</button>
+          </div>
+          <div class="row" style="gap:6px;margin-top:4px">
+            <span class="mini-tag">مخزون: <b class="pstock">0</b></span>
+            <span class="mini-tag">بيع إفتراضي: ₪<b class="psale">0.00</b></span>
+            <span class="mini-tag">أصلي: ₪<b class="pcost">0.00</b></span>
+          </div>
+        </td>
+        <td><input type="number" name="quantity" value="1" min="1" step="1" required></td>
+        <td><input type="number" name="sale_price" step="0.01" required></td>
+        <td><input type="number" name="cost_price" step="0.01" required></td>
+        <td><input type="number" name="shipping_cost" step="0.01" value="0"></td>
+        <td><input type="text" name="item_note" placeholder=""></td>
+        <td class="row-actions">
+          <button type="button" class="xbtn del-row"><i class="fa fa-xmark"></i> حذف</button>
+        </td>
+      </tr>
+    `;
   }
 
-  // ===== إضافة صف للبنود (بيع متعدد) =====
-  const itemsBody = document.getElementById('itemsBody');
-  document.getElementById('addRow').addEventListener('click', ()=> addRow(itemsBody, 'product_id'));
-  function addRow(tbody, productField){
-    const tr=document.createElement('tr');
+  // إدارة الصفوف
+  (function(){
+    const body = document.getElementById('itemsBody');
+    const add  = document.getElementById('addRow');
+    let idx = 0;
 
-    const p = selectProduct(productField);
-    tr.appendChild(p.cell);
+    function addRow(){
+      body.insertAdjacentHTML('beforeend', makeRow(idx++));
+    }
+    add.addEventListener('click', addRow);
+    addRow(); // صف أول
 
-    const qty = input('number','quantity','1',{min:'1',step:'1'});
-    const sale= p.sale; sale.name='sale_price';
-    const cost= p.cost; cost.name='cost_price';
-    const ship= input('number','shipping_cost','0',{step:'0.01'});
-    const note= input('text','item_note','',{}); note.placeholder='';
-
-    tr.appendChild(tcell(qty));
-    tr.appendChild(tcell(sale));
-    tr.appendChild(tcell(cost));
-    tr.appendChild(tcell(ship));
-    tr.appendChild(tcell(note));
-
-    const del=document.createElement('button'); del.type='button'; del.className='xbtn'; del.innerHTML='حذف';
-    del.addEventListener('click',()=>tr.remove());
-    tr.appendChild(tcell(del));
-
-    tr.appendChild(p.hidden);
-    tbody.appendChild(tr);
-  }
-  // صف افتراضي أول
-  addRow(itemsBody,'product_id');
-
-  // ===== مودال اختيار المنتج =====
-  const modal=document.getElementById('pickerModal');
-  const bg=modal.querySelector('.modal-bg');
-  const closeBtn=document.getElementById('pickerClose');
-  const search=document.getElementById('searchBox');
-  const cards=[...modal.querySelectorAll('.pcard')];
-
-  function openPicker(cb){
-    modal.style.display='block'; search.value=''; filter('');
-    const onPick = (e)=>{
-      const card=e.currentTarget.closest('.pcard');
-      const p={ id:card.dataset.id, name:card.dataset.name, sale:card.dataset.sale, cost:card.dataset.cost };
-      cb(p); hide();
-    };
-    cards.forEach(c=>{
-      let btn=c.querySelector('.pickBtn');
-      if(!btn){ btn=document.createElement('button'); btn.type='button'; btn.className='btn add pickBtn'; btn.textContent='اختيار'; c.appendChild(btn); }
-      btn.onclick=onPick;
+    // حذف صف
+    body.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.del-row');
+      if (!btn) return;
+      const tr = btn.closest('tr');
+      tr.remove();
+      if (!body.children.length) addRow();
     });
-    search.oninput = ()=> filter(search.value);
-  }
-  function hide(){ modal.style.display='none'; }
-  function filter(q){
-    const k=(q||'').toLowerCase();
-    cards.forEach(c=>{
-      const n=(c.dataset.name||'').toLowerCase();
-      c.style.display = n.includes(k) ? '' : 'none';
-    });
-  }
-  bg.addEventListener('click', hide);
-  closeBtn.addEventListener('click', hide);
 
-  // ===== تحديد الكل / جمع المعرّفات =====
-  const checkAll = document.getElementById('checkAll');
-  const body = document.getElementById('txBody');
-  if(checkAll){
-    checkAll.addEventListener('change', ()=>{
-      body.querySelectorAll('.rowChk').forEach(ch=> ch.checked = checkAll.checked);
-      collectBulk();
+    // فتح منتقي المنتج
+    body.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.pick-btn');
+      if (!btn) return;
+      const tr = btn.closest('tr');
+      openPickerFor(tr);
     });
-    body.addEventListener('change', (e)=>{
-      if(e.target.classList.contains('rowChk')) collectBulk();
-    });
-  }
-  function collectBulk(){
-    const ids=[...body.querySelectorAll('.rowChk:checked')].map(x=>x.value);
-    document.getElementById('bulkReturnIds').value = ids.join(',');
-    document.getElementById('bulkDeleteIds').value = ids.join(',');
-  }
 
-  // ===== منيو حالة التوصيل =====
-  window.toggleMenu = function(el){
+    // تعبئة بيانات المنتج داخل صف معيّن
+    window.fillRowWithProduct = function(tr, data){
+      const pid = tr.querySelector('.pid');
+      const pimg= tr.querySelector('.pimg');
+      const pname=tr.querySelector('.pname');
+      const pstock=tr.querySelector('.pstock');
+      const psale=tr.querySelector('.psale');
+      const pcost=tr.querySelector('.pcost');
+      const saleI=tr.querySelector('input[name="sale_price"]');
+      const costI=tr.querySelector('input[name="cost_price"]');
+
+      pid.value = data.id;
+      pname.textContent = data.name;
+      pstock.textContent = Number(data.stock||0);
+      psale.textContent  = Number(data.sale||0).toFixed(2);
+      pcost.textContent  = Number(data.cost||0).toFixed(2);
+
+      if (data.img){
+        pimg.src = data.img;
+        pimg.style.display = 'block';
+      } else {
+        pimg.style.display = 'none';
+      }
+      if (!saleI.value) saleI.value = Number(data.sale||0);
+      if (!costI.value) costI.value = Number(data.cost||0);
+    }
+  })();
+
+  // ===== مودال الشبكة =====
+  (function(){
+    const modal=document.getElementById('pickerModal');
+    const bg=modal.querySelector('.modal-bg');
+    const closeBtn=document.getElementById('pickerClose');
+    const search=document.getElementById('searchBox');
+    const cards=[...modal.querySelectorAll('.pcard')];
+    let targetRow=null;
+
+    function show(){ modal.style.display='block'; search.focus(); }
+    function hide(){ modal.style.display='none'; search.value=''; filter(''); targetRow=null; }
+
+    window.openPickerFor = function(tr){ targetRow = tr; show(); }
+
+    bg.addEventListener('click',hide);
+    closeBtn.addEventListener('click',hide);
+    document.addEventListener('keydown',e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
+
+    function filter(q){
+      const s=(q||'').trim().toLowerCase();
+      cards.forEach(c=>{ c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'; });
+    }
+    search.addEventListener('input',e=>filter(e.target.value));
+
+    modal.addEventListener('click',e=>{
+      const btn=e.target.closest('.pickBtn');
+      if(!btn || !targetRow) return;
+      const card=btn.closest('.pcard');
+      const data={
+        id:card.dataset.id,
+        name:card.dataset.name,
+        img:card.dataset.img||'',
+        sale:Number(card.dataset.sale||0),
+        cost:Number(card.dataset.cost||0),
+        stock:Number(card.dataset.stock||0),
+      };
+      window.fillRowWithProduct(targetRow, data);
+      hide();
+    });
+  })();
+
+  // تحديد/إلغاء تحديد الكل + تعبئة حقول الحذف/الراجعات
+  (function(){
+    const all = document.getElementById('checkAll');
+    const checks = () => [...document.querySelectorAll('.rowChk')];
+    if (all) all.addEventListener('change',()=>checks().forEach(c=>c.checked=all.checked));
+    function fillHidden(){
+      const ids = checks().filter(c=>c.checked).map(c=>c.value);
+      document.getElementById('bulkReturnIds').value = ids.join(',');
+      document.getElementById('bulkDeleteIds').value = ids.join(',');
+    }
+    document.getElementById('bulkReturnForm').addEventListener('submit', fillHidden);
+    document.getElementById('bulkDeleteForm').addEventListener('submit', fillHidden);
+  })();
+
+  // قائمة حالة التوصيل
+  function toggleMenu(el){
     const menu = el.parentElement.querySelector('.status-menu');
-    const opened = menu.style.display==='block';
-    document.querySelectorAll('.status-menu').forEach(m=> m.style.display='none');
-    menu.style.display = opened ? 'none' : 'block';
-  };
-  document.addEventListener('click', (e)=>{
-    if(!e.target.closest('.status-wrap')) document.querySelectorAll('.status-menu').forEach(m=> m.style.display='none');
-  });
-})();
+    menu.style.display = (menu.style.display==='block' ? 'none' : 'block');
+    document.addEventListener('click', function once(e){
+      if (!el.parentElement.contains(e.target)){ menu.style.display='none'; document.removeEventListener('click', once); }
+    });
+  }
 </script>

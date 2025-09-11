@@ -14,7 +14,7 @@
   .kpi{padding:20px;border:1px solid var(--border);border-radius:16px;background:#fff}
   .muted{color:#6b7280}
   .table{width:100%}
-  .table th,.table td{padding:12px;border-top:1px solid var(--border)}
+  .table th,.table td{padding:12px;border-top:1px solid #f1f5f9}
   .thead th{background:#feeef5}
 </style>
 
@@ -33,14 +33,6 @@
   const selY = Number(sel.year  ?? curY);
   const selM = Number(sel.month ?? curM);
   const selD = Number(sel.day   ?? curD);
-
-  // مجاميع سريعة
-  const _rows = Array.isArray(rows) ? rows : [];
-  const sumRevenue = _rows.reduce((a,s)=> a + Number(s.sale_price||0)*Number(s.quantity||0), 0);
-  const sumCost    = _rows.reduce((a,s)=> a + Number(s.cost_price||0)*Number(s.quantity||0), 0);
-  const sumShip    = _rows.reduce((a,s)=> a + Number(s.shipping_cost||0), 0);
-  // الربح حسب طلبك (بدون الشحن)
-  const sumProfit  = sumRevenue - sumCost;
 %>
 
 <div class="card">
@@ -82,29 +74,30 @@
     </div>
 
     <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
-
-    <a class="btn add right" id="pdfBtn" href="#">
-      <i class="fa fa-file-pdf"></i> تصدير PDF
-    </a>
   </form>
 
   <div class="cards">
     <div class="kpi">
       <div class="muted">الإيراد</div>
       <div style="font-size:28px;font-weight:800">
-        ₪<%= sumRevenue.toFixed(2) %>
+        ₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %>
       </div>
     </div>
     <div class="kpi">
-      <div class="muted">التكاليف (أصلي + شحن)</div>
+      <div class="muted">التكاليف</div>
       <div style="font-size:28px;font-weight:800">
-        ₪<%= (sumCost + sumShip).toFixed(2) %>
+        ₪<%= (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2) %>
       </div>
     </div>
     <div class="kpi">
       <div class="muted">الربح</div>
       <div style="font-size:28px;font-weight:800">
-        ₪<%= sumProfit.toFixed(2) %>
+        ₪<%= (rows||[]).reduce((a,s)=>{
+            const revenue = Number(s.sale_price)*Number(s.quantity);
+            const cost    = Number(s.cost_price)*Number(s.quantity) + Number(s.shipping_cost||0);
+            return a + (revenue - cost);
+          },0).toFixed(2)
+        %>
       </div>
     </div>
   </div>
@@ -126,20 +119,14 @@
         <th>السعر الأصلي (₪)</th>
         <th>الشحن (₪)</th>
         <th>الربح (₪)</th>
-        <th>ملاحظة</th>
       </tr>
     </thead>
     <tbody>
-    <% if (!_rows.length){ %>
-      <tr><td colspan="8" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
-    <% } else { _rows.forEach(s => {
-        const qty     = Number(s.quantity||0);
-        const sale    = Number(s.sale_price||0);
-        const cost    = Number(s.cost_price||0);
-        const ship    = Number(s.shipping_cost||0);
-        const revenue = sale * qty;
-        // الربح بدون الشحن
-        const profit  = revenue - (cost * qty);
+    <% if (!rows || !rows.length){ %>
+      <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
+    <% } else { rows.forEach(s => {
+        const revenue = Number(s.sale_price) * Number(s.quantity);
+        const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
     %>
       <tr>
         <td>
@@ -148,63 +135,47 @@
                 : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
           %>
         </td>
-        <td style="text-align:right">
-          <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-            <div class="thumb" style="width:56px;height:56px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
-              <% if (s.product_image) { %>
-                <img src="<%= s.product_image %>" class="js-img" style="width:100%;height:100%;object-fit:cover" alt="">
-              <% } %>
-            </div>
-            <div style="max-width:420px"><%= s.product_name %></div>
-          </div>
+        <td class="right">
+          <% if (s.product_image) { %>
+            <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">
+          <% } %>
+          <%= s.product_name %>
         </td>
-        <td><%= qty %></td>
-        <td>₪<%= sale.toFixed(2) %></td>
-        <td>₪<%= cost.toFixed(2) %></td>
-        <td>₪<%= ship.toFixed(2) %></td>
+        <td><%= s.quantity %></td>
+        <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
         <td>₪<%= profit.toFixed(2) %></td>
-        <td style="text-align:right"><%= s.note || '' %></td>
       </tr>
     <% }) } %>
     </tbody>
-    <% if (_rows.length) { %>
-    <tfoot>
-      <tr>
-        <th class="right" colspan="3">الإجمالي</th>
-        <th>₪<%= sumRevenue.toFixed(2) %></th>
-        <th>₪<%= sumCost.toFixed(2) %></th>
-        <th>₪<%= sumShip.toFixed(2) %></th>
-        <th>₪<%= sumProfit.toFixed(2) %></th>
-        <th></th>
-      </tr>
-    </tfoot>
-    <% } %>
   </table>
 </div>
 
 <script>
-(function(){
-  const rangeInput=document.getElementById('rangeInput');
-  const dayWrap=document.getElementById('dayWrap');
-  const btnDaily=document.getElementById('btnDaily');
-  const btnMonthly=document.getElementById('btnMonthly');
+  (function(){
+    const form   = document.getElementById('reportForm');
+    const rangeI = document.getElementById('rangeInput');
+    const btnDaily   = document.getElementById('btnDaily');
+    const btnMonthly = document.getElementById('btnMonthly');
+    const dayWrap = document.getElementById('dayWrap');
+    const dSel    = document.getElementById('dSel');
 
-  function syncDay(){
-    const monthly = rangeInput.value==='monthly';
-    dayWrap.style.display = monthly ? 'none' : '';
-    // لا نحذف اليوم من الفورم، بس نخفيه فقط
-  }
-  btnDaily?.addEventListener('click', ()=>{ rangeInput.value='daily'; syncDay(); });
-  btnMonthly?.addEventListener('click', ()=>{ rangeInput.value='monthly'; syncDay(); });
-  syncDay();
+    function applyUI(){
+      const isMonthly = rangeI.value === 'monthly';
+      dSel.disabled = isMonthly;
+      dayWrap.classList.toggle('disabled', isMonthly);
+      btnDaily.className   = 'btn-toggle ' + (isMonthly ? 'btn-ghost' : 'btn-on');
+      btnMonthly.className = 'btn-toggle ' + (isMonthly ? 'btn-off'   : 'btn-ghost');
+    }
 
-  // زر PDF—يبني الرابط بنفس باراميترات النموذج
-  const pdfBtn = document.getElementById('pdfBtn');
-  pdfBtn?.addEventListener('click', (e)=>{
-    e.preventDefault();
-    const form = document.getElementById('reportForm');
-    const params = new URLSearchParams(new FormData(form));
-    window.location.href = '/reports/pdf?' + params.toString();
-  });
-})();
+    btnDaily.addEventListener('click', ()=>{ rangeI.value='daily'; applyUI(); form.submit(); });
+    btnMonthly.addEventListener('click', ()=>{ rangeI.value='monthly'; applyUI(); form.submit(); });
+    applyUI();
+
+    form.addEventListener('submit', ()=>{
+      if (rangeI.value === 'monthly') dSel.removeAttribute('name');
+      else dSel.setAttribute('name','day');
+    });
+  })();
 </script>
