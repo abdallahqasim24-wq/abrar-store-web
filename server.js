@@ -162,13 +162,38 @@ app.set("layout", "layout");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+// ✅ اخدم مجلد الرفع على /uploads (بدون /public)
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "public", "uploads"), {
+    maxAge: "30d",
+    immutable: true,
+  })
+);
+
+// ستاتيك المجلد العام كما هو
 app.use("/public", express.static(path.join(__dirname, "public")));
 
+// Helpers للقوالب
 app.use((req, res, next) => {
   res.locals.faLink =
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
   res.locals.currentPath = req.path;
   res.locals.dayjs = dayjs;
+
+  // يُصحّح أي مسار قديم يبدأ بـ /public/uploads إلى /uploads
+  res.locals.fixImg = (u) => (u ? String(u).replace(/^\/public\/uploads\//, "/uploads/") : "");
+
+  // يُنشئ رابط مطلق (للـ PDF مثلًا). اضبط PUBLIC_BASE_URL على Render.
+  const BASE = process.env.PUBLIC_BASE_URL || "";
+  res.locals.abs = (url) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    if (!BASE) return url;
+    return BASE.replace(/\/+$/, "") + url;
+  };
+
   next();
 });
 
@@ -193,7 +218,7 @@ const openPaths = new Set(["/login", "/logout", "/healthz"]);
 function requireAuth(req, res, next) {
   if (!AUTH_ENABLED) return next();
   if (openPaths.has(req.path)) return next();
-  if (req.path.startsWith("/public")) return next();
+  if (req.path.startsWith("/public") || req.path.startsWith("/uploads")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
   return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/")}`);
@@ -320,7 +345,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/public/uploads/${main.filename}`;
+      if (main) image_path = `/uploads/${main.filename}`; // ✅
 
       const ins = await query(
         `
@@ -343,7 +368,7 @@ app.post("/products", (req, res, next) => {
       for (const f of extras) {
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           productId,
-          `/public/uploads/${f.filename}`,
+          `/uploads/${f.filename}`, // ✅
         ]);
       }
 
@@ -373,7 +398,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/public/uploads/${main.filename}`;
+      if (main) image_path = `/uploads/${main.filename}`; // ✅
 
       await query(
         `
@@ -397,7 +422,7 @@ app.post("/products/:id/update", (req, res, next) => {
       for (const f of extras) {
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           id,
-          `/public/uploads/${f.filename}`,
+          `/uploads/${f.filename}`, // ✅
         ]);
       }
 
@@ -1147,7 +1172,14 @@ app.get("/reports/pdf", async (req, res, next) => {
     const html = await new Promise((resolve, reject) => {
       app.render(
         "report-pdf",
-        { title, rows, totalRevenue, totalProfit, dayjs },
+        {
+          title,
+          rows,
+          totalRevenue,
+          totalProfit,
+          dayjs,
+          BASE_URL: process.env.PUBLIC_BASE_URL || "", // ✅ تمرير base للصور المطلقة في PDF
+        },
         (err, str) => {
           if (err) return reject(err);
           resolve(str);
