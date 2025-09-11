@@ -442,7 +442,7 @@ app.get("/sales", async (_req, res) => {
     await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
 
-  // جلب طلبات مفتوحة حديثًا (آخر 7 أيام) لتسهيل الربط
+  // جلب طلبات مفتوحة حديثًا (آخر 7 أيام)
   const openOrders = (
     await query(`
       SELECT id, customer_name, customer_phone, status, created_at
@@ -871,7 +871,7 @@ app.get("/orders/:id", async (req, res) => {
   res.render("orders-view", { order, items, products, revenue, profit, dayjs });
 });
 
-// إضافة بند جديد لطلب  ✅ (تم إصلاح السطر)
+// إضافة بند جديد لطلب
 app.post("/orders/:id/items", async (req, res) => {
   const id = Number(req.params.id);
   const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
@@ -913,6 +913,46 @@ app.post("/orders/:id/items", async (req, res) => {
   );
 
   res.redirect(`/orders/${id}`);
+});
+
+// ✅ تعديل عدّة بنود دفعة واحدة داخل الطلب
+app.post("/orders/:id/items/bulk-update", async (req, res) => {
+  const orderId = Number(req.params.id);
+
+  const ids            = [].concat(req.body.id || []);
+  const quantities     = [].concat(req.body.quantity || []);
+  const sale_prices    = [].concat(req.body.sale_price || []);
+  const cost_prices    = [].concat(req.body.cost_price || []);
+  const shipping_costs = [].concat(req.body.shipping_cost || []);
+  const notes          = [].concat(req.body.note || []);
+  const statuses       = [].concat(req.body.delivery_status || []);
+
+  for (let i = 0; i < ids.length; i++) {
+    const rowId = Number(ids[i]);
+    if (!rowId) continue;
+
+    await query(
+      `
+      UPDATE sales
+      SET quantity=$1, sale_price=$2, cost_price=$3, shipping_cost=$4, note=$5,
+          delivery_status=$6,
+          delivered_at = CASE WHEN $6='delivered' THEN NOW() ELSE NULL END
+      WHERE id=$7 AND order_id=$8
+    `,
+      [
+        Number(quantities[i] ?? 1),
+        Number(sale_prices[i] ?? 0),
+        Number(cost_prices[i] ?? 0),
+        Number(shipping_costs[i] ?? 0),
+        String(notes[i] ?? ""),
+        String(statuses[i] ?? "pending"),
+        rowId,
+        orderId,
+      ]
+    );
+  }
+
+  res.redirect(`/orders/${orderId}`);
 });
 
 // تغيير حالة الطلب ككل
