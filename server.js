@@ -1,4 +1,4 @@
-// server.js — طلبات متعددة المنتجات + إدارة طلبات وبنود بالجملة
+// server.js — طلبات متعددة المنتجات + إدارة طلبات وبنود بالجملة + إصلاح مسارات الصور
 // ===================================================
 import express from "express";
 import path from "path";
@@ -162,36 +162,28 @@ app.set("layout", "layout");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-// ✅ اخدم مجلد الرفع على /uploads (بدون /public)
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "public", "uploads"), {
-    maxAge: "30d",
-    immutable: true,
-  })
-);
-
-// ستاتيك المجلد العام كما هو
 app.use("/public", express.static(path.join(__dirname, "public")));
 
-// Helpers للقوالب
+// ✅ مُصلّح روابط الصور ليستعمله كل القوالب
 app.use((req, res, next) => {
   res.locals.faLink =
     "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
   res.locals.currentPath = req.path;
   res.locals.dayjs = dayjs;
 
-  // يُصحّح أي مسار قديم يبدأ بـ /public/uploads إلى /uploads
-  res.locals.fixImg = (u) => (u ? String(u).replace(/^\/public\/uploads\//, "/uploads/") : "");
-
-  // يُنشئ رابط مطلق (للـ PDF مثلًا). اضبط PUBLIC_BASE_URL على Render.
-  const BASE = process.env.PUBLIC_BASE_URL || "";
-  res.locals.abs = (url) => {
-    if (!url) return "";
-    if (/^https?:\/\//i.test(url)) return url;
-    if (!BASE) return url;
-    return BASE.replace(/\/+$/, "") + url;
+  // fixImg: يرجّع رابطًا صالحًا حتى لو كانت القيمة نسبية أو فاضية
+  res.locals.fixImg = (u) => {
+    try {
+      if (!u) return "/public/placeholder.png";
+      // روابط http/https كما هي
+      if (/^https?:\/\//i.test(u)) return u;
+      // لو مسبوقة بـ /public نتركها
+      if (u.startsWith("/public")) return u;
+      // لو كانت اسم ملف فقط نخزنها داخل /public/uploads
+      return `/public/uploads/${u.replace(/^\/+/, "")}`;
+    } catch {
+      return "/public/placeholder.png";
+    }
   };
 
   next();
@@ -218,7 +210,7 @@ const openPaths = new Set(["/login", "/logout", "/healthz"]);
 function requireAuth(req, res, next) {
   if (!AUTH_ENABLED) return next();
   if (openPaths.has(req.path)) return next();
-  if (req.path.startsWith("/public") || req.path.startsWith("/uploads")) return next();
+  if (req.path.startsWith("/public")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
   return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/")}`);
@@ -272,11 +264,8 @@ app.get("/", async (_req, res) => {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today]))
-    .rows;
-  const monthRows = (
-    await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])
-  ).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
   const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -345,7 +334,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/uploads/${main.filename}`; // ✅
+      if (main) image_path = `/public/uploads/${main.filename}`;
 
       const ins = await query(
         `
@@ -368,7 +357,7 @@ app.post("/products", (req, res, next) => {
       for (const f of extras) {
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           productId,
-          `/uploads/${f.filename}`, // ✅
+          `/public/uploads/${f.filename}`,
         ]);
       }
 
@@ -398,7 +387,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/uploads/${main.filename}`; // ✅
+      if (main) image_path = `/public/uploads/${main.filename}`;
 
       await query(
         `
@@ -422,7 +411,7 @@ app.post("/products/:id/update", (req, res, next) => {
       for (const f of extras) {
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           id,
-          `/uploads/${f.filename}`, // ✅
+          `/public/uploads/${f.filename}`,
         ]);
       }
 
@@ -467,7 +456,7 @@ app.get("/sales", async (_req, res) => {
     await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
 
-  // طلبات مفتوحة (للعرض فقط لو احتجت)
+  // طلبات مفتوحة (اختياري للربط لاحقًا)
   const openOrders = (
     await query(`
       SELECT id, customer_name, customer_phone, status, created_at
@@ -483,15 +472,8 @@ app.get("/sales", async (_req, res) => {
 // إضافة بيع مفرد
 app.post("/sales", async (req, res) => {
   const {
-    product_id,
-    quantity,
-    sale_price,
-    cost_price,
-    shipping_cost,
-    note,
-    customer_name,
-    customer_phone,
-    customer_city,
+    product_id, quantity, sale_price, cost_price, shipping_cost, note,
+    customer_name, customer_phone, customer_city,
   } = req.body;
 
   const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)]);
@@ -506,8 +488,7 @@ app.post("/sales", async (req, res) => {
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
   `,
     [
-      prod.id,
-      qty,
+      prod.id, qty,
       Number(sale_price || prod.sale_price),
       Number(cost_price || prod.cost_price),
       Number(shipping_cost || 0),
@@ -526,19 +507,13 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة (بدون خيار ضم ضمن طلب) ===
+// === إضافة عدة بنود بيع دفعة واحدة ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
-      product_id = [],
-      quantity = [],
-      sale_price = [],
-      cost_price = [],
-      shipping_cost = [],
-      item_note = [],
-      customer_name = "",
-      customer_phone = "",
-      customer_city = ""
+      product_id = [], quantity = [], sale_price = [],
+      cost_price = [], shipping_cost = [], item_note = [],
+      customer_name = "", customer_phone = "", customer_city = "",
     } = req.body;
 
     const count = Math.max(
@@ -571,7 +546,7 @@ app.post("/sales/multi", async (req, res) => {
           pid, qty, sp, cp, ship, inote,
           (customer_name || "").trim(),
           (customer_phone || "").trim(),
-          (customer_city || "").trim()
+          (customer_city || "").trim(),
         ]
       );
 
@@ -588,7 +563,7 @@ app.post("/sales/multi", async (req, res) => {
   }
 });
 
-// Edit sale (مفرد)
+// Edit sale (صفحة)
 app.get("/sales/:id/edit", async (req, res) => {
   const id = Number(req.params.id);
   const saleQ = await query(
@@ -609,18 +584,12 @@ app.get("/sales/:id/edit", async (req, res) => {
   res.render("sales-edit", { sale, products, productStock, dayjs });
 });
 
+// Update sale
 app.post("/sales/:id/update", async (req, res) => {
   const id = Number(req.params.id);
   const {
-    product_id,
-    quantity,
-    sale_price,
-    cost_price,
-    shipping_cost,
-    note,
-    customer_name,
-    customer_phone,
-    customer_city,
+    product_id, quantity, sale_price, cost_price, shipping_cost, note,
+    customer_name, customer_phone, customer_city,
   } = req.body;
 
   const oldQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
@@ -733,8 +702,6 @@ app.post("/sales/bulk-return", async (req, res) => {
 });
 
 // -------- Orders (الطلبات متعددة البنود) --------
-
-// قائمة الطلبات — “كل زبون وطلباته”
 app.get("/orders", async (_req, res) => {
   const orders = (
     await query(`
@@ -763,16 +730,9 @@ app.get("/orders/new", async (_req, res) => {
 // إنشاء طلب جديد (+ بنود)
 app.post("/orders", async (req, res) => {
   const {
-    customer_name,
-    customer_phone,
-    customer_city,
-    note,
-    product_id = [],
-    quantity = [],
-    sale_price = [],
-    cost_price = [],
-    shipping_cost = [],
-    item_note = [],
+    customer_name, customer_phone, customer_city, note,
+    product_id = [], quantity = [], sale_price = [],
+    cost_price = [], shipping_cost = [], item_note = [],
   } = req.body;
 
   const orderIns = await query(
@@ -806,13 +766,7 @@ app.post("/orders", async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
     `,
       [
-        orderId,
-        pid,
-        qty,
-        sp,
-        cp,
-        ship,
-        inote,
+        orderId, pid, qty, sp, cp, ship, inote,
         (customer_name || "").trim(),
         (customer_phone || "").trim(),
         (customer_city || "").trim(),
@@ -853,71 +807,20 @@ app.get("/orders/:id", async (req, res) => {
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const profit = items.reduce(
     (a, s) =>
-      a +
-      (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) -
-      Number(s.shipping_cost || 0),
+      a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) - Number(s.shipping_cost || 0),
     0
   );
 
   res.render("orders-view", { order, items, products, revenue, profit, dayjs });
 });
 
-// إضافة بند جديد لطلب
-app.post("/orders/:id/items", async (req, res) => {
-  const id = Number(req.params.id);
-  const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
-  if (!orderQ.rowCount) return res.redirect("/orders");
-
-  const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
-  const pid = Number(product_id);
-  const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
-  if (!prodQ.rowCount) return res.redirect(`/orders/${id}`);
-  const prod = prodQ.rows[0];
-
-  const qty = Math.max(1, Number(quantity || 1));
-  const sp = Number(sale_price || prod.sale_price || 0);
-  const cp = Number(cost_price || prod.cost_price || 0);
-  const ship = Number(shipping_cost || 0);
-
-  await query(
-    `
-    INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note,
-                       customer_name, customer_phone, customer_city, delivery_status)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
-  `,
-    [
-      id,
-      pid,
-      qty,
-      sp,
-      cp,
-      ship,
-      note || "",
-      orderQ.rows[0].customer_name || "",
-      orderQ.rows[0].customer_phone || "",
-      orderQ.rows[0].customer_city || "",
-    ]
-  );
-  await query(
-    `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
-    [qty, pid]
-  );
-
-  res.redirect(`/orders/${id}`);
-});
-
-// تحديث/حذف عدة بنود دفعة واحدة في الطلب
+// Bulk update داخل الطلب
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const id = Number(req.params.id);
   const {
-    item_id = [],
-    product_id = [],
-    quantity = [],
-    sale_price = [],
-    cost_price = [],
-    shipping_cost = [],
-    item_note = [],
-    delete_flag = []
+    item_id = [], product_id = [], quantity = [],
+    sale_price = [], cost_price = [], shipping_cost = [],
+    item_note = [], delete_flag = []
   } = req.body;
 
   const n = Math.max(
@@ -937,7 +840,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
 
     if (sid && pid) {
-      // تحديث
       await query(
         `
         UPDATE sales SET
@@ -964,7 +866,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
 
     if (!sid && pid) {
-      // إضافة جديد
       await query(
         `
         INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, delivery_status)
@@ -986,7 +887,7 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// تغيير حالة الطلب ككل
+// حالة الطلب
 app.post("/orders/:id/status", async (req, res) => {
   const id = Number(req.params.id);
   const { status = "pending", apply_to_items = "off" } = req.body;
@@ -1062,8 +963,7 @@ app.post("/returns/:id/delete", async (req, res) => {
 app.get("/reports", async (req, res) => {
   const { range = "daily", year, month, day } = req.query;
 
-  let rows = [],
-    title = "";
+  let rows = [], title = "";
   if (range === "monthly") {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1083,10 +983,7 @@ app.get("/reports", async (req, res) => {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
     const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-      2,
-      "0"
-    )}`;
+    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     title = `تقرير يومي ${ds}`;
     rows = (
       await query(
@@ -1101,9 +998,7 @@ app.get("/reports", async (req, res) => {
   }
 
   res.render("reports", {
-    title,
-    rows,
-    range,
+    title, rows, range,
     selected: {
       year: Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY")),
       month: Number(month) || Number(dayjs().tz(TZ_NAME).format("MM")),
@@ -1118,8 +1013,7 @@ app.get("/reports", async (req, res) => {
 app.get("/reports/pdf", async (req, res, next) => {
   try {
     const { range = "daily", year, month, day } = req.query;
-    let rows = [],
-      title = "";
+    let rows = [], title = "";
     if (range === "monthly") {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1139,10 +1033,7 @@ app.get("/reports/pdf", async (req, res, next) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-        2,
-        "0"
-      )}`;
+      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
       title = `تقرير يومي ${ds}`;
       rows = (
         await query(
@@ -1156,10 +1047,7 @@ app.get("/reports/pdf", async (req, res, next) => {
       ).rows;
     }
 
-    const totalRevenue = rows.reduce(
-      (a, s) => a + Number(s.sale_price) * Number(s.quantity),
-      0
-    );
+    const totalRevenue = rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
     const totalProfit = rows.reduce(
       (a, s) =>
         a +
@@ -1170,21 +1058,10 @@ app.get("/reports/pdf", async (req, res, next) => {
     );
 
     const html = await new Promise((resolve, reject) => {
-      app.render(
-        "report-pdf",
-        {
-          title,
-          rows,
-          totalRevenue,
-          totalProfit,
-          dayjs,
-          BASE_URL: process.env.PUBLIC_BASE_URL || "", // ✅ تمرير base للصور المطلقة في PDF
-        },
-        (err, str) => {
-          if (err) return reject(err);
-          resolve(str);
-        }
-      );
+      app.render("report-pdf", { title, rows, totalRevenue, totalProfit, dayjs }, (err, str) => {
+        if (err) return reject(err);
+        resolve(str);
+      });
     });
 
     const browser = await puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"] });

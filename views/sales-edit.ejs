@@ -15,7 +15,7 @@
       <div id="miniPreview" class="row" style="display:flex; margin-top:10px; gap:10px; align-items:center">
         <div class="thumb" style="width:56px;height:56px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#fff">
           <% if (sale.product_image) { %>
-            <img id="miniImg" src="<%= sale.product_image %>" alt="" style="width:100%;height:100%;object-fit:cover">
+            <img id="miniImg" src="<%= fixImg(sale.product_image) %>" alt="" style="width:100%;height:100%;object-fit:cover">
           <% } else { %>
             <img id="miniImg" src="" alt="" style="display:none">
           <% } %>
@@ -88,7 +88,7 @@
              data-sale="<%= Number(p.sale_price||0) %>"
              data-cost="<%= Number(p.cost_price||0) %>"
              data-stock="<%= Number(p.stock||0) %>">
-          <img src="<%= p.image_path||'' %>" alt="">
+          <img src="<%= fixImg(p.image_path||'') %>" alt="">
           <div class="name"><%= p.name %></div>
           <div style="text-align:center">
             <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
