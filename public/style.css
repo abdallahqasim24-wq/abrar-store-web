@@ -38,7 +38,7 @@ body{ margin:0; background:var(--bg); color:var(--text) }
   padding-inline: var(--container-pad);
 }
 
-/* شريط علوي (يمتد كامل العرض) */
+/* شريط علوي */
 .topbar{ position:sticky; top:0; z-index:10;
   background:linear-gradient(90deg,var(--accent1),var(--accent2));
   box-shadow:0 6px 20px rgba(0,0,0,.08)
@@ -49,7 +49,7 @@ body{ margin:0; background:var(--bg); color:var(--text) }
 .links a{ background:rgba(255,255,255,.55); color:#111; padding:8px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.7); text-decoration:none }
 .links a.active{ background:#fff }
 
-/* عناوين وأحجام */
+/* عناوين */
 h1,h2,h3{ letter-spacing:.1px }
 h1{ font-size:1.75rem; font-weight:800 }
 h2{ font-size:1.35rem; font-weight:800 }
@@ -57,13 +57,27 @@ h3{ font-size:1rem; font-weight:700 }
 table{ font-size:.95rem }
 .btn, input, select, textarea{ font-size:.98rem }
 
-/* أزرار */
-.btn{ padding:10px 16px; border-radius:12px; border:0; color:#fff; font-weight:700; cursor:pointer; transition:.2s }
+/* ===== أزرار عامة ===== */
+.btn{
+  padding:10px 16px;
+  border-radius:12px;
+  border:0;
+  color:#fff;
+  font-weight:700;
+  cursor:pointer;
+  transition:.2s;
+}
 .btn:hover{ opacity:.92; transform:translateY(-1px) }
-.btn.add{ background:var(--primary) }
-.btn.save{ background:var(--success) }
-.btn.edit{ background:var(--warning); color:#111 }
-.btn.danger{ background:var(--danger) }
+
+.btn.add{ background:var(--primary) }     /* أزرق */
+.btn.save{ background:var(--success) }    /* أخضر */
+.btn.edit{ background:var(--warning); color:#111 } /* أصفر */
+.btn.danger{ background:var(--danger) }   /* أحمر */
+.btn.danger:hover{ background:#dc2626 }
+.btn.add:hover{ background:#1d4ed8 }
+.btn.save:hover{ background:#15803d }
+.btn.edit:hover{ background:#eab308; color:#111 }
+
 .fs-controls{ display:flex; gap:6px; margin-inline-start:auto }
 .btn.fs{ padding:6px 10px }
 
@@ -81,16 +95,16 @@ table{ font-size:.95rem }
 /* شبكات النماذج */
 .form-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px }
 @media (min-width: 1100px){
-  .form-grid{ grid-template-columns:repeat(3,1fr) } /* ثلاث أعمدة على الشاشات الكبيرة */
+  .form-grid{ grid-template-columns:repeat(3,1fr) }
 }
 
-/* الجداول — داخل غلاف تمرير أفقي */
+/* الجداول */
 .table-scroll{ width:100%; overflow:auto; border-radius:14px }
-table{ width:100%; border-collapse:collapse; min-width: 900px } /* لا تنضغط كثير */
+table{ width:100%; border-collapse:collapse; min-width: 900px }
 th,td{ border-bottom:1px solid var(--border); padding:10px; vertical-align:middle; text-align:center }
 th{ background:#fff0f6; color:#374151 }
 
-/* صور المنتجات */
+/* صور */
 .thumb{
   width:var(--thumb-size);
   height:var(--thumb-size);
@@ -101,22 +115,14 @@ th{ background:#fff0f6; color:#374151 }
 }
 .thumb.lg{ width:120px; height:120px }
 
-/* شارات حالة التوصيل */
-.status-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
-  border:1px solid var(--border); cursor:pointer; user-select:none; background:#fff
-}
+/* شارات الحالة */
+.status-chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem; border:1px solid var(--border); cursor:pointer; user-select:none; background:#fff }
 .status-pending{ background:#fff7e6 }
 .status-shipping{ background:#fff3cd }
 .status-delivered{ background:#e6ffed }
 .status-failed{ background:#ffe6e6 }
 .status-wrap{ position:relative; display:inline-block }
-.status-menu{
-  position:absolute; inset:auto auto auto 0; transform:translateY(6px);
-  background:#fff; border:1px solid var(--border); border-radius:10px;
-  box-shadow:var(--shadow); min-width:180px; padding:6px; z-index:30; display:none
-}
+.status-menu{ position:absolute; inset:auto auto auto 0; transform:translateY(6px); background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); min-width:180px; padding:6px; z-index:30; display:none }
 .status-menu form{ margin:0 }
 .status-menu button{ width:100%; text-align:right; background:#fff; color:#111; border:0; padding:8px 10px; border-radius:8px; cursor:pointer }
 .status-menu button:hover{ background:#f8fafc }
@@ -129,18 +135,11 @@ label{ font-size:12px; color:#6b7280 }
 .muted{ color:var(--muted) }
 .muted-sm{ color:#6b7280; font-size:.85rem }
 
-/* Lightbox للصور */
+/* Lightbox */
 .thumb-btn{ all:unset; cursor:zoom-in; display:inline-block; line-height:0 }
 #imgPreviewBg{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; z-index:70 }
-#imgPreview{
-  position:fixed; inset:0; margin:auto; max-width:min(92vw, 1200px);
-  max-height:92vh; display:none; z-index:80; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35)
-}
-#imgPreviewClose{
-  position:fixed; inset:12px 12px auto auto; z-index:85; background:#fff; border:1px solid #e5e7eb;
-  border-radius:999px; width:40px; height:40px; display:none; align-items:center; justify-content:center;
-  cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.12)
-}
+#imgPreview{ position:fixed; inset:0; margin:auto; max-width:min(92vw, 1200px); max-height:92vh; display:none; z-index:80; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35) }
+#imgPreviewClose{ position:fixed; inset:12px 12px auto auto; z-index:85; background:#fff; border:1px solid #e5e7eb; border-radius:999px; width:40px; height:40px; display:none; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.12) }
 
 /* ===== Responsiveness ===== */
 @media (max-width: 900px){
