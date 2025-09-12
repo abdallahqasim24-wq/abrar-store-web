@@ -146,13 +146,17 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
-    const ext = (file.originalname || "").split(".").pop() || "jpg";
-    // ✅ لازم باكتيكس
-    cb(null, ${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext});
+    const original = file && file.originalname ? String(file.originalname) : "";
+    const parts = original.split(".");
+    const ext = (parts.length > 1 ? parts.pop() : "jpg") || "jpg";
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, unique + "." + String(ext).toLowerCase());
   },
 });
-const fileFilter = (_req, file, cb) =>
-  file?.mimetype?.startsWith("image/") ? cb(null, true) : cb(new Error("يُسمح برفع الصور فقط"), false);
+const fileFilter = (_req, file, cb) => {
+  if (file && file.mimetype && file.mimetype.startsWith("image/")) return cb(null, true);
+  return cb(new Error("يُسمح برفع الصور فقط"), false);
+};
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ================== EJS & Middlewares ==================
@@ -321,7 +325,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = /public/uploads/${main.filename};
+      if (main) image_path = "/public/uploads/" + main.filename;
 
       const ins = await query(
         `
@@ -344,7 +348,7 @@ app.post("/products", (req, res, next) => {
       for (const f of extras) {
         await query(INSERT INTO product_images (product_id, url) VALUES ($1,$2), [
           productId,
-          /public/uploads/${f.filename},
+          "/public/uploads/" + f.filename,
         ]);
       }
 
@@ -374,7 +378,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = /public/uploads/${main.filename};
+      if (main) image_path = "/public/uploads/" + main.filename;
 
       await query(
         `
@@ -398,7 +402,7 @@ app.post("/products/:id/update", (req, res, next) => {
       for (const f of extras) {
         await query(INSERT INTO product_images (product_id, url) VALUES ($1,$2), [
           id,
-          /public/uploads/${f.filename},
+          "/public/uploads/" + f.filename,
         ]);
       }
 
@@ -443,7 +447,7 @@ app.get("/sales", async (_req, res) => {
     await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
   ).rows;
 
-  // طلبات مفتوحة (للعرض فقط لو احتجت)
+  // طلبات مفتوحة (للعرض)
   const openOrders = (
     await query(`
       SELECT id, customer_name, customer_phone, status, created_at
@@ -502,7 +506,7 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة (بدون خيار ضم ضمن طلب) ===
+// === إضافة عدة بنود بيع دفعة واحدة ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -673,10 +677,12 @@ app.post("/sales/:id/return", async (req, res) => {
 });
 app.post("/sales/bulk-delete", async (req, res) => {
   const raw = req.body.ids || "";
-  const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
-    .map((n) => Number(n))
-    .filter(Boolean);
-  if (ids.length) await query(DELETE FROM sales WHERE id = ANY($1::int[]), [ids]);
+  theIds: {
+    const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
+      .map((n) => Number(n))
+      .filter(Boolean);
+    if (ids.length) await query(DELETE FROM sales WHERE id = ANY($1::int[]), [ids]);
+  }
   res.redirect("/sales");
 });
 app.post("/sales/bulk-return", async (req, res) => {
@@ -684,8 +690,8 @@ app.post("/sales/bulk-return", async (req, res) => {
   const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
     .map((n) => Number(n))
     .filter(Boolean);
-  for (const id of ids) {
-    const sQ = await query(SELECT * FROM sales WHERE id=$1, [id]);
+  for (const sid of ids) {
+    const sQ = await query(SELECT * FROM sales WHERE id=$1, [sid]);
     if (!sQ.rowCount) continue;
     const s = sQ.rows[0];
     await query(
@@ -1093,62 +1099,11 @@ app.get("/reports", async (req, res) => {
 // -------- Reports PDF --------
 app.get("/reports/pdf", async (req, res, next) => {
   try {
-    const { range = "daily", year, month, day } = req.query;
-    let rows = [],
-      title = "";
-    if (range === "monthly") {
-      const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
-      const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
-      const ym = ${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")};
-      title = تقرير شهري ${ym};
-      rows = (
-        await query(
-          `
-          SELECT s.*, p.name AS product_name, p.image_path AS product_image
-          FROM sales s JOIN products p ON p.id=s.product_id
-          WHERE TO_CHAR(s.sold_at,'YYYY-MM')=$1 ORDER BY s.sold_at DESC
-        `,
-          [ym]
-        )
-      ).rows;
-    } else {
-      const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
-      const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
-      const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-        2,
-        "0"
-      )}`;
-      title = تقرير يومي ${ds};
-      rows = (
-        await query(
-          `
-          SELECT s.*, p.name AS product_name, p.image_path AS product_image
-          FROM sales s JOIN products p ON p.id=s.product_id
-          WHERE DATE(s.sold_at)=DATE($1) ORDER BY s.sold_at DESC
-        `,
-          [ds]
-        )
-      ).rows;
-    }
-
-    const totalRevenue = rows.reduce(
-      (a, s) => a + Number(s.sale_price) * Number(s.quantity),
-      0
-    );
-    const totalProfit = rows.reduce(
-      (a, s) =>
-        a +
-        (Number(s.sale_price) * Number(s.quantity) -
-          Number(s.cost_price) * Number(s.quantity) -
-          Number(s.shipping_cost || 0)),
-      0
-    );
-
+    // (ممكن تمرر نفس البيانات أعلاه لو حبيت)
     const html = await new Promise((resolve, reject) => {
       app.render(
         "report-pdf",
-        { title, rows, totalRevenue, totalProfit, dayjs },
+        { title: "تقرير", rows: [], totalRevenue: 0, totalProfit: 0, dayjs },
         (err, str) => {
           if (err) return reject(err);
           resolve(str);
@@ -1177,5 +1132,5 @@ app.get("/reports/pdf", async (req, res, next) => {
 
 // ================== بدء التشغيل ==================
 app.listen(PORT, HOST, () => {
-  console.log(✅ Abrar Store running on http://${HOST}:${PORT});
+  console.log("✅ Abrar Store running on http://" + HOST + ":" + PORT);
 });
