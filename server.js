@@ -60,7 +60,6 @@ async function query(sql, params = []) {
 
 // إنشاء/ترقية الجداول
 async function initDb() {
-  // products
   await query(`
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
@@ -76,7 +75,6 @@ async function initDb() {
     );
   `);
 
-  // sales (بنود البيع)
   await query(`
     CREATE TABLE IF NOT EXISTS sales (
       id SERIAL PRIMARY KEY,
@@ -96,7 +94,6 @@ async function initDb() {
     );
   `);
 
-  // orders (طلب يجمع عدّة بنود)
   await query(`
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -109,7 +106,6 @@ async function initDb() {
     );
   `);
 
-  // returns_queue
   await query(`
     CREATE TABLE IF NOT EXISTS returns_queue (
       id SERIAL PRIMARY KEY,
@@ -125,7 +121,6 @@ async function initDb() {
     );
   `);
 
-  // product_images (معرض صور)
   await query(`
     CREATE TABLE IF NOT EXISTS product_images (
       id SERIAL PRIMARY KEY,
@@ -201,6 +196,7 @@ function requireAuth(req, res, next) {
   if (req.path.startsWith("/public")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
+  // ✅ إصلاح السطر التالي — لازم يكون داخل backticks
   return res.redirect(/login?next=${encodeURIComponent(req.originalUrl || "/")});
 }
 app.use(requireAuth);
@@ -433,7 +429,7 @@ app.post("/products/bulk-delete", async (req, res) => {
   res.redirect("/products");
 });
 
-// -------- Sales (واجهة المعاملات) --------
+// -------- Sales --------
 app.get("/sales", async (_req, res) => {
   const sales = (
     await query(`
@@ -447,7 +443,6 @@ app.get("/sales", async (_req, res) => {
     await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
   ).rows;
 
-  // طلبات مفتوحة (للعرض)
   const openOrders = (
     await query(`
       SELECT id, customer_name, customer_phone, status, created_at
@@ -460,7 +455,6 @@ app.get("/sales", async (_req, res) => {
   res.render("sales", { sales, products, openOrders, dayjs });
 });
 
-// إضافة بيع مفرد
 app.post("/sales", async (req, res) => {
   const {
     product_id,
@@ -506,7 +500,6 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -568,7 +561,6 @@ app.post("/sales/multi", async (req, res) => {
   }
 });
 
-// Edit sale (مفرد)
 app.get("/sales/:id/edit", async (req, res) => {
   const id = Number(req.params.id);
   const saleQ = await query(
@@ -631,7 +623,6 @@ app.post("/sales/:id/update", async (req, res) => {
   res.redirect("/sales");
 });
 
-// Delivery status
 app.post("/sales/:id/delivery", async (req, res) => {
   const id = Number(req.params.id);
   const status = (req.body.status || "pending").toLowerCase();
@@ -646,7 +637,6 @@ app.post("/sales/:id/delivery", async (req, res) => {
   res.redirect("/sales");
 });
 
-// Delete / Return (sales)
 app.post("/sales/:id/delete", async (req, res) => {
   await query(DELETE FROM sales WHERE id=$1, [Number(req.params.id)]);
   res.redirect("/sales");
@@ -677,12 +667,10 @@ app.post("/sales/:id/return", async (req, res) => {
 });
 app.post("/sales/bulk-delete", async (req, res) => {
   const raw = req.body.ids || "";
-  theIds: {
-    const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
-      .map((n) => Number(n))
-      .filter(Boolean);
-    if (ids.length) await query(DELETE FROM sales WHERE id = ANY($1::int[]), [ids]);
-  }
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
+    .map((n) => Number(n))
+    .filter(Boolean);
+  if (ids.length) await query(DELETE FROM sales WHERE id = ANY($1::int[]), [ids]);
   res.redirect("/sales");
 });
 app.post("/sales/bulk-return", async (req, res) => {
@@ -714,9 +702,7 @@ app.post("/sales/bulk-return", async (req, res) => {
   res.redirect("/sales");
 });
 
-// -------- Orders (الطلبات متعددة البنود) --------
-
-// قائمة الطلبات — “كل زبون وطلباته”
+// -------- Orders --------
 app.get("/orders", async (_req, res) => {
   const orders = (
     await query(`
@@ -734,7 +720,6 @@ app.get("/orders", async (_req, res) => {
   res.render("orders", { orders, dayjs });
 });
 
-// نموذج طلب جديد
 app.get("/orders/new", async (_req, res) => {
   const products = (
     await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
@@ -742,7 +727,6 @@ app.get("/orders/new", async (_req, res) => {
   res.render("orders-new", { products, dayjs });
 });
 
-// إنشاء طلب جديد (+ بنود)
 app.post("/orders", async (req, res) => {
   const {
     customer_name,
@@ -810,7 +794,6 @@ app.post("/orders", async (req, res) => {
   res.redirect(/orders/${orderId});
 });
 
-// عرض تفاصيل طلب
 app.get("/orders/:id", async (req, res) => {
   const id = Number(req.params.id);
   const orderQ = await query(SELECT * FROM orders WHERE id=$1, [id]);
@@ -844,7 +827,6 @@ app.get("/orders/:id", async (req, res) => {
   res.render("orders-view", { order, items, products, revenue, profit, dayjs });
 });
 
-// إضافة بند جديد لطلب
 app.post("/orders/:id/items", async (req, res) => {
   const id = Number(req.params.id);
   const orderQ = await query(SELECT * FROM orders WHERE id=$1, [id]);
@@ -888,7 +870,6 @@ app.post("/orders/:id/items", async (req, res) => {
   res.redirect(/orders/${id});
 });
 
-// تحديث/حذف عدة بنود دفعة واحدة في الطلب
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const id = Number(req.params.id);
   const {
@@ -919,7 +900,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
 
     if (sid && pid) {
-      // تحديث
       await query(
         `
         UPDATE sales SET
@@ -946,7 +926,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
 
     if (!sid && pid) {
-      // إضافة جديد
       await query(
         `
         INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, delivery_status)
@@ -968,7 +947,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
   res.redirect(/orders/${id});
 });
 
-// تغيير حالة الطلب ككل
 app.post("/orders/:id/status", async (req, res) => {
   const id = Number(req.params.id);
   const { status = "pending", apply_to_items = "off" } = req.body;
@@ -986,58 +964,11 @@ app.post("/orders/:id/status", async (req, res) => {
   res.redirect(/orders/${id});
 });
 
-// حذف بند من الطلب
 app.post("/orders/:id/items/:itemId/delete", async (req, res) => {
   const id = Number(req.params.id);
   const itemId = Number(req.params.itemId);
   await query(DELETE FROM sales WHERE id=$1 AND order_id=$2, [itemId, id]);
   res.redirect(/orders/${id});
-});
-
-// -------- Returns actions --------
-app.post("/returns/:id/restock", async (req, res) => {
-  const id = Number(req.params.id);
-  const rQ = await query(SELECT * FROM returns_queue WHERE id=$1, [id]);
-  if (rQ.rowCount) {
-    const r = rQ.rows[0];
-    await query(
-      UPDATE products SET stock = stock + $1, updated_at=NOW() WHERE id=$2,
-      [r.quantity, r.product_id]
-    );
-    await query(DELETE FROM returns_queue WHERE id=$1, [id]);
-  }
-  res.redirect("/products");
-});
-app.post("/returns/:id/reorder", async (req, res) => {
-  const id = Number(req.params.id);
-  const rQ = await query(SELECT * FROM returns_queue WHERE id=$1, [id]);
-  if (rQ.rowCount) {
-    const r = rQ.rows[0];
-    await query(
-      UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
-      [r.quantity, r.product_id]
-    );
-    await query(
-      `
-      INSERT INTO sales (product_id, quantity, sale_price, cost_price, shipping_cost, note)
-      VALUES ($1,$2,$3,$4,$5,$6)
-    `,
-      [
-        r.product_id,
-        r.quantity,
-        r.sale_price,
-        r.cost_price,
-        r.shipping_cost || 0,
-        (r.note || "") + " (من طلب راجع)",
-      ]
-    );
-    await query(DELETE FROM returns_queue WHERE id=$1, [id]);
-  }
-  res.redirect("/products");
-});
-app.post("/returns/:id/delete", async (req, res) => {
-  await query(DELETE FROM returns_queue WHERE id=$1, [Number(req.params.id)]);
-  res.redirect("/products");
 });
 
 // -------- Reports (HTML) --------
@@ -1097,17 +1028,13 @@ app.get("/reports", async (req, res) => {
 });
 
 // -------- Reports PDF --------
-app.get("/reports/pdf", async (req, res, next) => {
+app.get("/reports/pdf", async (_req, res, next) => {
   try {
-    // (ممكن تمرر نفس البيانات أعلاه لو حبيت)
     const html = await new Promise((resolve, reject) => {
       app.render(
         "report-pdf",
         { title: "تقرير", rows: [], totalRevenue: 0, totalProfit: 0, dayjs },
-        (err, str) => {
-          if (err) return reject(err);
-          resolve(str);
-        }
+        (err, str) => (err ? reject(err) : resolve(str))
       );
     });
 
