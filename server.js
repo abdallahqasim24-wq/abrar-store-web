@@ -24,8 +24,9 @@ dayjs.extend(tz);
 const TZ_NAME = process.env.TZ_NAME || "Asia/Hebron";
 if (dayjs.tz?.setDefault) dayjs.tz.setDefault(TZ_NAME);
 
+// __filename / __dirname (ESM)
 const __filename = fileURLToPath(import.meta.url);
-const _dirname = path.dirname(_filename);
+const __dirname = path.dirname(__filename);
 
 // ================== إعدادات أساسية ==================
 const app = express();
@@ -149,7 +150,8 @@ const storage = multer.diskStorage({
     const original = file?.originalname || "";
     const dot = original.lastIndexOf(".");
     const ext = dot >= 0 ? original.slice(dot + 1) : "jpg";
-    cb(null, ${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext});
+    // مهم: backticks
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
   },
 });
 const fileFilter = (_req, file, cb) =>
@@ -198,8 +200,8 @@ function requireAuth(req, res, next) {
   if (req.path.startsWith("/public")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
-  // ← مهم: template literal صحيح
-  return res.redirect(/login?next=${encodeURIComponent(req.originalUrl || "/")});
+  // مهم: template literal صحيح
+  return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/")}`);
 }
 app.use(requireAuth);
 
@@ -250,11 +252,8 @@ app.get("/", async (_req, res) => {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
 
-  const todayRows = (await query(SELECT * FROM sales WHERE DATE(sold_at)=DATE($1), [today]))
-    .rows;
-  const monthRows = (
-    await query(SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1, [ym])
-  ).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
   const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -297,7 +296,7 @@ app.get("/", async (_req, res) => {
 
 // -------- Products --------
 app.get("/products", async (_req, res) => {
-  const products = (await query(SELECT * FROM products ORDER BY created_at DESC)).rows;
+  const products = (await query(`SELECT * FROM products ORDER BY created_at DESC`)).rows;
 
   const returnsList = (
     await query(`
@@ -323,7 +322,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = /public/uploads/${main.filename};
+      if (main) image_path = `/public/uploads/${main.filename}`;
 
       const ins = await query(
         `
@@ -344,9 +343,9 @@ app.post("/products", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(INSERT INTO product_images (product_id, url) VALUES ($1,$2), [
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           productId,
-          /public/uploads/${f.filename},
+          `/public/uploads/${f.filename}`,
         ]);
       }
 
@@ -368,7 +367,7 @@ app.post("/products/:id/update", (req, res, next) => {
     try {
       if (err) throw err;
       const id = Number(req.params.id);
-      const oldQ = await query(SELECT * FROM products WHERE id=$1, [id]);
+      const oldQ = await query(`SELECT * FROM products WHERE id=$1`, [id]);
       if (!oldQ.rowCount) return res.redirect("/products");
       const old = oldQ.rows[0];
 
@@ -376,7 +375,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = /public/uploads/${main.filename};
+      if (main) image_path = `/public/uploads/${main.filename}`;
 
       await query(
         `
@@ -398,9 +397,9 @@ app.post("/products/:id/update", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(INSERT INTO product_images (product_id, url) VALUES ($1,$2), [
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [
           id,
-          /public/uploads/${f.filename},
+          `/public/uploads/${f.filename}`,
         ]);
       }
 
@@ -414,20 +413,20 @@ app.post("/products/:id/update", (req, res, next) => {
 
 app.post("/products/:id/stock", async (req, res) => {
   await query(
-    UPDATE products SET stock = GREATEST(0, stock + $1), updated_at=NOW() WHERE id=$2,
+    `UPDATE products SET stock = GREATEST(0, stock + $1), updated_at=NOW() WHERE id=$2`,
     [Number(req.body.delta || 0), Number(req.params.id)]
   );
   res.redirect("/products");
 });
 app.post("/products/:id/delete", async (req, res) => {
-  await query(DELETE FROM products WHERE id=$1, [Number(req.params.id)]);
+  await query(`DELETE FROM products WHERE id=$1`, [Number(req.params.id)]);
   res.redirect("/products");
 });
 app.post("/products/bulk-delete", async (req, res) => {
   const ids = (Array.isArray(req.body.ids) ? req.body.ids : String(req.body.ids || "").split(","))
     .map((n) => Number(n))
     .filter(Boolean);
-  if (ids.length) await query(DELETE FROM products WHERE id = ANY($1::int[]), [ids]);
+  if (ids.length) await query(`DELETE FROM products WHERE id = ANY($1::int[])`, [ids]);
   res.redirect("/products");
 });
 
@@ -442,10 +441,10 @@ app.get("/sales", async (_req, res) => {
   ).rows;
 
   const products = (
-    await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
+    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
 
-  // طلبات مفتوحة (للعرض فقط لو احتجت)
+  // طلبات مفتوحة (اختياري للربط من الواجهة)
   const openOrders = (
     await query(`
       SELECT id, customer_name, customer_phone, status, created_at
@@ -472,7 +471,7 @@ app.post("/sales", async (req, res) => {
     customer_city,
   } = req.body;
 
-  const prodQ = await query(SELECT * FROM products WHERE id=$1, [Number(product_id)]);
+  const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [Number(product_id)]);
   if (!prodQ.rowCount) return res.redirect("/sales");
   const prod = prodQ.rows[0];
 
@@ -497,14 +496,14 @@ app.post("/sales", async (req, res) => {
   );
 
   await query(
-    UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
+    `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
     [qty, prod.id]
   );
 
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة (بدون خيار ضم ضمن طلب) ===
+// === إضافة عدة بنود بيع دفعة واحدة ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -529,7 +528,7 @@ app.post("/sales/multi", async (req, res) => {
       const pid = Number([].concat(product_id)[i]);
       if (!pid) continue;
 
-      const prodQ = await query(SELECT * FROM products WHERE id=$1, [pid]);
+      const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
       if (!prodQ.rowCount) continue;
       const prod = prodQ.rows[0];
 
@@ -554,7 +553,7 @@ app.post("/sales/multi", async (req, res) => {
       );
 
       await query(
-        UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
+        `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
         [qty, pid]
       );
     }
@@ -579,9 +578,9 @@ app.get("/sales/:id/edit", async (req, res) => {
   if (!saleQ.rowCount) return res.redirect("/sales");
   const sale = saleQ.rows[0];
   const products = (
-    await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
+    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
-  const stockQ = await query(SELECT stock FROM products WHERE id=$1, [sale.product_id]);
+  const stockQ = await query(`SELECT stock FROM products WHERE id=$1`, [sale.product_id]);
   const productStock = stockQ.rowCount ? stockQ.rows[0].stock : 0;
 
   res.render("sales-edit", { sale, products, productStock, dayjs });
@@ -601,7 +600,7 @@ app.post("/sales/:id/update", async (req, res) => {
     customer_city,
   } = req.body;
 
-  const oldQ = await query(SELECT * FROM sales WHERE id=$1, [id]);
+  const oldQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
   if (!oldQ.rowCount) return res.redirect("/sales");
   const old = oldQ.rows[0];
 
@@ -646,12 +645,12 @@ app.post("/sales/:id/delivery", async (req, res) => {
 
 // Delete / Return (sales)
 app.post("/sales/:id/delete", async (req, res) => {
-  await query(DELETE FROM sales WHERE id=$1, [Number(req.params.id)]);
+  await query(`DELETE FROM sales WHERE id=$1`, [Number(req.params.id)]);
   res.redirect("/sales");
 });
 app.post("/sales/:id/return", async (req, res) => {
   const id = Number(req.params.id);
-  const sQ = await query(SELECT * FROM sales WHERE id=$1, [id]);
+  const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
   if (sQ.rowCount) {
     const s = sQ.rows[0];
     await query(
@@ -678,7 +677,7 @@ app.post("/sales/bulk-delete", async (req, res) => {
   const ids = (Array.isArray(raw) ? raw : String(raw).split(","))
     .map((n) => Number(n))
     .filter(Boolean);
-  if (ids.length) await query(DELETE FROM sales WHERE id = ANY($1::int[]), [ids]);
+  if (ids.length) await query(`DELETE FROM sales WHERE id = ANY($1::int[])`, [ids]);
   res.redirect("/sales");
 });
 app.post("/sales/bulk-return", async (req, res) => {
@@ -687,7 +686,7 @@ app.post("/sales/bulk-return", async (req, res) => {
     .map((n) => Number(n))
     .filter(Boolean);
   for (const id of ids) {
-    const sQ = await query(SELECT * FROM sales WHERE id=$1, [id]);
+    const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
     if (!sQ.rowCount) continue;
     const s = sQ.rows[0];
     await query(
@@ -733,7 +732,7 @@ app.get("/orders", async (_req, res) => {
 // نموذج طلب جديد
 app.get("/orders/new", async (_req, res) => {
   const products = (
-    await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
+    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
   res.render("orders-new", { products, dayjs });
 });
@@ -767,7 +766,7 @@ app.post("/orders", async (req, res) => {
     const pid = Number([].concat(product_id)[i]);
     if (!pid) continue;
 
-    const prodQ = await query(SELECT * FROM products WHERE id=$1, [pid]);
+    const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
     if (!prodQ.rowCount) continue;
     const prod = prodQ.rows[0];
 
@@ -798,18 +797,18 @@ app.post("/orders", async (req, res) => {
     );
 
     await query(
-      UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
+      `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
       [qty, pid]
     );
   }
 
-  res.redirect(/orders/${orderId});
+  res.redirect(`/orders/${orderId}`);
 });
 
 // عرض تفاصيل طلب
 app.get("/orders/:id", async (req, res) => {
   const id = Number(req.params.id);
-  const orderQ = await query(SELECT * FROM orders WHERE id=$1, [id]);
+  const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
   if (!orderQ.rowCount) return res.redirect("/orders");
   const order = orderQ.rows[0];
 
@@ -825,7 +824,7 @@ app.get("/orders/:id", async (req, res) => {
   ).rows;
 
   const products = (
-    await query(SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name)
+    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
   ).rows;
 
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
@@ -843,13 +842,13 @@ app.get("/orders/:id", async (req, res) => {
 // إضافة بند جديد لطلب
 app.post("/orders/:id/items", async (req, res) => {
   const id = Number(req.params.id);
-  const orderQ = await query(SELECT * FROM orders WHERE id=$1, [id]);
+  const orderQ = await query(`SELECT * FROM orders WHERE id=$1`, [id]);
   if (!orderQ.rowCount) return res.redirect("/orders");
 
   const { product_id, quantity, sale_price, cost_price, shipping_cost, note } = req.body;
   const pid = Number(product_id);
-  const prodQ = await query(SELECT * FROM products WHERE id=$1, [pid]);
-  if (!prodQ.rowCount) return res.redirect(/orders/${id});
+  const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
+  if (!prodQ.rowCount) return res.redirect(`/orders/${id}`);
   const prod = prodQ.rows[0];
 
   const qty = Math.max(1, Number(quantity || 1));
@@ -877,11 +876,11 @@ app.post("/orders/:id/items", async (req, res) => {
     ]
   );
   await query(
-    UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
+    `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
     [qty, pid]
   );
 
-  res.redirect(/orders/${id});
+  res.redirect(`/orders/${id}`);
 });
 
 // تحديث/حذف عدة بنود دفعة واحدة في الطلب
@@ -910,12 +909,11 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     const del = String([].concat(delete_flag)[i] || "").toLowerCase() === "on";
 
     if (sid && del) {
-      await query(DELETE FROM sales WHERE id=$1 AND order_id=$2, [sid, id]);
+      await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [sid, id]);
       continue;
     }
 
     if (sid && pid) {
-      // تحديث
       await query(
         `
         UPDATE sales SET
@@ -942,7 +940,6 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
 
     if (!sid && pid) {
-      // إضافة جديد
       await query(
         `
         INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, delivery_status)
@@ -961,14 +958,14 @@ app.post("/orders/:id/items/bulk-update", async (req, res) => {
     }
   }
 
-  res.redirect(/orders/${id});
+  res.redirect(`/orders/${id}`);
 });
 
 // تغيير حالة الطلب ككل
 app.post("/orders/:id/status", async (req, res) => {
   const id = Number(req.params.id);
   const { status = "pending", apply_to_items = "off" } = req.body;
-  await query(UPDATE orders SET status=$1 WHERE id=$2, [status, id]);
+  await query(`UPDATE orders SET status=$1 WHERE id=$2`, [status, id]);
   if (apply_to_items === "on") {
     await query(
       `
@@ -979,38 +976,38 @@ app.post("/orders/:id/status", async (req, res) => {
       [status, id]
     );
   }
-  res.redirect(/orders/${id});
+  res.redirect(`/orders/${id}`);
 });
 
 // حذف بند من الطلب
 app.post("/orders/:id/items/:itemId/delete", async (req, res) => {
   const id = Number(req.params.id);
   const itemId = Number(req.params.itemId);
-  await query(DELETE FROM sales WHERE id=$1 AND order_id=$2, [itemId, id]);
-  res.redirect(/orders/${id});
+  await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [itemId, id]);
+  res.redirect(`/orders/${id}`);
 });
 
 // -------- Returns actions --------
 app.post("/returns/:id/restock", async (req, res) => {
   const id = Number(req.params.id);
-  const rQ = await query(SELECT * FROM returns_queue WHERE id=$1, [id]);
+  const rQ = await query(`SELECT * FROM returns_queue WHERE id=$1`, [id]);
   if (rQ.rowCount) {
     const r = rQ.rows[0];
     await query(
-      UPDATE products SET stock = stock + $1, updated_at=NOW() WHERE id=$2,
+      `UPDATE products SET stock = stock + $1, updated_at=NOW() WHERE id=$2`,
       [r.quantity, r.product_id]
     );
-    await query(DELETE FROM returns_queue WHERE id=$1, [id]);
+    await query(`DELETE FROM returns_queue WHERE id=$1`, [id]);
   }
   res.redirect("/products");
 });
 app.post("/returns/:id/reorder", async (req, res) => {
   const id = Number(req.params.id);
-  const rQ = await query(SELECT * FROM returns_queue WHERE id=$1, [id]);
+  const rQ = await query(`SELECT * FROM returns_queue WHERE id=$1`, [id]);
   if (rQ.rowCount) {
     const r = rQ.rows[0];
     await query(
-      UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2,
+      `UPDATE products SET stock = GREATEST(0, stock - $1), updated_at=NOW() WHERE id=$2`,
       [r.quantity, r.product_id]
     );
     await query(
@@ -1027,12 +1024,12 @@ app.post("/returns/:id/reorder", async (req, res) => {
         (r.note || "") + " (من طلب راجع)",
       ]
     );
-    await query(DELETE FROM returns_queue WHERE id=$1, [id]);
+    await query(`DELETE FROM returns_queue WHERE id=$1`, [id]);
   }
   res.redirect("/products");
 });
 app.post("/returns/:id/delete", async (req, res) => {
-  await query(DELETE FROM returns_queue WHERE id=$1, [Number(req.params.id)]);
+  await query(`DELETE FROM returns_queue WHERE id=$1`, [Number(req.params.id)]);
   res.redirect("/products");
 });
 
@@ -1040,13 +1037,12 @@ app.post("/returns/:id/delete", async (req, res) => {
 app.get("/reports", async (req, res) => {
   const { range = "daily", year, month, day } = req.query;
 
-  let rows = [],
-    title = "";
+  let rows = [], title = "";
   if (range === "monthly") {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
-    const ym = ${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")};
-    title = تقرير شهري ${ym};
+    const ym = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
+    title = `تقرير شهري ${ym}`;
     rows = (
       await query(
         `
@@ -1061,11 +1057,8 @@ app.get("/reports", async (req, res) => {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
     const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-      2,
-      "0"
-    )}`;
-    title = تقرير يومي ${ds};
+    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    title = `تقرير يومي ${ds}`;
     rows = (
       await query(
         `
@@ -1096,13 +1089,13 @@ app.get("/reports", async (req, res) => {
 app.get("/reports/pdf", async (req, res, next) => {
   try {
     const { range = "daily", year, month, day } = req.query;
-    let rows = [],
-      title = "";
+    let rows = [], title = "";
+
     if (range === "monthly") {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
-      const ym = ${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")};
-      title = تقرير شهري ${ym};
+      const ym = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`;
+      title = `تقرير شهري ${ym}`;
       rows = (
         await query(
           `
@@ -1117,11 +1110,8 @@ app.get("/reports/pdf", async (req, res, next) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
-        2,
-        "0"
-      )}`;
-      title = تقرير يومي ${ds};
+      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      title = `تقرير يومي ${ds}`;
       rows = (
         await query(
           `
@@ -1179,5 +1169,5 @@ app.get("/reports/pdf", async (req, res, next) => {
 
 // ================== بدء التشغيل ==================
 app.listen(PORT, HOST, () => {
-  console.log(✅ Abrar Store running on http://${HOST}:${PORT});
+  console.log(`✅ Abrar Store running on http://${HOST}:${PORT}`);
 });
