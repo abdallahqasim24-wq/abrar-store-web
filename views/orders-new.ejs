@@ -1,118 +1,216 @@
+<%-
+/**
+ * orders-new.ejs — إنشاء طلب جديد
+ * يعتمد على:
+ *  - products: [{id,name,stock,sale_price,cost_price,image_path}]
+ *  - dayjs
+ *  - faLink
+ */
+-%>
 <link rel="stylesheet" href="<%= faLink %>">
 
+<style>
+  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
+  .items-grid{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
+  .items-grid th{background:#feeef5;text-align:center;padding:10px}
+  .items-grid td{padding:8px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
+  .thumb{width:48px;height:48px;border-radius:10px;border:1px solid #ebedf0;object-fit:cover;background:#fff}
+  .mini-tag{display:inline-block;padding:2px 8px;border:1px solid #ebedf0;border-radius:999px;background:#fff7fb;font-size:.8rem}
+  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+  .btn.add{background:#2563eb;color:#fff}
+  .btn.secondary{background:#f1f5f9;color:#111}
+  .btn.danger{background:#ef4444;color:#fff}
+  .row{display:flex;gap:8px;align-items:center}
+  .right{margin-inline-start:auto}
+  .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
+  .pcard{border:1px solid #ebedf0;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid #ebedf0;border-radius:12px}
+  .tag{display:inline-block;padding:2px 8px;border:1px solid #ebedf0;border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
+  .name{font-weight:800;text-align:center;min-height:48px}
+  .modal{position:fixed;inset:0;display:none;z-index:90}
+  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+  .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid #ebedf0;display:flex;flex-direction:column}
+  .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
+  .mhead{display:flex;gap:10px;align-items:center;padding:12px 12px 12px 56px;border-bottom:1px solid #f1f5f9}
+  input, select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+</style>
+
+<div class="row" style="justify-content:space-between;align-items:center">
+  <h2 style="margin:0"><i class="fa fa-cart-plus"></i> إنشاء طلب جديد</h2>
+  <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> قائمة الطلبات</a>
+</div>
+
 <div class="card">
-  <div class="row">
-    <h3><i class="fa fa-plus"></i> طلب جديد (عدة منتجات لنفس الزبون)</h3>
-    <a class="btn secondary right" href="/orders"><i class="fa fa-arrow-right"></i> رجوع</a>
-  </div>
+  <form method="post" action="/orders" id="orderForm" class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div><label>اسم الزبون</label><input name="customer_name" required></div>
+    <div><label>الهاتف</label><input name="customer_phone"></div>
+    <div><label>المدينة</label><input name="customer_city"></div>
+    <div><label>ملاحظة عامة</label><input name="note"></div>
 
-  <form method="post" action="/orders" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
-    <div>
-      <label>اسم الزبون</label>
-      <input name="customer_name" required>
-    </div>
-    <div>
-      <label>الهاتف</label>
-      <input name="customer_phone">
-    </div>
-    <div>
-      <label>المدينة</label>
-      <input name="customer_city">
-    </div>
-    <div style="grid-column: span 2;">
-      <label>ملاحظات للطلب</label>
-      <textarea name="note" rows="2"></textarea>
-    </div>
-
-    <div style="grid-column: span 2">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <h4 style="margin:0">المنتجات</h4>
-        <button type="button" id="addRow" class="btn add"><i class="fa fa-plus"></i> إضافة صف</button>
-      </div>
-
-      <table style="width:100%; margin-top:8px">
+    <div style="grid-column:1 / -1">
+      <table class="items-grid" id="itemsTable">
         <thead>
           <tr>
-            <th style="text-align:right">المنتج</th>
+            <th>المنتج</th>
             <th>كمية</th>
-            <th>بيع (₪)</th>
-            <th>أصلي (₪)</th>
+            <th>سعر بيع (₪)</th>
+            <th>سعر أصلي (₪)</th>
             <th>شحن (₪)</th>
             <th>ملاحظة</th>
-            <th>حذف</th>
+            <th>إجراء</th>
           </tr>
         </thead>
-        <tbody id="rows"></tbody>
+        <tbody id="itemsBody"></tbody>
       </table>
+      <div class="row right" style="margin-top:8px">
+        <button class="btn add" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
+      </div>
     </div>
 
-    <div class="right" style="grid-column: span 2;">
-      <button class="btn save"><i class="fa fa-floppy-disk"></i> حفظ الطلب</button>
+    <div class="right" style="grid-column:1 / -1">
+      <button class="btn add" type="submit"><i class="fa fa-paper-plane"></i> إنشاء الطلب</button>
     </div>
   </form>
 </div>
 
+<!-- منتقي المنتجات (شبكة) -->
+<div class="modal" id="pickerModal" aria-hidden="true">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <button type="button" id="pickerClose" class="mclose" aria-label="إغلاق">
+      <i class="fa fa-xmark"></i>
+    </button>
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <div style="font-weight:800">اختيار منتج</div>
+      <input id="searchBox" placeholder="ابحث..." class="right" style="max-width:320px">
+    </div>
+    <div class="mgrid" id="gridWrap">
+      <% products.forEach(p=>{ %>
+        <div class="pcard" data-id="<%= p.id %>"
+             data-name="<%- p.name %>"
+             data-img="<%= p.image_path||'' %>"
+             data-sale="<%= Number(p.sale_price||0) %>"
+             data-cost="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= Number(p.stock||0) %>">
+          <img src="<%= p.image_path||'' %>" alt="">
+          <div class="name"><%= p.name %></div>
+          <div style="text-align:center">
+            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
+          </div>
+          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
 <script>
+  // مولّد صف
+  function makeRow(){
+    return `
+      <tr>
+        <td style="text-align:right">
+          <input type="hidden" name="product_id">
+          <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
+            <img class="thumb pimg" style="display:none">
+            <div class="pname" style="max-width:360px">— لم يتم الاختيار —</div>
+            <button class="btn secondary pick-btn" type="button"><i class="fa fa-grid-2"></i> اختيار</button>
+          </div>
+          <div class="row" style="gap:6px;margin-top:4px">
+            <span class="mini-tag">مخزون: <b class="pstock">0</b></span>
+            <span class="mini-tag">بيع إفتراضي: ₪<b class="psale">0.00</b></span>
+            <span class="mini-tag">أصلي: ₪<b class="pcost">0.00</b></span>
+          </div>
+        </td>
+        <td><input type="number" name="quantity" value="1" min="1" step="1" required></td>
+        <td><input type="number" name="sale_price" step="0.01" required></td>
+        <td><input type="number" name="cost_price" step="0.01" required></td>
+        <td><input type="number" name="shipping_cost" step="0.01" value="0"></td>
+        <td><input type="text" name="item_note"></td>
+        <td><button type="button" class="btn danger del-row"><i class="fa fa-trash"></i> حذف</button></td>
+      </tr>
+    `;
+  }
+
   (function(){
-    const products = <%- JSON.stringify(products||[]) %>;
-    const rows = document.getElementById('rows');
-    document.getElementById('addRow').addEventListener('click', addRow);
-
-    function addRow(pref = {}){
-      const tr = document.createElement('tr');
-
-      const sel = document.createElement('select');
-      sel.name = 'product_id';
-      sel.required = true;
-      sel.innerHTML = '<option value="">— اختر —</option>' + products.map(p=>(
-        `<option value="${p.id}" data-cost="${p.cost_price||0}" data-sale="${p.sale_price||0}">
-           ${p.name} (مخزون ${p.stock||0})
-         </option>`
-      )).join('');
-      if (pref.product_id) sel.value = pref.product_id;
-
-      const qty = input('number','quantity', pref.quantity||1, {min:1, step:1});
-      const sale= input('number','sale_price',pref.sale_price||'', {step:'0.01'});
-      const cost= input('number','cost_price',pref.cost_price||'', {step:'0.01'});
-      const ship= input('number','shipping_cost',pref.shipping_cost||0, {step:'0.01'});
-      const note= input('text','item_note',pref.item_note||'', {});
-
-      sel.addEventListener('change',()=>{
-        const opt = sel.options[sel.selectedIndex];
-        if (opt && !sale.value) sale.value = opt.dataset.sale || '';
-        if (opt && !cost.value) cost.value = opt.dataset.cost || '';
-      });
-
-      tr.appendChild(tcell(sel, true));
-      tr.appendChild(tcell(qty));
-      tr.appendChild(tcell(sale));
-      tr.appendChild(tcell(cost));
-      tr.appendChild(tcell(ship));
-      tr.appendChild(tcell(note));
-
-      const delBtn = document.createElement('button');
-      delBtn.type='button';
-      delBtn.className='btn danger';
-      delBtn.innerHTML='<i class="fa fa-trash"></i>';
-      delBtn.addEventListener('click', ()=> tr.remove());
-      tr.appendChild(tcell(delBtn));
-
-      rows.appendChild(tr);
-    }
-
-    function input(type,name,val,attrs){
-      const i = document.createElement('input');
-      i.type = type; i.name = name; i.value = val ?? '';
-      Object.entries(attrs||{}).forEach(([k,v])=> i.setAttribute(k, v));
-      return i;
-    }
-    function tcell(child, right){
-      const td = document.createElement('td');
-      if (right) td.style.textAlign='right';
-      td.appendChild(child); return td;
-    }
-
-    // صف افتراضي أول
+    const body = document.getElementById('itemsBody');
+    const add  = document.getElementById('addRow');
+    function addRow(){ body.insertAdjacentHTML('beforeend', makeRow()); }
     addRow();
+    add.addEventListener('click', addRow);
+
+    // حذف
+    body.addEventListener('click', e=>{
+      const btn = e.target.closest('.del-row');
+      if(!btn) return;
+      const tr = btn.closest('tr');
+      tr.remove();
+      if(!body.children.length) addRow();
+    });
+
+    // فتح منتقي
+    body.addEventListener('click', e=>{
+      const btn = e.target.closest('.pick-btn');
+      if(!btn) return;
+      openPickerFor(btn.closest('tr'));
+    });
+
+    window.fillRowWithProduct = function(tr, data){
+      tr.querySelector('input[name="product_id"]').value = data.id;
+      tr.querySelector('.pname').textContent = data.name;
+      tr.querySelector('.pstock').textContent = Number(data.stock||0);
+      tr.querySelector('.psale').textContent  = Number(data.sale||0).toFixed(2);
+      tr.querySelector('.pcost').textContent  = Number(data.cost||0).toFixed(2);
+      const img = tr.querySelector('.pimg');
+      if(data.img){ img.src=data.img; img.style.display='block'; } else { img.style.display='none'; }
+      const saleI=tr.querySelector('input[name="sale_price"]');
+      const costI=tr.querySelector('input[name="cost_price"]');
+      if(!saleI.value) saleI.value = Number(data.sale||0);
+      if(!costI.value) costI.value = Number(data.cost||0);
+    }
+  })();
+
+  // مودال الشبكة
+  (function(){
+    const modal=document.getElementById('pickerModal');
+    const bg=modal.querySelector('.modal-bg');
+    const closeBtn=document.getElementById('pickerClose');
+    const search=document.getElementById('searchBox');
+    const cards=[...modal.querySelectorAll('.pcard')];
+    let targetRow=null;
+
+    function show(){ modal.style.display='block'; search.focus(); }
+    function hide(){ modal.style.display='none'; search.value=''; filter(''); targetRow=null; }
+    window.openPickerFor = (tr)=>{ targetRow=tr; show(); }
+    bg.addEventListener('click', hide);
+    closeBtn.addEventListener('click', hide);
+    document.addEventListener('keydown', e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
+
+    function filter(q){
+      const s=(q||'').trim().toLowerCase();
+      cards.forEach(c=> c.style.display = c.dataset.name.toLowerCase().includes(s) ? 'flex' : 'none');
+    }
+    search.addEventListener('input', e=>filter(e.target.value));
+
+    modal.addEventListener('click', e=>{
+      const btn=e.target.closest('.pickBtn');
+      if(!btn || !targetRow) return;
+      const card=btn.closest('.pcard');
+      const data={
+        id:card.dataset.id,
+        name:card.dataset.name,
+        img:card.dataset.img||'',
+        sale:Number(card.dataset.sale||0),
+        cost:Number(card.dataset.cost||0),
+        stock:Number(card.dataset.stock||0),
+      };
+      window.fillRowWithProduct(targetRow, data);
+      hide();
+    });
   })();
 </script>
