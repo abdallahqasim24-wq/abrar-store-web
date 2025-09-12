@@ -1,0 +1,48 @@
+<!-- views/partials/topbar.ejs -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom shadow-sm" dir="rtl">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">Abrar Store</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+      aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0 gap-2">
+        <li class="nav-item">
+          <a class="nav-link <%= currentPath==='/' ? 'active fw-semibold' : '' %>" href="/">لوحة التحكم</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= currentPath.startsWith('/products') ? 'active fw-semibold' : '' %>" href="/products">المنتجات</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= currentPath.startsWith('/sales') ? 'active fw-semibold' : '' %>" href="/sales">المبيعات</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= currentPath.startsWith('/orders') ? 'active fw-semibold' : '' %>" href="/orders">الطلبات</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link <%= currentPath.startsWith('/reports') ? 'active fw-semibold' : '' %>" href="/reports">التقارير</a>
+        </li>
+      </ul>
+
+      <div class="d-flex align-items-center gap-3">
+        <% if (currentUser) { %>
+          <span class="text-secondary small">مرحبًا، <strong><%= currentUser.username %></strong></span>
+          <form action="/logout" method="post" class="m-0">
+            <button class="btn btn-outline-danger btn-sm">
+              <i class="fa-solid fa-right-from-bracket"></i> خروج
+            </button>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<header class="container py-3">
+  <h5 class="m-0">
+    <i class="fa-solid fa-cart-shopping me-2"></i>
+    <%= typeof title !== 'undefined' ? title : 'Abrar Store' %>
+  </h5>
+</header>
