@@ -1,228 +1,178 @@
-<%- /* sales.ejs — واجهة مبيعات محدثة */ -%>
-<link rel="stylesheet" href="<%= faLink || 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css' %>">
-<style>
-  .wrap{max-width:1200px;margin:0 auto;padding:14px}
-  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
-  .row{display:flex;gap:8px;align-items:center}
-  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  input,select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
-  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:9px 12px;cursor:pointer}
-  .btn.primary{background:#2563eb;color:#fff}
-  .btn.gray{background:#f1f5f9}
-  .btn.danger{background:#ef4444;color:#fff}
-  .table{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
-  .table th{background:#feeef5;text-align:center;padding:10px}
-  .table td{border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle;padding:8px}
-  .thumb{width:44px;height:44px;border:1px solid #ebedf0;border-radius:10px;object-fit:cover;background:#fff}
-  .muted{color:#7a8da1}
-  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #ebedf0}
-  .pill.delivered{background:#efffed}
-</style>
+<!-- views/sales.ejs -->
+<%- include('partials/topbar', { title: 'إضافة عملية بيع (عدّة منتجات)' }) %>
 
-<div class="wrap">
-  <!-- شريط علوي: المبيعات (تم التسليم) -->
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <h3 style="margin:0"><i class="fa fa-check-double"></i> المبيعات — تمّ التسليم</h3>
-      <form method="post" action="/sales/bulk-deliver" id="deliverForm" class="row" style="gap:8px">
-        <input type="hidden" name="ids" id="deliverIds">
-        <button class="btn primary" type="submit"><i class="fa fa-check"></i> تعليم المحدد “تمّ التسليم”</button>
-      </form>
-    </div>
-    <table class="table" id="deliveredTbl">
-      <thead>
-        <tr>
-          <th><input type="checkbox" id="delvToggle"></th>
-          <th>الصورة</th>
-          <th>المنتج</th>
-          <th>كمية</th>
-          <th>سعر البيع (₪)</th>
-          <th>السعر الأصلي (₪)</th>
-          <th>الربح (₪)</th>
-          <th>التاريخ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (!delivered || !delivered.length){ %>
-          <tr><td colspan="8" class="muted">لا توجد عناصر مسلّمة بعد.</td></tr>
-        <% } %>
-        <% (delivered||[]).forEach(r=>{ %>
-          <tr data-id="<%= r.id %>">
-            <td><input type="checkbox" class="chk-delv"></td>
-            <td><img class="thumb" src="<%= r.product_image||'' %>"></td>
-            <td style="text-align:right"><%= r.product_name %></td>
-            <td><%= r.quantity %></td>
-            <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
-            <td>₪<%= Number(r.cost_price).toFixed(2) %></td>
-            <td><span class="pill delivered">₪<%= Number(r._profit||0).toFixed(2) %></span></td>
-            <td><%= (new Date(r.delivered_at||r.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
+<div class="container my-4">
 
-  <!-- نموذج إضافة عملية بيع (عدة منتجات) -->
-  <div class="card">
-    <h3 style="margin:0 0 10px 0"><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدة منتجات)</h3>
-    <form method="post" action="/sales/multi" id="multiForm">
-      <div class="grid4">
-        <input name="customer_name"  placeholder="اسم الزبون">
-        <input name="customer_phone" placeholder="الهاتف">
-        <input name="customer_city"  placeholder="المدينة">
-        <input name="order_note"     placeholder="ملاحظة عامة للطلب">
+  <!-- بيانات الزبون -->
+  <form id="multiSaleForm" action="/sales/multi" method="post" class="card p-3 shadow-sm rounded-3">
+    <h4 class="mb-3">🛒 إضافة عملية بيع (عدّة منتجات)</h4>
+
+    <div class="row g-2 mb-3">
+      <div class="col-md-3">
+        <input name="customer_name" class="form-control" placeholder="اسم الزبون">
       </div>
+      <div class="col-md-3">
+        <input name="customer_phone" class="form-control" placeholder="الهاتف">
+      </div>
+      <div class="col-md-3">
+        <input name="customer_city" class="form-control" placeholder="المدينة">
+      </div>
+      <div class="col-md-3">
+        <input name="order_note" class="form-control" placeholder="ملاحظة عامة للطلب">
+      </div>
+    </div>
 
-      <table class="table" id="itemsTable" style="margin-top:12px">
-        <thead>
-          <tr>
-            <th>المنتج</th>
-            <th>كمية</th>
-            <th>سعر بيع (₪)</th>
-            <th>سعر أصلي (₪)</th>
-            <th>شحن (₪)</th>
-            <th>ملاحظة</th>
-            <th>حذف</th>
+    <!-- جدول البنود -->
+    <div class="table-responsive border rounded-3">
+      <table class="table align-middle m-0">
+        <thead class="table-light">
+          <tr class="text-center">
+            <th style="width:34%">المنتج</th>
+            <th style="width:10%">كمية</th>
+            <th style="width:12%">سعر بيع (₪)</th>
+            <th style="width:12%">سعر أصلي (₪)</th>
+            <th style="width:10%">شحن (₪)</th>
+            <th style="width:14%">ملاحظة</th>
+            <th style="width:8%">حذف</th>
           </tr>
         </thead>
-        <tbody id="itemsBody"></tbody>
+        <tbody id="cartBody"></tbody>
       </table>
-
-      <div class="row" style="justify-content:space-between;margin-top:10px">
-        <button class="btn gray" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
-        <div class="row" style="gap:8px">
-          <button class="btn danger"  type="button" id="clearRows"><i class="fa fa-trash"></i> إفراغ السلة</button>
-          <button class="btn primary" type="submit"><i class="fa fa-save"></i> حفظ البنود</button>
-        </div>
-      </div>
-    </form>
-  </div>
-
-  <!-- الطلبات الحديثة -->
-  <div class="card">
-    <div class="row" style="justify-content:space-between">
-      <h3 style="margin:0"><i class="fa fa-list"></i> الطلبات</h3>
-      <div class="row" style="gap:8px">
-        <form method="post" action="/sales/bulk-return" id="retForm" class="row"><input type="hidden" name="ids" id="retIds"><button class="btn gray" type="submit"><i class="fa fa-rotate-left"></i> نقل المحدد إلى الراجعات</button></form>
-        <form method="post" action="/sales/bulk-delete" id="delForm" class="row"><input type="hidden" name="ids" id="delIds"><button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف المحدد نهائيًا</button></form>
-        <a class="btn gray" href="/orders"><i class="fa fa-basket-shopping"></i> كل الطلبات</a>
-      </div>
     </div>
 
-    <table class="table" id="ordersTbl">
-      <thead>
-        <tr>
-          <th><input type="checkbox" id="ordToggle"></th>
-          <th>#</th>
-          <th>الزبون</th>
-          <th>الهاتف</th>
-          <th>الحالة</th>
-          <th>الأصناف</th>
-          <th>الإيراد (₪)</th>
-          <th>الربح (₪)</th>
-          <th>التاريخ</th>
-          <th>عرض</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (!orders || !orders.length){ %>
-          <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
-        <% } %>
-        <% (orders||[]).forEach(o=>{ %>
-          <tr data-id="<%= o.id %>">
-            <td><input type="checkbox" class="chk-ord"></td>
-            <td>#<%= o.id %></td>
-            <td style="text-align:right"><%= o.customer_name || '—' %></td>
-            <td><%= o.customer_phone || '—' %></td>
-            <td><%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'—' %></td>
-            <td><%= o.items_count || 0 %></td>
-            <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
-            <td>₪<%= Number(o.profit||0).toFixed(2) %></td>
-            <td><%= (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %></td>
-            <td><a class="btn gray" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="d-flex gap-2 mt-3">
+      <button type="button" id="btnAddRow" class="btn btn-primary">
+        <i class="fa fa-plus"></i> إضافة بند
+      </button>
+      <button type="button" id="btnClear" class="btn btn-danger">
+        <i class="fa fa-trash"></i> إفراغ السلة
+      </button>
+      <button type="submit" class="btn btn-success ms-auto">
+        <i class="fa fa-save"></i> حفظ البنود
+      </button>
+    </div>
+
+    <!-- ملخص -->
+    <div class="row mt-3">
+      <div class="col-md-4 ms-auto">
+        <div class="card p-3">
+          <div class="d-flex justify-content-between">
+            <span>الإيراد الكلي:</span>
+            <strong id="sumRevenue">0.00 ₪</strong>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span>الربح الكلي:</span>
+            <strong id="sumProfit">0.00 ₪</strong>
+          </div>
+          <small class="text-muted mt-2 d-block">
+            الربح = (الكمية × سعر البيع) − (الكمية × السعر الأصلي) − الشحن
+          </small>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <hr class="my-4">
+
+  <!-- الطلبات المفتوحة (من السيرفر: openOrders) -->
+  <h5 class="mb-3">الطلبات المفتوحة</h5>
+  <div class="list-group">
+    <% (openOrders||[]).forEach(o => { %>
+      <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/orders/<%= o.id %>">
+        <div>
+          #<%= o.id %> — <%= o.customer_name || 'بدون اسم' %>
+          — <small class="text-muted"><%= dayjs(o.created_at).format('YYYY-MM-DD HH:mm') %></small>
+        </div>
+        <span class="badge bg-secondary"><%= o.status %></span>
+      </a>
+    <% }) %>
+    <% if(!(openOrders||[]).length){ %>
+      <div class="text-muted">لا توجد طلبات مفتوحة مؤخّرًا.</div>
+    <% } %>
   </div>
+
 </div>
 
 <script>
-  // بيانات المنتجات من السيرفر (لصناعة الصفوف بسرعة)
-  const PRODUCTS = <%- JSON.stringify(products||[]) %>;
+  // بيانات المنتجات من السيرفر
+  const PRODUCTS = <%- JSON.stringify(products || []) %>;
 
-  // === بناء صف جديد
-  function makeRow(){
-    const opts = PRODUCTS.map(p => `<option value="${p.id}" data-sp="${p.sale_price||0}" data-cp="${p.cost_price||0}">${p.name}</option>`).join('');
-    return `
-      <tr>
-        <td style="text-align:right">
-          <select name="product_id">${opts}</select>
-        </td>
-        <td><input name="quantity" type="number" value="1" min="1" step="1" required></td>
-        <td><input name="sale_price" type="number" step="0.01" required></td>
-        <td><input name="cost_price" type="number" step="0.01" required></td>
-        <td><input name="shipping_cost" type="number" step="0.01" value="0"></td>
-        <td><input name="item_note" type="text"></td>
-        <td><button class="btn danger btn-del" type="button"><i class="fa fa-xmark"></i></button></td>
-      </tr>`;
+  const cartBody   = document.getElementById('cartBody');
+  const sumRevenue = document.getElementById('sumRevenue');
+  const sumProfit  = document.getElementById('sumProfit');
+  const btnAddRow  = document.getElementById('btnAddRow');
+  const btnClear   = document.getElementById('btnClear');
+
+  function fmt(n){ return (Number(n)||0).toFixed(2) + ' ₪'; }
+
+  function buildProductSelect(){
+    const sel = document.createElement('select');
+    sel.className = 'form-select';
+    sel.name = 'product_id[]';
+    sel.required = true;
+
+    const opt0 = new Option('— اختر —', '');
+    sel.appendChild(opt0);
+
+    PRODUCTS.forEach(p => {
+      const t = `${p.name} ${p.stock>0?`(مخزون: ${p.stock})`:''}`;
+      const o = new Option(t, p.id);
+      o.dataset.price = p.sale_price;
+      o.dataset.cost  = p.cost_price;
+      sel.appendChild(o);
+    });
+
+    sel.addEventListener('change', () => {
+      const o = sel.selectedOptions[0];
+      const tr = sel.closest('tr');
+      tr.querySelector('[name="sale_price[]"]').value = o?.dataset?.price || 0;
+      tr.querySelector('[name="cost_price[]"]').value = o?.dataset?.cost  || 0;
+      recalc();
+    });
+    return sel;
   }
 
-  const body = document.getElementById('itemsBody');
-  const add  = document.getElementById('addRow');
-  const clr  = document.getElementById('clearRows');
+  function addRow(pref = {}){
+    const tr = document.createElement('tr');
+    tr.className = 'align-middle';
 
-  function autoFillPrices(tr){
-    const sel = tr.querySelector('select[name="product_id"]');
-    const spI = tr.querySelector('input[name="sale_price"]');
-    const cpI = tr.querySelector('input[name="cost_price"]');
-    const opt = sel.options[sel.selectedIndex];
-    if (opt){
-      const sp = Number(opt.getAttribute('data-sp')||0);
-      const cp = Number(opt.getAttribute('data-cp')||0);
-      if (!spI.value) spI.value = sp;
-      if (!cpI.value) cpI.value = cp;
-    }
+    tr.innerHTML = `
+      <td></td>
+      <td class="text-center"><input name="quantity[]" type="number" min="1" value="${pref.quantity||1}" class="form-control text-center"></td>
+      <td><input name="sale_price[]" type="number" step="0.01" class="form-control text-center" value="${pref.sale_price||''}"></td>
+      <td><input name="cost_price[]" type="number" step="0.01" class="form-control text-center" value="${pref.cost_price||''}"></td>
+      <td><input name="shipping_cost[]" type="number" step="0.01" class="form-control text-center" value="${pref.shipping_cost||0}"></td>
+      <td><input name="item_note[]" class="form-control" value="${pref.item_note||''}"></td>
+      <td class="text-center">
+        <button type="button" class="btn btn-outline-danger btn-sm btnDel"><i class="fa fa-times"></i></button>
+      </td>
+    `;
+
+    tr.children[0].appendChild(buildProductSelect());
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
+    tr.querySelector('.btnDel').addEventListener('click', () => { tr.remove(); recalc(); });
+
+    cartBody.appendChild(tr);
+    recalc();
   }
 
-  function addRow(){
-    body.insertAdjacentHTML('beforeend', makeRow());
-    const tr = body.lastElementChild;
-    tr.querySelector('.btn-del').onclick = ()=> tr.remove();
-    tr.querySelector('select[name="product_id"]').onchange = ()=> autoFillPrices(tr);
-    autoFillPrices(tr);
+  function recalc(){
+    let revenue = 0, profit = 0;
+    cartBody.querySelectorAll('tr').forEach(tr => {
+      const qty   = Number(tr.querySelector('[name="quantity[]"]').value || 0);
+      const sp    = Number(tr.querySelector('[name="sale_price[]"]').value || 0);
+      const cp    = Number(tr.querySelector('[name="cost_price[]"]').value || 0);
+      const ship  = Number(tr.querySelector('[name="shipping_cost[]"]').value || 0);
+      revenue += qty * sp;
+      profit  += (qty*sp) - (qty*cp) - ship;
+    });
+    sumRevenue.textContent = fmt(revenue);
+    sumProfit.textContent  = fmt(profit);
   }
 
-  add.onclick = addRow;
-  clr.onclick = ()=> (body.innerHTML = '');
-  if (!body.children.length) addRow();
+  btnAddRow.addEventListener('click', () => addRow());
+  btnClear.addEventListener('click', () => { cartBody.innerHTML = ''; recalc(); });
 
-  // تجميع معرفات المحدد (المبيعات المسلّمة)
-  const delvToggle = document.getElementById('delvToggle');
-  delvToggle?.addEventListener('change', e=>{
-    document.querySelectorAll('.chk-delv').forEach(c=> c.checked = e.target.checked);
-  });
-  document.getElementById('deliverForm')?.addEventListener('submit', e=>{
-    const ids = Array.from(document.querySelectorAll('#deliveredTbl tbody tr'))
-      .filter(tr => tr.querySelector('.chk-delv')?.checked)
-      .map(tr => tr.getAttribute('data-id'))
-      .filter(Boolean);
-    document.getElementById('deliverIds').value = ids.join(',');
-  });
-
-  // تحديد وحذف/إرجاع للطلبات (حسب بنود الطلب)
-  const ordToggle = document.getElementById('ordToggle');
-  ordToggle?.addEventListener('change', e=>{
-    document.querySelectorAll('.chk-ord').forEach(c=> c.checked = e.target.checked);
-  });
-  function fillIds(hiddenId){
-    const ids = Array.from(document.querySelectorAll('#ordersTbl tbody tr'))
-      .filter(tr => tr.querySelector('.chk-ord')?.checked)
-      // ملاحظة: سننفذ العمليات على بنود المبيعات داخل السيرفر اعتمادًا على IDs البنود لاحقًا إن رغبت.
-      .map(tr => tr.getAttribute('data-id'));
-    document.getElementById(hiddenId).value = ids.join(',');
-  }
-  document.getElementById('retForm')?.addEventListener('submit', ()=> fillIds('retIds'));
-  document.getElementById('delForm')?.addEventListener('submit', ()=> fillIds('delIds'));
+  // صف ابتدائي
+  addRow();
 </script>
