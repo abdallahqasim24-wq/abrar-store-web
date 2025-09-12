@@ -147,6 +147,7 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ext = (file.originalname || "").split(".").pop() || "jpg";
+    // ✅ لازم باكتيكس
     cb(null, ${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext});
   },
 });
