@@ -24,7 +24,6 @@ dayjs.extend(tz);
 const TZ_NAME = process.env.TZ_NAME || "Asia/Hebron";
 if (dayjs.tz?.setDefault) dayjs.tz.setDefault(TZ_NAME);
 
-// __filename / __dirname (ESM)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -147,10 +146,7 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
-    const original = file?.originalname || "";
-    const dot = original.lastIndexOf(".");
-    const ext = dot >= 0 ? original.slice(dot + 1) : "jpg";
-    // مهم: backticks
+    const ext = (file.originalname || "").split(".").pop() || "jpg";
     cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
   },
 });
@@ -200,7 +196,6 @@ function requireAuth(req, res, next) {
   if (req.path.startsWith("/public")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
-  // مهم: template literal صحيح
   return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/")}`);
 }
 app.use(requireAuth);
@@ -236,6 +231,27 @@ const profitOf = (s) =>
   Number(s.cost_price) * Number(s.quantity) -
   Number(s.shipping_cost || 0);
 
+// إنشاء/استخدام طلب مفتوح لنفس الزبون في نفس اليوم
+async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
+  const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
+  const q = await query(
+    `SELECT * FROM orders
+     WHERE status IN ('pending','shipping')
+       AND customer_phone=$1
+       AND DATE(created_at)=DATE($2)
+     ORDER BY id DESC LIMIT 1`,
+    [String(phone||"").trim(), today]
+  );
+  if (q.rowCount) return q.rows[0].id;
+
+  const ins = await query(
+    `INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
+     VALUES ($1,$2,$3,$4,'pending') RETURNING id`,
+    [ (name||"").trim(), (phone||"").trim(), (city||"").trim(), (note||"").trim() ]
+  );
+  return ins.rows[0].id;
+}
+
 // ================== Routes ==================
 
 // -------- Dashboard --------
@@ -252,8 +268,11 @@ app.get("/", async (_req, res) => {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
-  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
+  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today]))
+    .rows;
+  const monthRows = (
+    await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])
+  ).rows;
 
   const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
@@ -431,33 +450,47 @@ app.post("/products/bulk-delete", async (req, res) => {
 });
 
 // -------- Sales (واجهة المعاملات) --------
-app.get("/sales", async (_req, res) => {
-  const sales = (
-    await query(`
-      SELECT s.*, p.name AS product_name, p.image_path AS product_image
-      FROM sales s JOIN products p ON p.id=s.product_id
-      ORDER BY s.sold_at DESC
-    `)
-  ).rows;
+// صفحة المبيعات (تطابق القالب الجديد: products, orders, delivered)
+app.get("/sales", async (_req, res, next) => {
+  try {
+    const products = (
+      await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
+    ).rows;
 
-  const products = (
-    await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
+    const orders = (
+      await query(`
+        SELECT
+          o.*,
+          COUNT(s.id)::int AS items_count,
+          COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+          COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
+        FROM orders o
+        LEFT JOIN sales s ON s.order_id = o.id
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT 20
+      `)
+    ).rows;
 
-  // طلبات مفتوحة (اختياري للربط من الواجهة)
-  const openOrders = (
-    await query(`
-      SELECT id, customer_name, customer_phone, status, created_at
-      FROM orders
-      WHERE status IN ('pending','shipping') AND created_at >= NOW() - INTERVAL '7 days'
-      ORDER BY created_at DESC
-    `)
-  ).rows;
+    const delivered = (
+      await query(`
+        SELECT s.*, p.name AS product_name, p.image_path AS product_image
+        FROM sales s
+        JOIN products p ON p.id=s.product_id
+        WHERE s.delivery_status='delivered'
+        ORDER BY s.delivered_at DESC NULLS LAST, s.id DESC
+        LIMIT 50
+      `)
+    ).rows.map(r => ({ ...r, _profit: profitOf(r) }));
 
-  res.render("sales", { sales, products, openOrders, dayjs });
+    res.render("sales", { products, orders, delivered });
+  } catch (e) {
+    console.error(e);
+    next(e);
+  }
 });
 
-// إضافة بيع مفرد
+// إضافة بيع مفرد (تبقى كما هي دون ربط بطلب)
 app.post("/sales", async (req, res) => {
   const {
     product_id,
@@ -503,7 +536,7 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة ===
+// إضافة عدة بنود بيع دفعة واحدة — تُربط تلقائيًا بطلب مفتوح/جديد
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -515,8 +548,14 @@ app.post("/sales/multi", async (req, res) => {
       item_note = [],
       customer_name = "",
       customer_phone = "",
-      customer_city = ""
+      customer_city = "",
+      order_note = ""
     } = req.body;
+
+    // أنشئ/استخدم طلبًا مفتوحًا لنفس الزبون اليوم
+    const orderId = await ensureOpenOrderForCustomer({
+      name: customer_name, phone: customer_phone, city: customer_city, note: order_note
+    });
 
     const count = Math.max(
       [].concat(product_id).length,
@@ -540,12 +579,12 @@ app.post("/sales/multi", async (req, res) => {
 
       await query(
         `
-        INSERT INTO sales (product_id, quantity, sale_price, cost_price, shipping_cost, note,
+        INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note,
                            customer_name, customer_phone, customer_city, delivery_status)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pending')
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending')
       `,
         [
-          pid, qty, sp, cp, ship, inote,
+          orderId, pid, qty, sp, cp, ship, inote,
           (customer_name || "").trim(),
           (customer_phone || "").trim(),
           (customer_city || "").trim()
@@ -628,7 +667,7 @@ app.post("/sales/:id/update", async (req, res) => {
   res.redirect("/sales");
 });
 
-// Delivery status
+// Delivery status (مفرد)
 app.post("/sales/:id/delivery", async (req, res) => {
   const id = Number(req.params.id);
   const status = (req.body.status || "pending").toLowerCase();
@@ -640,6 +679,22 @@ app.post("/sales/:id/delivery", async (req, res) => {
   `,
     [status, id]
   );
+  res.redirect("/sales");
+});
+
+// عمليات جماعية
+app.post("/sales/bulk-deliver", async (req, res) => {
+  const raw = req.body.ids || "";
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
+  if (ids.length) {
+    await query(
+      `UPDATE sales
+         SET delivery_status='delivered',
+             delivered_at = NOW()
+       WHERE id = ANY($1::int[])`,
+      [ids]
+    );
+  }
   res.redirect("/sales");
 });
 
@@ -710,8 +765,6 @@ app.post("/sales/bulk-return", async (req, res) => {
 });
 
 // -------- Orders (الطلبات متعددة البنود) --------
-
-// قائمة الطلبات — “كل زبون وطلباته”
 app.get("/orders", async (_req, res) => {
   const orders = (
     await query(`
@@ -1037,7 +1090,8 @@ app.post("/returns/:id/delete", async (req, res) => {
 app.get("/reports", async (req, res) => {
   const { range = "daily", year, month, day } = req.query;
 
-  let rows = [], title = "";
+  let rows = [],
+    title = "";
   if (range === "monthly") {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1057,7 +1111,10 @@ app.get("/reports", async (req, res) => {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
     const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
+      2,
+      "0"
+    )}`;
     title = `تقرير يومي ${ds}`;
     rows = (
       await query(
@@ -1089,8 +1146,8 @@ app.get("/reports", async (req, res) => {
 app.get("/reports/pdf", async (req, res, next) => {
   try {
     const { range = "daily", year, month, day } = req.query;
-    let rows = [], title = "";
-
+    let rows = [],
+      title = "";
     if (range === "monthly") {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1110,7 +1167,10 @@ app.get("/reports/pdf", async (req, res, next) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
+        2,
+        "0"
+      )}`;
       title = `تقرير يومي ${ds}`;
       rows = (
         await query(

@@ -1,52 +1,80 @@
-<link rel="stylesheet" href="<%= faLink %>">
-
+<%- /* sales.ejs — واجهة مبيعات محدثة */ -%>
+<link rel="stylesheet" href="<%= faLink || 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css' %>">
 <style>
-  .tabs{display:flex;gap:8px;margin:10px 0}
-  .tabs .btn{border-radius:999px}
-  .hidden{display:none}
-  .items-grid{width:100%;border:1px solid var(--border);border-radius:12px;overflow:hidden}
-  .items-grid thead th{background:#feeef5;text-align:center;padding:10px}
-  .items-grid td{padding:8px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
-  .pick-btn{white-space:nowrap}
-  .thumb{width:48px;height:48px;border-radius:10px;border:1px solid var(--border);object-fit:cover;background:#fff}
-  .row-actions{display:flex;gap:6px;justify-content:center}
-  .xbtn{background:#ef4444;color:#fff;border:0;border-radius:10px;padding:8px 10px;cursor:pointer}
-  .plusbtn{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:8px 10px;cursor:pointer}
-  .mini-tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:#fff7fb;font-size:.8rem}
-  .status-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;border:1px solid var(--border);cursor:pointer}
-  .status-wrap{position:relative;display:inline-block}
-  .status-menu{position:absolute;inset:auto auto auto 0;transform:translateY(6px);background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.08);min-width:180px;padding:6px;z-index:30;display:none}
-  .status-menu button{width:100%;text-align:right;background:#fff;color:#111;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
-  .status-menu button:hover{background:#f8fafc}
-
-  .modal{position:fixed;inset:0;display:none;z-index:90}
-  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-  .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
-  .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
-  .mhead{display:flex;gap:10px;align-items:center;padding:12px 12px 12px 56px;border-bottom:1px solid #f1f5f9}
-  .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-  @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
-  @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
-  .pcard{border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
-  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);border-radius:12px}
-  .tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
-  .name{font-weight:800;text-align:center;min-height:48px}
+  .wrap{max-width:1200px;margin:0 auto;padding:14px}
+  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
+  .row{display:flex;gap:8px;align-items:center}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  input,select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:9px 12px;cursor:pointer}
+  .btn.primary{background:#2563eb;color:#fff}
+  .btn.gray{background:#f1f5f9}
+  .btn.danger{background:#ef4444;color:#fff}
+  .table{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
+  .table th{background:#feeef5;text-align:center;padding:10px}
+  .table td{border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle;padding:8px}
+  .thumb{width:44px;height:44px;border:1px solid #ebedf0;border-radius:10px;object-fit:cover;background:#fff}
+  .muted{color:#7a8da1}
+  .pill{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #ebedf0}
+  .pill.delivered{background:#efffed}
 </style>
 
-<!-- ================== نموذج الإضافة (ينشئ طلبًا) ================== -->
-<div class="card">
-  <h3><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدّة منتجات)</h3>
-
-  <form id="multiForm" method="post" action="/sales/multi" class="form-grid" style="grid-template-columns: 1fr 1fr; gap:14px">
-    <div><label>اسم الزبون</label><input type="text" name="customer_name" placeholder=""></div>
-    <div><label>الهاتف</label><input type="text" name="customer_phone" placeholder=""></div>
-    <div><label>المدينة</label><input type="text" name="customer_city" placeholder=""></div>
-    <div class="right">
-      <a class="btn secondary" href="/orders"><i class="fa fa-basket-shopping"></i> الطلبات</a>
+<div class="wrap">
+  <!-- شريط علوي: المبيعات (تم التسليم) -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0"><i class="fa fa-check-double"></i> المبيعات — تمّ التسليم</h3>
+      <form method="post" action="/sales/bulk-deliver" id="deliverForm" class="row" style="gap:8px">
+        <input type="hidden" name="ids" id="deliverIds">
+        <button class="btn primary" type="submit"><i class="fa fa-check"></i> تعليم المحدد “تمّ التسليم”</button>
+      </form>
     </div>
+    <table class="table" id="deliveredTbl">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="delvToggle"></th>
+          <th>الصورة</th>
+          <th>المنتج</th>
+          <th>كمية</th>
+          <th>سعر البيع (₪)</th>
+          <th>السعر الأصلي (₪)</th>
+          <th>الربح (₪)</th>
+          <th>التاريخ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!delivered || !delivered.length){ %>
+          <tr><td colspan="8" class="muted">لا توجد عناصر مسلّمة بعد.</td></tr>
+        <% } %>
+        <% (delivered||[]).forEach(r=>{ %>
+          <tr data-id="<%= r.id %>">
+            <td><input type="checkbox" class="chk-delv"></td>
+            <td><img class="thumb" src="<%= r.product_image||'' %>"></td>
+            <td style="text-align:right"><%= r.product_name %></td>
+            <td><%= r.quantity %></td>
+            <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
+            <td>₪<%= Number(r.cost_price).toFixed(2) %></td>
+            <td><span class="pill delivered">₪<%= Number(r._profit||0).toFixed(2) %></span></td>
+            <td><%= (new Date(r.delivered_at||r.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
 
-    <div style="grid-column: span 2;">
-      <table class="items-grid" id="itemsTable">
+  <!-- نموذج إضافة عملية بيع (عدة منتجات) -->
+  <div class="card">
+    <h3 style="margin:0 0 10px 0"><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدة منتجات)</h3>
+    <form method="post" action="/sales/multi" id="multiForm">
+      <div class="grid4">
+        <input name="customer_name"  placeholder="اسم الزبون">
+        <input name="customer_phone" placeholder="الهاتف">
+        <input name="customer_city"  placeholder="المدينة">
+        <input name="order_note"     placeholder="ملاحظة عامة للطلب">
+      </div>
+
+      <table class="table" id="itemsTable" style="margin-top:12px">
         <thead>
           <tr>
             <th>المنتج</th>
@@ -55,78 +83,64 @@
             <th>سعر أصلي (₪)</th>
             <th>شحن (₪)</th>
             <th>ملاحظة</th>
-            <th>إجراء</th>
+            <th>حذف</th>
           </tr>
         </thead>
         <tbody id="itemsBody"></tbody>
       </table>
-      <div class="row right" style="margin-top:8px">
-        <button class="plusbtn" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة سطر</button>
+
+      <div class="row" style="justify-content:space-between;margin-top:10px">
+        <button class="btn gray" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
+        <div class="row" style="gap:8px">
+          <button class="btn danger"  type="button" id="clearRows"><i class="fa fa-trash"></i> إفراغ السلة</button>
+          <button class="btn primary" type="submit"><i class="fa fa-save"></i> حفظ البنود</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- الطلبات الحديثة -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0"><i class="fa fa-list"></i> الطلبات</h3>
+      <div class="row" style="gap:8px">
+        <form method="post" action="/sales/bulk-return" id="retForm" class="row"><input type="hidden" name="ids" id="retIds"><button class="btn gray" type="submit"><i class="fa fa-rotate-left"></i> نقل المحدد إلى الراجعات</button></form>
+        <form method="post" action="/sales/bulk-delete" id="delForm" class="row"><input type="hidden" name="ids" id="delIds"><button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف المحدد نهائيًا</button></form>
+        <a class="btn gray" href="/orders"><i class="fa fa-basket-shopping"></i> كل الطلبات</a>
       </div>
     </div>
 
-    <div class="right" style="grid-column: span 2;">
-      <button class="btn save" type="submit"><i class="fa fa-plus"></i> إضافة البنود (كطلب)</button>
-    </div>
-  </form>
-</div>
-
-<!-- ================== التبويبات ================== -->
-<div class="tabs">
-  <button id="tabOrders"   class="btn add"><i class="fa fa-basket-shopping"></i> الطلبات</button>
-  <button id="tabSales"    class="btn save"><i class="fa fa-tags"></i> المبيعات</button>
-</div>
-
-<!-- ===== تبويب: الطلبات ===== -->
-<div id="ordersPane" class="card">
-  <div class="row" style="justify-content:space-between;align-items:center">
-    <h3 style="margin:0"><i class="fa fa-basket-shopping"></i> الطلبات</h3>
-    <a class="btn add" href="/orders/new"><i class="fa fa-plus"></i> طلب جديد</a>
-  </div>
-
-  <div class="table-scroll" style="margin-top:10px">
-    <table>
+    <table class="table" id="ordersTbl">
       <thead>
         <tr>
+          <th><input type="checkbox" id="ordToggle"></th>
           <th>#</th>
           <th>الزبون</th>
           <th>الهاتف</th>
-          <th>المدينة</th>
-          <th>عدد الأصناف</th>
-          <th>(₪) الإيراد</th>
-          <th>(₪) الربح</th>
           <th>الحالة</th>
-          <th>تاريخ</th>
+          <th>الأصناف</th>
+          <th>الإيراد (₪)</th>
+          <th>الربح (₪)</th>
+          <th>التاريخ</th>
           <th>عرض</th>
         </tr>
       </thead>
       <tbody>
-        <% if (!orders || !orders.length) { %>
+        <% if (!orders || !orders.length){ %>
           <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
         <% } %>
-
-        <% (orders||[]).forEach(o => { %>
-          <tr>
-            <td><b>#<%= o.id %></b></td>
-            <td><%= o.customer_name || '—' %></td>
+        <% (orders||[]).forEach(o=>{ %>
+          <tr data-id="<%= o.id %>">
+            <td><input type="checkbox" class="chk-ord"></td>
+            <td>#<%= o.id %></td>
+            <td style="text-align:right"><%= o.customer_name || '—' %></td>
             <td><%= o.customer_phone || '—' %></td>
-            <td><%= o.customer_city || '—' %></td>
-            <td><%= Number(o.items_count||0) %></td>
+            <td><%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'—' %></td>
+            <td><%= o.items_count || 0 %></td>
             <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
             <td>₪<%= Number(o.profit||0).toFixed(2) %></td>
-            <td>
-              <span class="mini-tag">
-                <%= o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':o.status==='failed'?'فشل':'قيد المعالجة' %>
-              </span>
-            </td>
-            <td>
-              <%= (dayjs && dayjs.tz)
-                    ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                    : new Date(o.created_at).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
-            </td>
-            <td>
-              <a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a>
-            </td>
+            <td><%= (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %></td>
+            <td><a class="btn gray" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a></td>
           </tr>
         <% }) %>
       </tbody>
@@ -134,267 +148,81 @@
   </div>
 </div>
 
-<!-- ===== تبويب: المبيعات (تم التسليم) ===== -->
-<div id="salesPane" class="card hidden">
-  <div class="row" style="justify-content:space-between;align-items:center">
-    <h3 style="margin:0"><i class="fa fa-tags"></i> المبيعات (تم التسليم)</h3>
-
-    <div class="row" style="gap:10px;align-items:center">
-      <label class="row select-all" style="gap:6px">
-        <input type="checkbox" id="checkAll"> تحديد الكل
-      </label>
-
-      <form method="post" action="/sales/bulk-return" id="bulkReturnForm"
-            onsubmit="return confirm('نقل المحدد إلى قائمة الراجعات؟')">
-        <input type="hidden" name="ids" id="bulkReturnIds">
-        <button class="btn secondary" type="submit"><i class="fa fa-arrow-rotate-left"></i> نقل المحدد إلى الراجعات</button>
-      </form>
-
-      <form method="post" action="/sales/bulk-delete" id="bulkDeleteForm"
-            onsubmit="return confirm('حذف نهائي للعمليات المحددة؟')">
-        <input type="hidden" name="ids" id="bulkDeleteIds">
-        <button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف المحدد</button>
-      </form>
-    </div>
-  </div>
-
-  <div class="muted" style="margin:8px 0">
-    الإجمالي — الإيراد: <b>₪<%= deliveredTotals.revenue.toFixed(2) %></b> |
-    الربح: <b>₪<%= deliveredTotals.profit.toFixed(2) %></b>
-  </div>
-
-  <table>
-    <thead>
-      <tr>
-        <th></th>
-        <th>التاريخ</th>
-        <th>المنتج</th>
-        <th>الزبون</th>
-        <th>كمية</th>
-        <th>سعر بيع (₪)</th>
-        <th>السعر الأصلي (₪)</th>
-        <th>الربح (₪)</th>
-        <th>توصيل</th>
-        <th>إجراء</th>
-      </tr>
-    </thead>
-    <tbody id="deliveredBody">
-      <% (delivered||[]).forEach(s=> {
-        const qty   = Number(s.quantity||0);
-        const sale  = Number(s.sale_price||0);
-        const cost  = Number(s.cost_price||0);
-        const profit = qty * (sale - cost);
-      %>
-        <tr>
-          <td><input type="checkbox" class="rowChk" value="<%= s.id %>"></td>
-          <td>
-            <%= (dayjs && dayjs.tz)
-                  ? dayjs(s.delivered_at || s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                  : (new Date(s.delivered_at || s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
-          </td>
-          <td style="text-align:right">
-            <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-              <div class="thumb" style="display:flex;align-items:center;justify-content:center;overflow:hidden">
-                <% if (s.product_image) { %>
-                  <img src="<%= fixImg(s.product_image) %>" style="width:100%;height:100%;object-fit:cover" alt="">
-                <% } %>
-              </div>
-              <div style="max-width:420px"><%= s.product_name %></div>
-            </div>
-          </td>
-          <td><%= s.customer_name || '—' %></td>
-          <td><%= qty %></td>
-          <td>₪<%= sale.toFixed(2) %></td>
-          <td>₪<%= cost.toFixed(2) %></td>
-          <td><b>₪<%= profit.toFixed(2) %></b></td>
-          <td>
-            <span class="mini-tag">تم التسليم</span>
-          </td>
-          <td class="row-actions">
-            <form method="post" action="/sales/<%= s.id %>/return" onsubmit="return confirm('نقل العملية إلى الراجعات؟')">
-              <button class="btn secondary" type="submit"><i class="fa fa-arrow-rotate-left"></i> للراجعات</button>
-            </form>
-            <form method="post" action="/sales/<%= s.id %>/delete" onsubmit="return confirm('حذف نهائي؟')">
-              <button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-      <% if (!delivered || !delivered.length) { %>
-        <tr><td colspan="10" class="muted">لا توجد مبيعات تم تسليمها بعد.</td></tr>
-      <% } %>
-    </tbody>
-  </table>
-</div>
-
-<!-- ===== مودال اختيار المنتج (شبكة) ===== -->
-<div class="modal" id="pickerModal" aria-hidden="true">
-  <div class="modal-bg"></div>
-  <div class="modal-card">
-    <button type="button" id="pickerClose" class="mclose" aria-label="إغلاق">
-      <i class="fa fa-xmark"></i>
-    </button>
-
-    <div class="mhead">
-      <i class="fa fa-grid-2"></i>
-      <div style="font-weight:800">اختيار منتج من الشبكة</div>
-      <input id="searchBox" placeholder="ابحث بالاسم..." class="right" style="max-width:320px">
-    </div>
-
-    <div class="mgrid" id="gridWrap">
-      <% (products||[]).forEach(p=>{ %>
-        <div class="pcard" data-id="<%= p.id %>"
-             data-name="<%- p.name %>"
-             data-img="<%= p.image_path||'' %>"
-             data-sale="<%= Number(p.sale_price||0) %>"
-             data-cost="<%= Number(p.cost_price||0) %>"
-             data-stock="<%= Number(p.stock||0) %>">
-          <img src="<%= fixImg(p.image_path||'') %>" alt="">
-          <div class="name"><%= p.name %></div>
-          <div style="text-align:center">
-            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
-            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
-            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
-          </div>
-          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
-        </div>
-      <% }) %>
-    </div>
-  </div>
-</div>
-
 <script>
-  // تبويبات
-  (function(){
-    const ordersPane=document.getElementById('ordersPane');
-    const salesPane =document.getElementById('salesPane');
-    document.getElementById('tabOrders').onclick=()=>{ordersPane.classList.remove('hidden'); salesPane.classList.add('hidden');};
-    document.getElementById('tabSales').onclick =()=>{salesPane.classList.remove('hidden'); ordersPane.classList.add('hidden');};
-  })();
+  // بيانات المنتجات من السيرفر (لصناعة الصفوف بسرعة)
+  const PRODUCTS = <%- JSON.stringify(products||[]) %>;
 
-  // مولّد صف بند جديد للنموذج
-  function makeRow(idx){
+  // === بناء صف جديد
+  function makeRow(){
+    const opts = PRODUCTS.map(p => `<option value="${p.id}" data-sp="${p.sale_price||0}" data-cp="${p.cost_price||0}">${p.name}</option>`).join('');
     return `
-      <tr data-idx="${idx}">
+      <tr>
         <td style="text-align:right">
-          <input type="hidden" name="product_id" class="pid">
-          <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-            <img class="thumb pimg" style="display:none">
-            <div class="pname" style="max-width:320px">— لم يتم الاختيار —</div>
-            <button class="btn add pick-btn" type="button"><i class="fa fa-grid-2"></i> اختيار</button>
-          </div>
-          <div class="row" style="gap:6px;margin-top:4px">
-            <span class="mini-tag">مخزون: <b class="pstock">0</b></span>
-            <span class="mini-tag">بيع إفتراضي: ₪<b class="psale">0.00</b></span>
-            <span class="mini-tag">أصلي: ₪<b class="pcost">0.00</b></span>
-          </div>
+          <select name="product_id">${opts}</select>
         </td>
-        <td><input type="number" name="quantity" value="1" min="1" step="1" required></td>
-        <td><input type="number" name="sale_price" step="0.01" required></td>
-        <td><input type="number" name="cost_price" step="0.01" required></td>
-        <td><input type="number" name="shipping_cost" step="0.01" value="0"></td>
-        <td><input type="text" name="item_note" placeholder=""></td>
-        <td class="row-actions">
-          <button type="button" class="xbtn del-row"><i class="fa fa-xmark"></i> حذف</button>
-        </td>
-      </tr>
-    `;
+        <td><input name="quantity" type="number" value="1" min="1" step="1" required></td>
+        <td><input name="sale_price" type="number" step="0.01" required></td>
+        <td><input name="cost_price" type="number" step="0.01" required></td>
+        <td><input name="shipping_cost" type="number" step="0.01" value="0"></td>
+        <td><input name="item_note" type="text"></td>
+        <td><button class="btn danger btn-del" type="button"><i class="fa fa-xmark"></i></button></td>
+      </tr>`;
   }
 
-  // إدارة صفوف النموذج + فتح منتقي الشبكة
-  (function(){
-    const body = document.getElementById('itemsBody');
-    const add  = document.getElementById('addRow');
-    let idx = 0;
+  const body = document.getElementById('itemsBody');
+  const add  = document.getElementById('addRow');
+  const clr  = document.getElementById('clearRows');
 
-    function addRow(){ body.insertAdjacentHTML('beforeend', makeRow(idx++)); }
-    add.addEventListener('click', addRow);
-    addRow();
-
-    body.addEventListener('click', (e)=>{
-      const del=e.target.closest('.del-row');
-      if (del){ const tr=del.closest('tr'); tr.remove(); if(!body.children.length) addRow(); return; }
-      const pick=e.target.closest('.pick-btn');
-      if (pick){ openPickerFor(pick.closest('tr')); }
-    });
-
-    // تعبئة صف ببيانات منتج
-    window.fillRowWithProduct = function(tr, data){
-      tr.querySelector('.pid').value = data.id;
-      tr.querySelector('.pname').textContent = data.name;
-      tr.querySelector('.pstock').textContent = Number(data.stock||0);
-      tr.querySelector('.psale').textContent  = Number(data.sale||0).toFixed(2);
-      tr.querySelector('.pcost').textContent  = Number(data.cost||0).toFixed(2);
-      const img = tr.querySelector('.pimg');
-      if (data.img){ img.src=data.img; img.style.display='block'; } else { img.style.display='none'; }
-      const saleI=tr.querySelector('input[name="sale_price"]');
-      const costI=tr.querySelector('input[name="cost_price"]');
-      if (!saleI.value) saleI.value = Number(data.sale||0);
-      if (!costI.value) costI.value = Number(data.cost||0);
+  function autoFillPrices(tr){
+    const sel = tr.querySelector('select[name="product_id"]');
+    const spI = tr.querySelector('input[name="sale_price"]');
+    const cpI = tr.querySelector('input[name="cost_price"]');
+    const opt = sel.options[sel.selectedIndex];
+    if (opt){
+      const sp = Number(opt.getAttribute('data-sp')||0);
+      const cp = Number(opt.getAttribute('data-cp')||0);
+      if (!spI.value) spI.value = sp;
+      if (!cpI.value) cpI.value = cp;
     }
-  })();
-
-  // مودال الشبكة
-  (function(){
-    const modal=document.getElementById('pickerModal');
-    const bg=modal.querySelector('.modal-bg');
-    const closeBtn=document.getElementById('pickerClose');
-    const search=document.getElementById('searchBox');
-    const cards=[...modal.querySelectorAll('.pcard')];
-    let targetRow=null;
-
-    function show(){ modal.style.display='block'; search.focus(); }
-    function hide(){ modal.style.display='none'; search.value=''; filter(''); targetRow=null; }
-
-    window.openPickerFor = function(tr){ targetRow = tr; show(); }
-
-    bg.addEventListener('click',hide);
-    closeBtn.addEventListener('click',hide);
-    document.addEventListener('keydown',e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
-
-    function filter(q){
-      const s=(q||'').trim().toLowerCase();
-      cards.forEach(c=>{ c.style.display=c.dataset.name.toLowerCase().includes(s)?'flex':'none'; });
-    }
-    search.addEventListener('input',e=>filter(e.target.value));
-
-    modal.addEventListener('click',e=>{
-      const btn=e.target.closest('.pickBtn');
-      if(!btn || !targetRow) return;
-      const card=btn.closest('.pcard');
-      const data={
-        id:card.dataset.id,
-        name:card.dataset.name,
-        img:card.dataset.img||'',
-        sale:Number(card.dataset.sale||0),
-        cost:Number(card.dataset.cost||0),
-        stock:Number(card.dataset.stock||0),
-      };
-      window.fillRowWithProduct(targetRow, data);
-      hide();
-    });
-  })();
-
-  // تحديد/إلغاء تحديد الكل + حقول الإرسال الجماعي في تبويب "المبيعات"
-  (function(){
-    const all = document.getElementById('checkAll');
-    const checks = () => [...document.querySelectorAll('#salesPane .rowChk')];
-    if (all) all.addEventListener('change',()=>checks().forEach(c=>c.checked=all.checked));
-    function fillHidden(){
-      const ids = checks().filter(c=>c.checked).map(c=>c.value);
-      document.getElementById('bulkReturnIds').value = ids.join(',');
-      document.getElementById('bulkDeleteIds').value = ids.join(',');
-    }
-    document.getElementById('bulkReturnForm').addEventListener('submit', fillHidden);
-    document.getElementById('bulkDeleteForm').addEventListener('submit', fillHidden);
-  })();
-
-  // قائمة حالة التوصيل داخل الجدول (لو عرضت الحالات)
-  function toggleMenu(el){
-    const menu = el.parentElement.querySelector('.status-menu');
-    menu.style.display = (menu.style.display==='block' ? 'none' : 'block');
-    document.addEventListener('click', function once(e){
-      if (!el.parentElement.contains(e.target)){ menu.style.display='none'; document.removeEventListener('click', once); }
-    });
   }
+
+  function addRow(){
+    body.insertAdjacentHTML('beforeend', makeRow());
+    const tr = body.lastElementChild;
+    tr.querySelector('.btn-del').onclick = ()=> tr.remove();
+    tr.querySelector('select[name="product_id"]').onchange = ()=> autoFillPrices(tr);
+    autoFillPrices(tr);
+  }
+
+  add.onclick = addRow;
+  clr.onclick = ()=> (body.innerHTML = '');
+  if (!body.children.length) addRow();
+
+  // تجميع معرفات المحدد (المبيعات المسلّمة)
+  const delvToggle = document.getElementById('delvToggle');
+  delvToggle?.addEventListener('change', e=>{
+    document.querySelectorAll('.chk-delv').forEach(c=> c.checked = e.target.checked);
+  });
+  document.getElementById('deliverForm')?.addEventListener('submit', e=>{
+    const ids = Array.from(document.querySelectorAll('#deliveredTbl tbody tr'))
+      .filter(tr => tr.querySelector('.chk-delv')?.checked)
+      .map(tr => tr.getAttribute('data-id'))
+      .filter(Boolean);
+    document.getElementById('deliverIds').value = ids.join(',');
+  });
+
+  // تحديد وحذف/إرجاع للطلبات (حسب بنود الطلب)
+  const ordToggle = document.getElementById('ordToggle');
+  ordToggle?.addEventListener('change', e=>{
+    document.querySelectorAll('.chk-ord').forEach(c=> c.checked = e.target.checked);
+  });
+  function fillIds(hiddenId){
+    const ids = Array.from(document.querySelectorAll('#ordersTbl tbody tr'))
+      .filter(tr => tr.querySelector('.chk-ord')?.checked)
+      // ملاحظة: سننفذ العمليات على بنود المبيعات داخل السيرفر اعتمادًا على IDs البنود لاحقًا إن رغبت.
+      .map(tr => tr.getAttribute('data-id'));
+    document.getElementById(hiddenId).value = ids.join(',');
+  }
+  document.getElementById('retForm')?.addEventListener('submit', ()=> fillIds('retIds'));
+  document.getElementById('delForm')?.addEventListener('submit', ()=> fillIds('delIds'));
 </script>
