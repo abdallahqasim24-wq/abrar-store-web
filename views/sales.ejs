@@ -2,6 +2,32 @@
 
 <div class="container my-4">
 
+  <!-- Flash from server (نجاح/أخطاء/بنود متخطّاة) -->
+  <% if (typeof flash !== 'undefined' && flash) { %>
+    <div class="card p-3" style="border:1px solid var(--border); background:#fff">
+      <div class="row" style="gap:10px; align-items:center">
+        <i class="fa <%= flash.type==='success' ? 'fa-circle-check' : 'fa-triangle-exclamation' %>" style="color:<%= flash.type==='success' ? 'var(--ok)' : 'var(--danger)' %>"></i>
+        <strong><%= flash.msg %></strong>
+        <% if (flash.orderId) { %>
+          <a class="btn add" href="/orders/<%= flash.orderId %>" style="margin-inline-start:auto">
+            <i class="fa fa-receipt"></i> فتح الطلب #<%= flash.orderId %>
+          </a>
+        <% } %>
+      </div>
+      <% if (flash.skipped && flash.skipped.length) { %>
+        <div class="muted-sm" style="margin-top:8px">
+          تم تخطي البنود التالية:
+          <ul style="margin:6px 0 0 0; padding-inline-start:18px">
+            <% flash.skipped.forEach(s => { %>
+              <li><%= s %></li>
+            <% }) %>
+          </ul>
+        </div>
+      <% } %>
+    </div>
+    <div style="height:10px"></div>
+  <% } %>
+
   <!-- نموذج إضافة عملية بيع متعددة المنتجات -->
   <form id="multiSaleForm" action="/sales/multi" method="post" class="card p-3 shadow-sm rounded-3">
     <h4 class="mb-3">🛒 إضافة عملية بيع (عدّة منتجات)</h4>
@@ -15,9 +41,9 @@
     </div>
 
     <!-- جدول البنود -->
-    <div class="table-responsive border rounded-3">
+    <div class="table-scroll border rounded-3">
       <table class="table align-middle m-0">
-        <thead class="table-light">
+        <thead>
           <tr class="text-center">
             <th style="width:34%">المنتج</th>
             <th style="width:10%">كمية</th>
@@ -48,7 +74,7 @@
           <div class="d-flex justify-content-between">
             <span>الربح الكلي:</span>   <strong id="sumProfit">0.00 ₪</strong>
           </div>
-          <small class="text-muted mt-2 d-block">
+          <small class="muted-sm mt-2 d-block">
             الربح = (الكمية × سعر البيع) − (الكمية × السعر الأصلي) − الشحن
           </small>
         </div>
@@ -77,6 +103,21 @@
 </div>
 
 <!-- مودال اختيار المنتج بالشبكة -->
+<style>
+  /* ستايلات خفيفة للمودال في حال ما كانت ضمن CSS العام */
+  .modal{position:fixed;inset:0;display:none;z-index:90}
+  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
+  .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
+  .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;padding-inline-start:56px}
+  .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
+  .pcard{border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;background:#fff;cursor:pointer}
+  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);border-radius:12px}
+  .pcard .name{font-weight:800;text-align:center;min-height:48px}
+  .tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
+</style>
 <div class="modal" id="productModal">
   <div class="modal-bg" data-close></div>
   <div class="modal-card">
@@ -117,21 +158,21 @@
 
     tr.innerHTML = `
       <td>
-        <input type="hidden" name="product_id[]" value="${pref.product_id||''}">
+        <input type="hidden" name="product_id[]" value="\${pref.product_id||''}">
         <div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
           <button type="button" class="btn add btnPick"><i class="fa fa-grid-2"></i> اختيار</button>
           <div class="prodName muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${pref.product_name || '— لم يتم الاختيار —'}
+            \${pref.product_name || '— لم يتم الاختيار —'}
           </div>
         </div>
       </td>
       <td class="text-center">
-        <input name="quantity[]" type="number" min="1" value="${pref.quantity||1}" class="form-control text-center">
+        <input name="quantity[]" type="number" min="1" value="\${pref.quantity||1}" class="form-control text-center">
       </td>
-      <td><input name="sale_price[]"    type="number" step="0.01" class="form-control text-center" value="${pref.sale_price||''}"></td>
-      <td><input name="cost_price[]"    type="number" step="0.01" class="form-control text-center" value="${pref.cost_price||''}"></td>
-      <td><input name="shipping_cost[]" type="number" step="0.01" class="form-control text-center" value="${pref.shipping_cost||0}"></td>
-      <td><input name="item_note[]" class="form-control" value="${pref.item_note||''}"></td>
+      <td><input name="sale_price[]"    type="number" step="0.01" class="form-control text-center" value="\${pref.sale_price||''}"></td>
+      <td><input name="cost_price[]"    type="number" step="0.01" class="form-control text-center" value="\${pref.cost_price||''}"></td>
+      <td><input name="shipping_cost[]" type="number" step="0.01" class="form-control text-center" value="\${pref.shipping_cost||0}"></td>
+      <td><input name="item_note[]" class="form-control" value="\${pref.item_note||''}"></td>
       <td class="text-center">
         <button type="button" class="btn danger btn-sm btnDel"><i class="fa fa-times"></i></button>
       </td>
@@ -198,13 +239,13 @@
       card.type = 'button';
       card.className = 'pcard';
       card.innerHTML = `
-        <img src="${p.image_path||'/public/no-image.png'}" alt="">
-        <div class="name">${p.name||'-'}</div>
-        <div class="muted-sm">المخزون: ${Number(p.stock||0)}</div>
-        <div class="muted-sm">بيع: ₪${Number(p.sale_price||0).toFixed(2)} — أصلي: ₪${Number(p.cost_price||0).toFixed(2)}</div>
+        <img src="\${p.image_path||'/public/no-image.png'}" alt="">
+        <div class="name">\${p.name||'-'}</div>
+        <div class="muted-sm">المخزون: \${Number(p.stock||0)}</div>
+        <div class="muted-sm">بيع: ₪\${Number(p.sale_price||0).toFixed(2)} — أصلي: ₪\${Number(p.cost_price||0).toFixed(2)}</div>
         <div>
-          ${p.category?`<span class="tag">${p.category}</span>`:''}
-          ${p.brand?`<span class="tag">${p.brand}</span>`:''}
+          \${p.category?`<span class="tag">\${p.category}</span>`:''}
+          \${p.brand?`<span class="tag">\${p.brand}</span>`:''}
         </div>
       `;
       card.addEventListener('click', ()=>pickProduct(p));
@@ -234,6 +275,17 @@
     recalc();
     closePicker();
   }
+
+  // التحقق قبل الإرسال: على الأقل بند واحد مع منتج محدّد
+  document.getElementById('multiSaleForm').addEventListener('submit', (e)=>{
+    const rows = [...cartBody.querySelectorAll('tr')];
+    const ok = rows.some(tr => Number(tr.querySelector('[name="product_id[]"]').value || 0) > 0);
+    if(!ok){
+      e.preventDefault();
+      alert('يرجى اختيار منتج واحد على الأقل قبل الحفظ.');
+      return false;
+    }
+  });
 
   // أزرار عامة
   btnAddRow.addEventListener('click', () => addRow());
