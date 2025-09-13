@@ -760,7 +760,7 @@ app.post("/sales/:id/delivery", async (req, res) => {
   res.redirect("/sales");
 });
 
-// عمليات جماعية
+// عمليات جماعية (بنود)
 app.post("/sales/bulk-deliver", async (req, res) => {
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
@@ -858,6 +858,77 @@ app.get("/orders", async (_req, res) => {
     `)
   ).rows;
   res.render("orders", { orders, dayjs });
+});
+
+// ===== أكشنات جماعية على الطلبات =====
+
+// تغيير حالة مجموعة طلبات مرة واحدة (+ خيار تطبيقها على البنود)
+app.post("/orders/bulk-status", async (req, res) => {
+  const raw = req.body.ids || [];
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
+  if (!ids.length) return res.redirect("/orders");
+
+  // تطبيع الحالة
+  const wanted = String(req.body.status || "pending").toLowerCase();
+  const normalize = {
+    pending: "pending",
+    processing: "processing",
+    shipping: "shipping",
+    delivered: "delivered",
+    failed: "failed",
+    not_delivered: "failed",
+  };
+  const status = normalize[wanted] || "pending";
+  const applyToItems = String(req.body.apply_to_items || "on") === "on";
+
+  await query(`UPDATE orders SET status=$1 WHERE id = ANY($2::int[])`, [status, ids]);
+
+  if (applyToItems) {
+    // تحويل حالة الطلب إلى حالة مناسبة للبنود
+    const itemStatus = status === "processing" ? "pending" : status; // لا يوجد processing للبنود
+    await query(
+      `
+      UPDATE sales
+      SET delivery_status=$1,
+          delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
+      WHERE order_id = ANY($2::int[])
+    `,
+      [itemStatus, ids]
+    );
+  }
+
+  res.redirect("/orders");
+});
+
+// إرجاع جماعي (كل بنود الطلب -> الراجع)
+app.post("/orders/bulk-return", async (req, res) => {
+  const raw = req.body.ids || [];
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
+  if (!ids.length) return res.redirect("/orders");
+
+  for (const oid of ids) {
+    const items = (await query(`SELECT * FROM sales WHERE order_id=$1`, [oid])).rows;
+    for (const s of items) {
+      await query(
+        `
+        INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        `,
+        [
+          s.id,
+          s.product_id,
+          s.quantity,
+          s.sale_price,
+          s.cost_price,
+          s.shipping_cost || 0,
+          s.note || "",
+          s.sold_at,
+        ]
+      );
+    }
+  }
+
+  res.redirect("/orders");
 });
 
 // نموذج طلب جديد
@@ -1107,13 +1178,14 @@ app.post("/orders/:id/status", async (req, res) => {
   const { status = "pending", apply_to_items = "off" } = req.body;
   await query(`UPDATE orders SET status=$1 WHERE id=$2`, [status, id]);
   if (apply_to_items === "on") {
+    const itemStatus = status === "processing" ? "pending" : status;
     await query(
       `
       UPDATE sales
       SET delivery_status=$1, delivered_at = CASE WHEN $1='delivered' THEN NOW() ELSE NULL END
       WHERE order_id=$2
     `,
-      [status, id]
+      [itemStatus, id]
     );
   }
   res.redirect(`/orders/${id}`);

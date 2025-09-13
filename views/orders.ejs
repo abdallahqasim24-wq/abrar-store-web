@@ -1,85 +1,193 @@
 <%-
 /**
- * orders.ejs — قائمة الطلبات
- * يعتمد على متغيرات:
+ * views/orders.ejs — قائمة الطلبات مع تحديد الكل وأكشنات جماعية
+ * يعتمد على:
  *  - orders: [{id, customer_name, customer_phone, customer_city, status, created_at, items_count, revenue, profit}]
- *  - dayjs
- *  - faLink متوفر من السيرفر
+ *  - dayjs, faLink
  */
 -%>
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
-  .orders-table{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
-  .orders-table th{background:#feeef5;padding:10px;text-align:center}
-  .orders-table td{border-top:1px solid #f1f5f9;padding:10px;text-align:center;vertical-align:middle}
-  .status{display:inline-flex;gap:6px;align-items:center;border:1px solid #ebedf0;border-radius:999px;padding:6px 10px;font-weight:700}
-  .status.pending{background:#fff7fb}
-  .status.shipping{background:#eef7ff}
-  .status.delivered{background:#efffed}
-  .status.failed{background:#fff0f0}
-  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
-  .btn.add{background:#2563eb;color:#fff}
-  .btn.secondary{background:#f1f5f9;color:#111}
-  .btn.danger{background:#ef4444;color:#fff}
-  .row{display:flex;gap:8px;align-items:center}
-  .right{margin-inline-start:auto}
-  .muted{color:#7a8da1}
+  :root{
+    --border:#f7cfe1; --muted:#6b7280; --card:#fff; --shadow:0 12px 30px rgba(255,126,179,.12);
+    --btn-green:#22c55e; --btn-blue:#2563eb; --btn-orange:#f59e0b; --btn-red:#ef4444; --btn-deepred:#dc2626;
+  }
+  .container{max-width:1200px;margin:0 auto;padding:16px}
+  h2{margin:0 0 14px}
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+  .select-all{display:flex;align-items:center;gap:8px;font-weight:800}
+  .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  .pill{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    color:#fff;border:0;border-radius:14px;padding:10px 14px;cursor:pointer;font-weight:900; box-shadow:0 2px 0 rgba(0,0,0,.08)
+  }
+  .pill.green{background:var(--btn-green)}      /* تم التوصيل */
+  .pill.blue{background:var(--btn-blue)}        /* قيد التوصيل */
+  .pill.orange{background:var(--btn-orange)}    /* قيد المعالجة */
+  .pill.red{background:var(--btn-red)}          /* لم يتم/فشل */
+  .pill.deepred{background:var(--btn-deepred)}  /* إرجاع */
+  .pill:disabled{opacity:.5;cursor:not-allowed}
+
+  .grid{display:grid;gap:12px}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:var(--shadow);
+    display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;
+  }
+  .chk{display:flex;align-items:center;justify-content:center}
+  .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .meta b{display:block;font-size:.8rem;color:#374151}
+  .meta .v{font-weight:900}
+  .status{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-weight:800}
+  .muted{color:var(--muted)}
+  .money{white-space:nowrap}
+  .row-actions{display:flex;gap:8px}
+  @media(max-width:900px){
+    .card{grid-template-columns:1fr}
+    .meta{grid-template-columns:repeat(2,1fr)}
+  }
 </style>
 
-<div class="row" style="justify-content:space-between;align-items:center">
-  <h2 style="margin:0"><i class="fa fa-basket-shopping"></i> الطلبات</h2>
-  <div class="row">
-    <a class="btn add" href="/orders/new"><i class="fa fa-plus"></i> طلب جديد</a>
+<div class="container">
+  <h2><i class="fa fa-list"></i> الطلبات</h2>
+
+  <!-- شريط التحكم -->
+  <div class="toolbar">
+    <label class="select-all">
+      <input id="checkAll" type="checkbox">
+      <span>تحديد الكل</span>
+    </label>
+
+    <!-- نماذج الأكشنات الجماعية -->
+    <div class="actions">
+      <!-- تم التوصيل -->
+      <form id="fDelivered" action="/orders/bulk-status" method="post">
+        <input type="hidden" name="ids" id="idsDelivered">
+        <input type="hidden" name="status" value="delivered">
+        <input type="hidden" name="apply_to_items" value="on">
+        <button class="pill green" type="submit" disabled id="btnDelivered">
+          <i class="fa fa-check"></i> تم التوصيل
+        </button>
+      </form>
+
+      <!-- قيد التوصيل -->
+      <form id="fShipping" action="/orders/bulk-status" method="post">
+        <input type="hidden" name="ids" id="idsShipping">
+        <input type="hidden" name="status" value="shipping">
+        <input type="hidden" name="apply_to_items" value="on">
+        <button class="pill blue" type="submit" disabled id="btnShipping">
+          <i class="fa fa-truck"></i> قيد التوصيل
+        </button>
+      </form>
+
+      <!-- قيد المعالجة -->
+      <form id="fProcessing" action="/orders/bulk-status" method="post">
+        <input type="hidden" name="ids" id="idsProcessing">
+        <input type="hidden" name="status" value="processing">
+        <input type="hidden" name="apply_to_items" value="on">
+        <button class="pill orange" type="submit" disabled id="btnProcessing">
+          <i class="fa fa-spinner fa-spin"></i> قيد المعالجة
+        </button>
+      </form>
+
+      <!-- لم يتم/فشل -->
+      <form id="fFailed" action="/orders/bulk-status" method="post">
+        <input type="hidden" name="ids" id="idsFailed">
+        <input type="hidden" name="status" value="not_delivered">
+        <input type="hidden" name="apply_to_items" value="on">
+        <button class="pill red" type="submit" disabled id="btnFailed">
+          <i class="fa fa-xmark"></i> لم يتم التوصيل
+        </button>
+      </form>
+
+      <!-- إرجاع (كل بنود الطلب إلى الراجع) -->
+      <form id="fReturn" action="/orders/bulk-return" method="post">
+        <input type="hidden" name="ids" id="idsReturn">
+        <button class="pill deepred" type="submit" disabled id="btnReturn">
+          <i class="fa fa-rotate-left"></i> إرجاع
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- قائمة الطلبات -->
+  <div class="grid" id="ordersList">
+    <% orders.forEach(o => { %>
+      <div class="card">
+        <div class="chk">
+          <input type="checkbox" class="chkRow" value="<%= o.id %>">
+        </div>
+
+        <div class="meta">
+          <div><b>#الطلب</b><div class="v">#<%= o.id %></div></div>
+          <div><b>الزبون</b><div class="v"><%= o.customer_name || '—' %></div></div>
+          <div><b>الهاتف</b><div class="v"><%= o.customer_phone || '—' %></div></div>
+          <div><b>المدينة</b><div class="v"><%= o.customer_city || '—' %></div></div>
+          <div><b>البنود</b><div class="v"><%= o.items_count || 0 %></div></div>
+          <div><b>الإيراد</b><div class="v money">₪<%= Number(o.revenue||0).toFixed(2) %></div></div>
+          <div><b>الربح</b><div class="v money">₪<%= Number(o.profit||0).toFixed(2) %></div></div>
+          <div>
+            <b>الحالة</b>
+            <div class="v">
+              <span class="status"><i class="fa fa-circle-dot"></i> <%= o.status %></span>
+            </div>
+          </div>
+          <div style="grid-column:1 / -1" class="muted">
+            <i class="fa fa-clock"></i>
+            <%= (dayjs && dayjs.tz)
+                  ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                  : (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
+          </div>
+        </div>
+
+        <div class="row-actions">
+          <a class="pill ghost" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> تعديل</a>
+        </div>
+      </div>
+    <% }) %>
+
+    <% if(!(orders||[]).length){ %>
+      <div class="muted">لا توجد طلبات.</div>
+    <% } %>
   </div>
 </div>
 
-<div class="card">
-  <table class="orders-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>الزبون</th>
-        <th>الهاتف</th>
-        <th>المدينة</th>
-        <th>الحالة</th>
-        <th>عدد الأصناف</th>
-        <th>الإيراد (₪)</th>
-        <th>الربح (₪)</th>
-        <th>التاريخ</th>
-        <th>إجراء</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% if (!orders.length){ %>
-        <tr><td colspan="10" class="muted">لا توجد طلبات بعد.</td></tr>
-      <% } %>
-      <% orders.forEach(o=>{ %>
-        <tr>
-          <td>#<%= o.id %></td>
-          <td style="text-align:right"><%= o.customer_name||'—' %></td>
-          <td><%= o.customer_phone||'—' %></td>
-          <td><%= o.customer_city||'—' %></td>
-          <td>
-            <span class="status <%= o.status %>">
-              <i class="fa <%= o.status==='pending'?'fa-hourglass-half':o.status==='shipping'?'fa-truck':o.status==='delivered'?'fa-check':'fa-xmark' %>"></i>
-              <%= o.status==='pending'?'قيد المعالجة':o.status==='shipping'?'قيد التوصيل':o.status==='delivered'?'تم التسليم':'فشل/لم يتم' %>
-            </span>
-          </td>
-          <td><%= o.items_count||0 %></td>
-          <td>₪<%= Number(o.revenue||0).toFixed(2) %></td>
-          <td>₪<%= Number(o.profit||0).toFixed(2) %></td>
-          <td>
-            <%= (dayjs && dayjs.tz)
-                ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                : (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
-          </td>
-          <td>
-            <a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض</a>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-</div>
+<script>
+  // إدارة التحديد الجماعي وتعبئة النماذج المخفية
+  (function(){
+    const checkAll = document.getElementById('checkAll');
+    const rows = Array.from(document.querySelectorAll('.chkRow'));
+
+    // أزرار ونماذج
+    const map = [
+      { idsEl: 'idsDelivered',  btn: 'btnDelivered'  },
+      { idsEl: 'idsShipping',   btn: 'btnShipping'   },
+      { idsEl: 'idsProcessing', btn: 'btnProcessing' },
+      { idsEl: 'idsFailed',     btn: 'btnFailed'     },
+      { idsEl: 'idsReturn',     btn: 'btnReturn'     },
+    ];
+
+    function getSelected(){
+      return rows.filter(r=>r.checked).map(r=>r.value);
+    }
+    function refresh(){
+      const ids = getSelected();
+      map.forEach(m=>{
+        const input = document.getElementById(m.idsEl);
+        const btn   = document.getElementById(m.btn);
+        if(input) input.value = ids.join(',');
+        if(btn) btn.disabled = ids.length === 0;
+      });
+      checkAll.indeterminate = ids.length>0 && ids.length<rows.length;
+      checkAll.checked = ids.length === rows.length && rows.length>0;
+    }
+
+    checkAll?.addEventListener('change', e=>{
+      rows.forEach(r => r.checked = e.target.checked);
+      refresh();
+    });
+    rows.forEach(r => r.addEventListener('change', refresh));
+    refresh();
+  })();
+</script>
