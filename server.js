@@ -163,7 +163,7 @@ app.use(expressLayouts);
 app.set("layout", "layout");
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json()));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use((req, res, next) => {
@@ -238,7 +238,7 @@ async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const q = await query(
     `SELECT * FROM orders
-     WHERE status IN ('pending','shipping')
+     WHERE status IN ('pending','shipping','processing')
        AND customer_phone=$1
        AND DATE(created_at)=DATE($2)
      ORDER BY id DESC LIMIT 1`,
@@ -451,28 +451,66 @@ app.post("/products/bulk-delete", async (req, res) => {
 });
 
 // -------- Sales (واجهة المعاملات) --------
-// صفحة المبيعات — تُظهر المنتجات + الطلبات المفتوحة + رسائل flash
+// صفحة المبيعات — تُظهر المنتجات + الطلبات المفتوحة (مع البنود) + البنود المُسلّمة + flash
 app.get("/sales", async (req, res, next) => {
   try {
     const products = (
       await query(
-        `SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`
+        `SELECT id, name, stock, cost_price, sale_price, image_path, brand, category FROM products ORDER BY name`
       )
     ).rows;
 
-    const openOrders = (
+    // طلبات مفتوحة/قيد المعالجة/قيد التوصيل (آخر 30)
+    const orders = (
       await query(`
-        SELECT id, customer_name, customer_phone, status, created_at
-        FROM orders
-        WHERE status IN ('pending','shipping') AND created_at >= NOW() - INTERVAL '7 days'
-        ORDER BY created_at DESC
+        SELECT
+          o.*,
+          COUNT(s.id)::int AS items_count,
+          COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+          COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity - s.shipping_cost),0)::float8 AS profit
+        FROM orders o
+        LEFT JOIN sales s ON s.order_id = o.id
+        WHERE o.status IN ('pending','processing','shipping')
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT 30
       `)
     ).rows;
+
+    // بنود كل طلب
+    let openOrders = [];
+    if (orders.length) {
+      const ids = orders.map(o => o.id);
+      const items = (
+        await query(`
+          SELECT s.*, p.name AS product_name, p.image_path AS product_image
+          FROM sales s
+          JOIN products p ON p.id = s.product_id
+          WHERE s.order_id = ANY($1::int[])
+          ORDER BY s.id ASC
+        `, [ids])
+      ).rows.map(r => ({ ...r, _profit: profitOf(r) }));
+
+      const by = {};
+      for (const it of items) (by[it.order_id] = by[it.order_id] || []).push(it);
+      openOrders = orders.map(o => ({ ...o, items: by[o.id] || [] }));
+    }
+
+    const delivered = (
+      await query(`
+        SELECT s.*, p.name AS product_name, p.image_path AS product_image
+        FROM sales s
+        JOIN products p ON p.id=s.product_id
+        WHERE s.delivery_status='delivered'
+        ORDER BY s.delivered_at DESC NULLS LAST, s.id DESC
+        LIMIT 50
+      `)
+    ).rows.map(r => ({ ...r, _profit: profitOf(r) }));
 
     const flash = req.session.sales_flash || null;
     req.session.sales_flash = null;
 
-    res.render("sales", { products, openOrders, dayjs, flash });
+    res.render("sales", { products, openOrders, delivered, dayjs, flash });
   } catch (e) {
     console.error(e);
     next(e);
@@ -932,7 +970,9 @@ app.get("/orders/:id", async (req, res) => {
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const profit = items.reduce(
     (a, s) =>
-      a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) - Number(s.shipping_cost || 0),
+      a +
+      (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity) -
+      Number(s.shipping_cost || 0),
     0
   );
 
@@ -1158,7 +1198,10 @@ app.get("/reports", async (req, res) => {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
     const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
+      2,
+      "0"
+    )}`;
     title = `تقرير يومي ${ds}`;
     rows = (
       await query(
@@ -1209,7 +1252,10 @@ app.get("/reports/pdf", async (req, res, next) => {
       const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
       const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
       const d = Number(day) || Number(dayjs().tz(TZ_NAME).format("DD"));
-      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const ds = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(
+        2,
+        "0"
+      )}`;
       title = `تقرير يومي ${ds}`;
       rows = (
         await query(

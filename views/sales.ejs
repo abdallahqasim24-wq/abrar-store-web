@@ -75,7 +75,7 @@
             <span>الربح الكلي:</span>   <strong id="sumProfit">0.00 ₪</strong>
           </div>
           <small class="muted-sm mt-2 d-block">
-            الربح = (الكمية × سعر البيع) − (الكمية × السعر الأصلي) − الشحن
+            
           </small>
         </div>
       </div>
@@ -84,23 +84,110 @@
 
   <hr class="my-4">
 
-  <!-- الطلبات المفتوحة -->
-  <h5 class="mb-3">الطلبات المفتوحة</h5>
-  <div class="list-group">
-    <% (typeof openOrders !== 'undefined' ? openOrders : []).forEach(o => { %>
-      <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/orders/<%= o.id %>">
-        <div>
-          #<%= o.id %> — <%= o.customer_name || 'بدون اسم' %>
-          — <small class="text-muted"><%= dayjs(o.created_at).format('YYYY-MM-DD HH:mm') %></small>
+<h5 class="mb-3">الطلبات المفتوحة</h5>
+
+<% if ((openOrders||[]).length === 0) { %>
+  <div class="text-muted">لا توجد طلبات مفتوحة مؤخرًا.</div>
+<% } %>
+
+<div class="cards">
+  <% (openOrders||[]).forEach(o => { %>
+    <div class="card">
+      <div class="row" style="align-items:center; gap:10px; flex-wrap:wrap">
+        <div style="font-weight:800">#<%= o.id %></div>
+        <div><i class="fa fa-user"></i> <%= o.customer_name || 'بدون اسم' %></div>
+        <% if (o.customer_phone) { %><div><i class="fa fa-phone"></i> <%= o.customer_phone %></div><% } %>
+        <% if (o.customer_city)  { %><div><i class="fa fa-location-dot"></i> <%= o.customer_city  %></div><% } %>
+        <div class="muted-sm"><i class="fa fa-clock"></i> <%= dayjs(o.created_at).format('YYYY-MM-DD HH:mm') %></div>
+        <div class="right muted-sm">
+          إيراد: ₪<%= Number(o.revenue||0).toFixed(2) %> — ربح: ₪<%= Number(o.profit||0).toFixed(2) %> — عناصر: <%= o.items_count %>
         </div>
-        <span class="badge bg-secondary"><%= o.status %></span>
-      </a>
-    <% }) %>
-    <% if (!(typeof openOrders !== 'undefined' ? openOrders : []).length) { %>
-      <div class="text-muted">لا توجد طلبات مفتوحة مؤخّرًا.</div>
-    <% } %>
-  </div>
+      </div>
+
+      <!-- تغيير حالة الطلب -->
+      <form method="post" action="/orders/<%= o.id %>/status" class="row" style="gap:8px; align-items:center; margin-top:10px">
+        <select name="status" class="form-select" style="max-width:220px">
+          <% ['pending','processing','shipping','delivered','failed'].forEach(s => { %>
+            <option value="<%= s %>" <%= o.status===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <label class="muted-sm" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" name="apply_to_items"> تطبيق على كل البنود
+        </label>
+        <button class="btn edit" type="submit"><i class="fa fa-rotate"></i> تحديث الحالة</button>
+        <a class="btn add right" href="/orders/<%= o.id %>"><i class="fa fa-eye"></i> عرض الطلب</a>
+      </form>
+
+      <!-- بنود الطلب -->
+      <div class="table-scroll" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr>
+              <th>المنتج</th>
+              <th>كمية</th>
+              <th>سعر بيع</th>
+              <th>سعر أصلي</th>
+              <th>شحن</th>
+              <th>الربح</th>
+              <th>حالة البند</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% (o.items||[]).forEach(it => { %>
+              <tr>
+                <td style="text-align:right">
+                  <div style="display:flex; align-items:center; gap:8px">
+                    <% if (it.product_image) { %>
+                      <img class="thumb" style="width:42px;height:42px" src="<%= it.product_image %>" />
+                    <% } %>
+                    <div><%= it.product_name %></div>
+                  </div>
+                </td>
+                <td><%= it.quantity %></td>
+                <td>₪<%= Number(it.sale_price).toFixed(2) %></td>
+                <td>₪<%= Number(it.cost_price).toFixed(2) %></td>
+                <td>₪<%= Number(it.shipping_cost||0).toFixed(2) %></td>
+                <td>₪<%= Number(it._profit||0).toFixed(2) %></td>
+                <td>
+                  <span class="status-chip <%= 'status-' + (it.delivery_status||'pending') %>">
+                    <i class="fa fa-truck"></i> <%= it.delivery_status||'pending' %>
+                  </span>
+                </td>
+                <td>
+                  <div class="row" style="gap:6px; justify-content:center">
+                    <!-- تغيير حالة البند -->
+                    <form method="post" action="/sales/<%= it.id %>/delivery">
+                      <input type="hidden" name="status" value="processing">
+                      <button class="btn edit" type="submit" title="قيد المعالجة"><i class="fa fa-spinner"></i></button>
+                    </form>
+                    <form method="post" action="/sales/<%= it.id %>/delivery">
+                      <input type="hidden" name="status" value="shipping">
+                      <button class="btn add" type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button>
+                    </form>
+                    <form method="post" action="/sales/<%= it.id %>/delivery">
+                      <input type="hidden" name="status" value="delivered">
+                      <button class="btn save" type="submit" title="تم التوصيل"><i class="fa fa-circle-check"></i></button>
+                    </form>
+                    <form method="post" action="/sales/<%= it.id %>/delivery">
+                      <input type="hidden" name="status" value="failed">
+                      <button class="btn danger" type="submit" title="لم يتم التوصيل"><i class="fa fa-circle-xmark"></i></button>
+                    </form>
+                    <!-- إرجاع البند للراجِع -->
+                    <form method="post" action="/sales/<%= it.id %>/return" onsubmit="return confirm('إرجاع هذا البند إلى قائمة الراجع؟');">
+                      <button class="btn danger" type="submit" title="إرجاع"><i class="fa fa-rotate-left"></i></button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% }) %>
 </div>
+
 
 <!-- مودال اختيار المنتج بالشبكة -->
 <style>
