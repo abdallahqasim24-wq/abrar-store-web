@@ -2,10 +2,11 @@
 
 <div class="container my-4">
 
-  <!-- بيانات الزبون -->
+  <!-- نموذج إضافة عملية بيع متعددة المنتجات -->
   <form id="multiSaleForm" action="/sales/multi" method="post" class="card p-3 shadow-sm rounded-3">
     <h4 class="mb-3">🛒 إضافة عملية بيع (عدّة منتجات)</h4>
 
+    <!-- بيانات الزبون -->
     <div class="row g-2 mb-3">
       <div class="col-md-3"><input name="customer_name"  class="form-control" placeholder="اسم الزبون"></div>
       <div class="col-md-3"><input name="customer_phone" class="form-control" placeholder="الهاتف"></div>
@@ -32,18 +33,24 @@
     </div>
 
     <div class="d-flex gap-2 mt-3">
-      <button type="button" id="btnAddRow" class="btn btn-primary"><i class="fa fa-plus"></i> إضافة بند</button>
-      <button type="button" id="btnClear"  class="btn btn-danger"><i class="fa fa-trash"></i> إفراغ السلة</button>
-      <button type="submit" class="btn btn-success ms-auto"><i class="fa fa-save"></i> حفظ البنود</button>
+      <button type="button" id="btnAddRow" class="btn add"><i class="fa fa-plus"></i> إضافة بند</button>
+      <button type="button" id="btnClear"  class="btn danger"><i class="fa fa-trash"></i> إفراغ السلة</button>
+      <button type="submit" id="btnSubmit" class="btn save ms-auto"><i class="fa fa-save"></i> حفظ البنود</button>
     </div>
 
     <!-- ملخص -->
     <div class="row mt-3">
       <div class="col-md-4 ms-auto">
         <div class="card p-3">
-          <div class="d-flex justify-content-between"><span>الإيراد الكلي:</span> <strong id="sumRevenue">0.00 ₪</strong></div>
-          <div class="d-flex justify-content-between"><span>الربح الكلي:</span>   <strong id="sumProfit">0.00 ₪</strong></div>
-          <small class="text-muted mt-2 d-block">الربح = (الكمية × سعر البيع) − (الكمية × السعر الأصلي) − الشحن</small>
+          <div class="d-flex justify-content-between">
+            <span>الإيراد الكلي:</span> <strong id="sumRevenue">0.00 ₪</strong>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span>الربح الكلي:</span>   <strong id="sumProfit">0.00 ₪</strong>
+          </div>
+          <small class="text-muted mt-2 d-block">
+            الربح = (الكمية × سعر البيع) − (الكمية × السعر الأصلي) − الشحن
+          </small>
         </div>
       </div>
     </div>
@@ -67,69 +74,83 @@
       <div class="text-muted">لا توجد طلبات مفتوحة مؤخّرًا.</div>
     <% } %>
   </div>
+</div>
 
+<!-- مودال اختيار المنتج بالشبكة -->
+<div class="modal" id="productModal">
+  <div class="modal-bg" data-close></div>
+  <div class="modal-card">
+    <button class="mclose" data-close title="إغلاق"><i class="fa fa-xmark"></i></button>
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <strong>اختيار منتج</strong>
+      <input id="pSearch" class="form-control" placeholder="ابحث بالاسم/التصنيف/الماركة" style="max-width:360px;margin-inline-start:auto">
+    </div>
+    <div class="mgrid" id="pGrid"></div>
+  </div>
 </div>
 
 <script>
-  // بيانات المنتجات من السيرفر
+  // === بيانات المنتجات من السيرفر ===
   const PRODUCTS = <%- JSON.stringify(typeof products !== 'undefined' ? products : []) %>;
 
+  // عناصر أساسية
   const cartBody   = document.getElementById('cartBody');
   const sumRevenue = document.getElementById('sumRevenue');
   const sumProfit  = document.getElementById('sumProfit');
   const btnAddRow  = document.getElementById('btnAddRow');
   const btnClear   = document.getElementById('btnClear');
+  const btnSubmit  = document.getElementById('btnSubmit');
+
+  // مودال
+  const modal   = document.getElementById('productModal');
+  const pGrid   = document.getElementById('pGrid');
+  const pSearch = document.getElementById('pSearch');
+  let pickerCtx = { tr: null };
 
   const fmt = n => (Number(n)||0).toFixed(2) + ' ₪';
 
-  function buildProductSelect(){
-    const sel = document.createElement('select');
-    sel.className = 'form-select';
-    sel.name = 'product_id[]';
-    sel.required = true;
-
-    sel.appendChild(new Option('— اختر —',''));
-
-    PRODUCTS.forEach(p => {
-      const text = `${p.name} ${p.stock>0 ? `(مخزون: ${p.stock})` : ''}`;
-      const o = new Option(text, p.id);
-      o.dataset.price = p.sale_price;
-      o.dataset.cost  = p.cost_price;
-      sel.appendChild(o);
-    });
-
-    sel.addEventListener('change', () => {
-      const o = sel.selectedOptions[0];
-      const tr = sel.closest('tr');
-      tr.querySelector('[name="sale_price[]"]').value = o?.dataset?.price || 0;
-      tr.querySelector('[name="cost_price[]"]').value  = o?.dataset?.cost  || 0;
-      recalc();
-    });
-
-    return sel;
-  }
-
+  // ===== صف جديد مع زر اختيار من الشبكة =====
   function addRow(pref = {}){
     const tr = document.createElement('tr');
     tr.className = 'align-middle';
+
     tr.innerHTML = `
-      <td></td>
-      <td class="text-center"><input name="quantity[]" type="number" min="1" value="${pref.quantity||1}" class="form-control text-center"></td>
+      <td>
+        <input type="hidden" name="product_id[]" value="${pref.product_id||''}">
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:nowrap">
+          <button type="button" class="btn add btnPick"><i class="fa fa-grid-2"></i> اختيار</button>
+          <div class="prodName muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${pref.product_name || '— لم يتم الاختيار —'}
+          </div>
+        </div>
+      </td>
+      <td class="text-center">
+        <input name="quantity[]" type="number" min="1" value="${pref.quantity||1}" class="form-control text-center">
+      </td>
       <td><input name="sale_price[]"    type="number" step="0.01" class="form-control text-center" value="${pref.sale_price||''}"></td>
       <td><input name="cost_price[]"    type="number" step="0.01" class="form-control text-center" value="${pref.cost_price||''}"></td>
       <td><input name="shipping_cost[]" type="number" step="0.01" class="form-control text-center" value="${pref.shipping_cost||0}"></td>
       <td><input name="item_note[]" class="form-control" value="${pref.item_note||''}"></td>
-      <td class="text-center"><button type="button" class="btn btn-outline-danger btn-sm btnDel"><i class="fa fa-times"></i></button></td>
+      <td class="text-center">
+        <button type="button" class="btn danger btn-sm btnDel"><i class="fa fa-times"></i></button>
+      </td>
     `;
-    tr.children[0].appendChild(buildProductSelect());
+
+    // أحداث الحقول
     tr.querySelectorAll('input').forEach(i => i.addEventListener('input', recalc));
     tr.querySelector('.btnDel').addEventListener('click', () => { tr.remove(); recalc(); });
+    tr.querySelector('.btnPick').addEventListener('click', () => openPicker(tr));
+
     cartBody.appendChild(tr);
     recalc();
   }
 
+  // ===== الحسابات =====
   function recalc(){
     let revenue = 0, profit = 0;
+    const hasRows = !!cartBody.querySelector('tr');
+
     cartBody.querySelectorAll('tr').forEach(tr => {
       const qty  = Number(tr.querySelector('[name="quantity[]"]').value || 0);
       const sp   = Number(tr.querySelector('[name="sale_price[]"]').value || 0);
@@ -138,11 +159,86 @@
       revenue += qty * sp;
       profit  += (qty*sp) - (qty*cp) - ship;
     });
+
     sumRevenue.textContent = fmt(revenue);
     sumProfit.textContent  = fmt(profit);
+    btnSubmit.disabled = !hasRows;
   }
 
+  // ===== مودال الشبكة =====
+  function openPicker(tr){
+    pickerCtx.tr = tr;
+    pSearch.value = '';
+    renderGrid('');
+    modal.style.display = 'block';
+  }
+  function closePicker(){
+    modal.style.display = 'none';
+    pickerCtx.tr = null;
+  }
+  document.querySelectorAll('#productModal [data-close]').forEach(b=>b.addEventListener('click', closePicker));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closePicker(); });
+  document.querySelector('#productModal .modal-bg').addEventListener('click', closePicker);
+
+  pSearch.addEventListener('input', () => renderGrid(pSearch.value));
+
+  function renderGrid(q){
+    const query = (q||'').toLowerCase().trim();
+    pGrid.innerHTML = '';
+
+    const data = PRODUCTS.filter(p => {
+      if(!query) return true;
+      return (p.name||'').toLowerCase().includes(query) ||
+             (p.category||'').toLowerCase().includes(query) ||
+             (p.brand||'').toLowerCase().includes(query);
+    });
+
+    data.forEach(p=>{
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'pcard';
+      card.innerHTML = `
+        <img src="${p.image_path||'/public/no-image.png'}" alt="">
+        <div class="name">${p.name||'-'}</div>
+        <div class="muted-sm">المخزون: ${Number(p.stock||0)}</div>
+        <div class="muted-sm">بيع: ₪${Number(p.sale_price||0).toFixed(2)} — أصلي: ₪${Number(p.cost_price||0).toFixed(2)}</div>
+        <div>
+          ${p.category?`<span class="tag">${p.category}</span>`:''}
+          ${p.brand?`<span class="tag">${p.brand}</span>`:''}
+        </div>
+      `;
+      card.addEventListener('click', ()=>pickProduct(p));
+      pGrid.appendChild(card);
+    });
+
+    if(!data.length){
+      const empty = document.createElement('div');
+      empty.className = 'muted';
+      empty.style.padding = '20px';
+      empty.textContent = 'لا نتائج حسب البحث';
+      pGrid.appendChild(empty);
+    }
+  }
+
+  function pickProduct(p){
+    if(!pickerCtx.tr) return;
+    const tr = pickerCtx.tr;
+
+    tr.querySelector('[name="product_id[]"]').value = p.id;
+    tr.querySelector('.prodName').textContent = p.name || '';
+
+    // تنزيل أسعار افتراضيًا
+    tr.querySelector('[name="sale_price[]"]').value = Number(p.sale_price||0);
+    tr.querySelector('[name="cost_price[]"]').value = Number(p.cost_price||0);
+
+    recalc();
+    closePicker();
+  }
+
+  // أزرار عامة
   btnAddRow.addEventListener('click', () => addRow());
   btnClear.addEventListener('click', () => { cartBody.innerHTML = ''; recalc(); });
-  addRow(); // صف ابتدائي
+
+  // صف ابتدائي
+  addRow();
 </script>
