@@ -20,12 +20,15 @@
 </style>
 
 <%
-  // حراس أمان: لو ما مرّر السيرفر dayjs/selected/years
+  // حراس أمان
   const dj   = (typeof dayjs !== 'undefined' && dayjs) ? dayjs : null;
   const NOW  = dj && dj.tz ? dj().tz('Asia/Hebron') : null;
   const sel  = (typeof selected === 'object' && selected) ? selected : {};
   const RANGE= (typeof range==='string'&&range) ? range : 'daily';
-  const YEARS= Array.isArray(years)&&years.length ? years : [2024,2025,2026,2027,2028,2029,2030];
+  // ✅ الفحص الصحيح على years
+  const YEARS= (typeof years!=='undefined' && Array.isArray(years) && years.length)
+               ? years
+               : [2024,2025,2026,2027,2028,2029,2030];
 
   const curY = Number(NOW ? NOW.format('YYYY') : new Date().getFullYear());
   const curM = Number(NOW ? NOW.format('MM')   : (new Date().getMonth()+1));
