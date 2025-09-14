@@ -225,6 +225,18 @@ app.post("/login", (req, res) => {
   res.redirect(next || "/");
 });
 app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
+
+// تسجيل خروج تلقائي عبر AJAX (لما يسكر التبويب)
+app.post("/logout-ajax", (req, res) => {
+  if (req.session) {
+    req.session.destroy(() => {
+      res.sendStatus(200);
+    });
+  } else {
+    res.sendStatus(200);
+  }
+});
+
 app.get("/healthz", (_req, res) => res.send("OK"));
 
 // ================== Helpers ==================

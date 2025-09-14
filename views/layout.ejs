@@ -119,7 +119,7 @@
     <div class="container nav">
       <div class="brand">Abrar Store</div>
       <% if (currentUser) { %>
-        <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
+        <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> الرئيسية</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> اضافة طلب</a>
 
@@ -176,5 +176,12 @@
       if(!wrap) document.querySelectorAll('.status-menu').forEach(m=>m.style.display='none');
     });
   </script>
+<script>
+  // لما المستخدم يسكر التبويب/المتصفح
+  window.addEventListener("beforeunload", function () {
+    navigator.sendBeacon("/logout-ajax");
+  });
+</script>
+
 </body>
 </html>
