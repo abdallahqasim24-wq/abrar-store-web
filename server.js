@@ -160,7 +160,8 @@ app.use(expressLayouts);
 app.set("layout", "layout");
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json()));
+app.use(express.json());
+
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use((req, res, next) => {
