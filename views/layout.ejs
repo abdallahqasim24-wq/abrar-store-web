@@ -175,63 +175,60 @@
   <!-- تسجيل خروج فقط عند إغلاق التبويب/المتصفح (ليس عند الـ Refresh) -->
   <script>
 /**
- * Logout only on real tab/window close.
- * - pagehide (persisted === false) => close/navigation away => logout
- * - visibilitychange (hidden) => arm a short timer as backup
- * - pageshow / visibilitychange (visible) => cancel (covers refresh & back/forward)
- * - freeze => backup beacon on Chrome
+ * Logout فقط عند إغلاق التبويب/المتصفح.
+ * لا يعمل عند:
+ * - النقر على روابط داخلية بين صفحات الموقع
+ * - إرسال نماذج داخل الموقع
+ * - عمل Refresh (F5 / Ctrl+R / Cmd+R)
  */
 (function () {
-  let timer = null;
-  const DELAY = 400; // احتياطي صغير
+  let internalNav = false;
+  let refreshing  = false;
 
-  function sendLogout() {
+  // 1) اعتبر أي ضغط على روابط داخلية تنقّل داخلي (لا تعمل logout)
+  document.addEventListener("click", function (e) {
+    const a = e.target.closest("a");
+    if (!a) return;
+    const url = new URL(a.href, location.origin);
+    if (url.origin === location.origin) {
+      internalNav = true;
+    }
+  }, true);
+
+  // 2) النماذج داخلية برضو
+  document.addEventListener("submit", function (e) {
+    const form = e.target;
+    // نفس الأصل؟ (أغلب النماذج داخلية)
+    if (!form.action || form.action.startsWith(location.origin) || form.action.startsWith("/")) {
+      internalNav = true;
+    }
+  }, true);
+
+  // 3) كشف أوامر الريفريش الشائعة
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "F5") refreshing = true;
+    if ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R")) refreshing = true;
+  });
+
+  // 4) السلوك الرئيسي: على beforeunload لو مش تنقّل داخلي ولا ريفريش -> logout
+  window.addEventListener("beforeunload", function () {
+    if (internalNav || refreshing) return;
     try {
+      // يشتغل حتى لو الصفحة بتتقفل
       navigator.sendBeacon("/logout-ajax");
-    } catch (e) {
-      // fallback لو sendBeacon مش متاح
+    } catch {
       fetch("/logout-ajax", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" }, body: "" });
     }
-  }
-
-  function arm() {
-    cancel();
-    timer = setTimeout(sendLogout, DELAY);
-  }
-
-  function cancel() {
-    if (timer) { clearTimeout(timer); timer = null; }
-  }
-
-  // 1) ينفع لسيناريو الإغلاق الحقيقي وعدم استخدام BFCache
-  window.addEventListener("pagehide", (ev) => {
-    // عندما persisted === false: الصفحة تُغادر السياق (إغلاق/تنقّل)، مش رجوع من BFCache
-    if (ev.persisted === false) {
-      sendLogout();
-    }
   });
 
-  // 2) احتياطي عند الانتقال للحالة hidden
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") {
-      arm();
-    } else {
-      // رجعت الصفحة (refresh أو تفاعل)، نلغيه
-      cancel();
-    }
-  });
-
-  // 3) لو الصفحة رجعت للعرض (refresh / back-forward) نلغي
-  window.addEventListener("pageshow", () => {
-    cancel();
-  });
-
-  // 4) Chrome page lifecycle: قد يُجمّد التبويب قبل الإغلاق
-  document.addEventListener("freeze", () => {
-    sendLogout();
+  // 5) بعد ما ندخل صفحة جديدة، صفّر الفلاجز
+  window.addEventListener("pageshow", function () {
+    internalNav = false;
+    refreshing  = false;
   });
 })();
 </script>
+
 
 
 </body>
