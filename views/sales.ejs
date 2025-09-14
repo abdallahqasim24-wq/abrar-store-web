@@ -1,4 +1,4 @@
-<!-- views/sales.ejs — استبدال كامل -->
+<!-- views/sales.ejs — استبدال كامل لتمكين زر الشبكة بكل سطر -->
 
 <link rel="stylesheet" href="<%= faLink %>">
 
@@ -34,18 +34,15 @@
       <input name="order_note"     placeholder="ملاحظة عامة للطلب" style="grid-column:1 / -1">
     </div>
 
-    <!-- أدوات الإضافة -->
+    <!-- أدوات عامة -->
     <div class="row" style="margin:14px 0 10px">
-      <button class="btn add" type="button" id="btnOpenPicker">
-        <i class="fa fa-grid-2"></i> إضافة من شبكة المنتجات
-      </button>
-      <button class="btn secondary" type="button" id="btnAddEmpty" style="background:#64748b">
-        <i class="fa fa-plus"></i> إضافة سطر فارغ
+      <button class="btn add" type="button" id="btnAddEmpty">
+        <i class="fa fa-plus"></i> إضافة سطر
       </button>
       <button class="btn danger" type="button" id="btnClear">
-        <i class="fa fa-trash"></i> إفراغ السلة
+        <i class="fa fa-trash"></i> إفراغ كل البنود
       </button>
-      <div class="right muted-sm">اختر من الشبكة ثم عدّل الكمية/الأسعار قبل الحفظ</div>
+      <div class="right muted-sm">لكل سطر زر “اختيار من الشبكة” لتعبئة المنتج نفسه</div>
     </div>
 
     <!-- الجدول -->
@@ -92,16 +89,6 @@
             </div>
           </div>
           <a class="btn edit" href="/orders/<%= o.id %>"><i class="fa fa-pen"></i> إدارة</a>
-        </div>
-
-        <div style="margin:10px 0">
-          <span class="status-chip status-<%= o.status %>">
-            <% if(o.status==='pending'){ %><i class="fa fa-hourglass-half"></i> قيد المعالجة
-            <% } else if(o.status==='processing'){ %><i class="fa fa-spinner"></i> معالجة
-            <% } else if(o.status==='shipping'){ %><i class="fa fa-truck"></i> قيد التوصيل
-            <% } else if(o.status==='delivered'){ %><i class="fa fa-check"></i> تم التسليم
-            <% } else { %><i class="fa fa-xmark"></i> لم يتم / فشل <% } %>
-          </span>
         </div>
 
         <% if ((o.items||[]).length) { %>
@@ -167,7 +154,7 @@
             <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
             <td>₪<%= Number(r.shipping_cost||0).toFixed(2) %></td>
             <td>₪<%= Number(r._profit||0).toFixed(2) %></td>
-            <td><%= dayjs(r.delivered_at||r.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %></td>
+              <td><%= dayjs(r.delivered_at||r.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %></td>
           </tr>
         <% }) %>
       </tbody>
@@ -175,7 +162,7 @@
   </div>
 </div>
 
-<!-- ===== نافذة اختيار من الشبكة (مع منع المخزون = 0) ===== -->
+<!-- ===== نافذة اختيار من الشبكة (تعمل لكل سطر) ===== -->
 <div class="modal" id="picker" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
@@ -185,6 +172,7 @@
       <strong>اختيار منتج</strong>
       <div class="right" style="display:flex;gap:8px;align-items:center">
         <input id="pickSearch" placeholder="بحث بالاسم/الماركة/التصنيف..." style="max-width:320px">
+        <label class="row muted-sm" style="gap:6px"><input type="checkbox" id="hideOut"> إخفاء النافد</label>
       </div>
     </div>
 
@@ -197,7 +185,7 @@
         background:#ef4444; color:#fff; padding:2px 8px; border-radius:999px; font-weight:800; font-size:.8rem
       }
       .pcard .pickBtn[disabled]{opacity:.6; cursor:not-allowed}
-      /* شبكة وبطاقات أساسية (إن ما كانت معرفة في CSS العام) */
+      /* شبكة وبطاقات أساسية (لو مش معرفة بالـ CSS العام) */
       .modal{display:none; position:fixed; inset:0; z-index:60}
       .modal-bg{position:absolute; inset:0; background:rgba(0,0,0,.5)}
       .modal-card{position:relative; inset:auto; margin:auto; top:5vh; width:min(1100px,95vw); max-height:90vh; overflow:auto; background:#fff; border-radius:18px; padding:14px}
@@ -208,6 +196,7 @@
       .pcard .name{font-weight:800}
       .tag{display:inline-block; font-size:.82rem; padding:4px 8px; border-radius:999px; background:#f8fafc; border:1px solid var(--border)}
       .mclose{border:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer}
+      .choose-btn{white-space:nowrap}
     </style>
 
     <div class="mgrid" id="pickGrid">
@@ -244,7 +233,7 @@
 </div>
 
 <script>
-  // ===== بيانات من السيرفر =====
+  // ===== بيانات متاحة من السيرفر =====
   const PRODUCTS = <%- JSON.stringify(products||[]) %>;
 
   const cartBody   = document.getElementById('cartBody');
@@ -253,25 +242,22 @@
   const btnAddRow  = document.getElementById('btnAddEmpty');
   const btnClear   = document.getElementById('btnClear');
 
-  // -- أدوات المودال
+  // مودال الشبكة
   const picker         = document.getElementById('picker');
   const pickGrid       = document.getElementById('pickGrid');
   const pickSearch     = document.getElementById('pickSearch');
   const pickerCloseBtn = document.getElementById('pickerClose');
-  const btnOpenPicker  = document.getElementById('btnOpenPicker');
+  const hideOut        = document.getElementById('hideOut');
+
+  // السطر الجاري الذي سيتعبّى من الشبكة
+  let activeRow = null;
 
   function num(v){ return Number(v||0) || 0 }
   function fmt(n){ return (Number(n)||0).toFixed(2) }
 
-  // صف الجدول
-  function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''}) {
-    const nameHtml = name
-      ? `<div class="row" style="justify-content:flex-end;gap:8px">
-           ${img ? `<img src="${img}" class="thumb" style="width:56px;height:56px">` : ''}
-           <span>${name}</span>
-         </div>`
-      : `<span class="muted-sm">[اختر من الشبكة]</span>`;
-
+  // توليد صف جدول مع زر شبكة يخصه
+  function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''} = {}) {
+    const has = Boolean(pid && name);
     return `
       <tr class="sale-row" data-pid="${pid}">
         <td>
@@ -279,7 +265,11 @@
         </td>
         <td class="right">
           <input type="hidden" name="product_id[]" value="${pid}">
-          ${nameHtml}
+          <div class="row" style="justify-content:flex-end;gap:8px">
+            ${has && img ? `<img src="${img}" class="thumb" style="width:56px;height:56px">` : ''}
+            <span class="${has ? '' : 'muted-sm'}">${has ? name : '[اختر من الشبكة]'}</span>
+            <button class="btn add choose-btn" type="button" data-act="choose"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
+          </div>
         </td>
         <td><input name="quantity[]" type="number" min="1" step="1" value="${qty}"></td>
         <td><input name="sale_price[]" type="number" step="0.01" value="${sp}"></td>
@@ -309,29 +299,35 @@
     sumProfit .textContent = fmt(prof);
   }
 
-  // أحداث الجدول
+  // أحداث الجدول: حذف/إدخال/فتح الشبكة للسطر المحدد
   cartBody.addEventListener('input', e=>{
     if (e.target.matches('input')) recalc();
   });
+
   cartBody.addEventListener('click', e=>{
-    const btn = e.target.closest('[data-act="del"]');
-    if (btn) { btn.closest('tr').remove(); recalc(); }
+    const btnDel = e.target.closest('[data-act="del"]');
+    if (btnDel){ btnDel.closest('tr').remove(); recalc(); return; }
+
+    const btnChoose = e.target.closest('[data-act="choose"]');
+    if (btnChoose){
+      activeRow = btnChoose.closest('tr');
+      showPicker();
+    }
   });
 
-  // إضافة سطر فارغ يدويًا
+  // إضافة سطر جديد
   btnAddRow.addEventListener('click', ()=> addRow({}));
 
-  // إفراغ السلة
+  // إفراغ الكل
   btnClear.addEventListener('click', ()=>{
     cartBody.innerHTML = '';
     recalc();
   });
 
-  // ====== مودال الشبكة ======
+  // ===== مودال الشبكة =====
   function showPicker(){ picker.style.display='block'; pickSearch.focus(); }
   function hidePicker(){ picker.style.display='none'; pickSearch.value=''; filterGrid(''); }
 
-  btnOpenPicker.addEventListener('click', showPicker);
   document.querySelector('#picker .modal-bg').addEventListener('click', hidePicker);
   pickerCloseBtn.addEventListener('click', hidePicker);
   document.addEventListener('keydown', e=>{
@@ -342,15 +338,20 @@
     const s = (q||'').trim().toLowerCase();
     [...pickGrid.querySelectorAll('.pcard')].forEach(card=>{
       const hay = (card.dataset.name + ' ' + (card.dataset.brand||'') + ' ' + (card.dataset.cat||'')).toLowerCase();
-      card.style.display = hay.includes(s) ? 'flex' : 'none';
+      const out = Number(card.dataset.stock||0) <= 0;
+      const passText = hay.includes(s);
+      const passOut  = !hideOut.checked || !out;
+      card.style.display = (passText && passOut) ? 'flex' : 'none';
     });
   }
   pickSearch.addEventListener('input', e=> filterGrid(e.target.value));
+  hideOut.addEventListener('change', ()=> filterGrid(pickSearch.value));
 
-  // اختيار منتج من الشبكة -> سطر جديد في الجدول (مع منع المخزون الصفر)
+  // اختيار بطاقة -> تعبئة السطر النشِط فقط
   pickGrid.addEventListener('click', e=>{
     const btn = e.target.closest('.pickBtn');
-    if (!btn) return;
+    if (!btn || !activeRow) return;
+
     const card  = btn.closest('.pcard');
     const stock = Number(card.dataset.stock||0);
     if (stock <= 0) { alert('لا يمكن إضافة منتج نفد من المخزون'); return; }
@@ -362,8 +363,27 @@
     const imgEl = card.querySelector('img');
     const img   = imgEl ? imgEl.getAttribute('src') : '';
 
-    addRow({ pid, name, qty:1, sp, cp, ship:0, note:'', img });
+    // حدّث الحقول داخل السطر الفعّال فقط
+    activeRow.dataset.pid = String(pid);
+    activeRow.querySelector('input[name="product_id[]"]').value = pid;
+    activeRow.querySelector('input[name="sale_price[]"]').value = sp;
+    activeRow.querySelector('input[name="cost_price[]"]').value = cp;
+
+    // تحديث العرض (صورة + اسم)
+    const productCell = activeRow.querySelector('td:nth-child(2) .row');
+    if (productCell){
+      const existingImg = productCell.querySelector('img.thumb');
+      if (img){
+        if (existingImg) existingImg.src = img;
+        else productCell.insertAdjacentHTML('afterbegin', `<img src="${img}" class="thumb" style="width:56px;height:56px">`);
+      }
+      const nameSpan = productCell.querySelector('span');
+      if (nameSpan) { nameSpan.textContent = name; nameSpan.classList.remove('muted-sm'); }
+    }
+
+    recalc();
     hidePicker();
+    activeRow = null;
   });
 
   // صف افتراضي كبداية
