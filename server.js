@@ -773,9 +773,21 @@ app.post("/sales/bulk-return", async (req, res) => {
 });
 
 // -------- Orders (الطلبات متعددة البنود) --------
-app.get("/orders", async (_req, res) => {
+app.get("/orders", async (req, res) => {
+  // فلاتر الواجهة (حاليًا ندعم فلتر الحالة فقط)
+  const filters = {
+    status: String(req.query.status || "all").toLowerCase(), // all|pending|processing|shipping|delivered|failed
+  };
+
+  // نبني شرط الحالة (اختياري)
+  const ALLOWED = ["pending", "processing", "shipping", "delivered", "failed"];
+  const where = ALLOWED.includes(filters.status) ? "WHERE o.status = $1" : "";
+  const params = ALLOWED.includes(filters.status) ? [filters.status] : [];
+
+  // نجلب الطلبات + الإيراد/الربح المحسوب
   const orders = (
-    await query(`
+    await query(
+      `
       SELECT
         o.*,
         COUNT(s.id)::int AS items_count,
@@ -783,31 +795,38 @@ app.get("/orders", async (_req, res) => {
         COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
       FROM orders o
       LEFT JOIN sales s ON s.order_id = o.id
+      ${where}
       GROUP BY o.id
       ORDER BY o.created_at DESC
-    `)
+      `,
+      params
+    )
   ).rows;
 
-  // ملخّص المنتجات لكل طلب (لو احتجته بالواجهة)
+  // (اختياري) ملخّص البنود لكل طلب لو الواجهة تحتاجه
   let itemsByOrder = {};
   if (orders.length) {
     const ids = orders.map((o) => o.id);
     const items = (
       await query(
-        `SELECT s.order_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost, s.delivery_status,
-                p.name AS product_name, p.image_path AS product_image
-         FROM sales s
-         JOIN products p ON p.id = s.product_id
-         WHERE s.order_id = ANY($1::int[])
-         ORDER BY s.id`,
+        `
+        SELECT s.order_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost, s.delivery_status,
+               p.name AS product_name, p.image_path AS product_image
+        FROM sales s
+        JOIN products p ON p.id = s.product_id
+        WHERE s.order_id = ANY($1::int[])
+        ORDER BY s.id
+        `,
         [ids]
       )
     ).rows;
     for (const it of items) (itemsByOrder[it.order_id] ||= []).push(it);
   }
 
-  res.render("orders", { orders, itemsByOrder, dayjs });
+  // مهم: نمرّر filters للواجهة عشان ما يصير ReferenceError
+  res.render("orders", { orders, itemsByOrder, dayjs, filters });
 });
+
 
 // أكشنات جماعية على الطلبات
 app.post("/orders/bulk-status", async (req, res) => {
