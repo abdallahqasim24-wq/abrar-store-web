@@ -119,10 +119,15 @@
     <div class="container nav">
       <div class="brand">Abrar Store</div>
       <% if (currentUser) { %>
-        <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> الرئيسية</a>
+        <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
-        <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> اضافة طلب</a>
-        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
+        <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
+
+        <!-- الرابط الجديد: كل الطلبات -->
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
+          <i class="fa fa-list"></i> كل الطلبات
+        </a>
+
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
         <form class="right" method="post" action="/logout" style="margin:0">
@@ -171,62 +176,5 @@
       if(!wrap) document.querySelectorAll('.status-menu').forEach(m=>m.style.display='none');
     });
   </script>
-
-  <!-- تسجيل خروج فقط عند إغلاق التبويب/المتصفح (ليس عند الـ Refresh) -->
-  <script>
-/**
- * Logout فقط عند إغلاق التبويب/المتصفح.
- * لا يعمل عند:
- * - النقر على روابط داخلية بين صفحات الموقع
- * - إرسال نماذج داخل الموقع
- * - عمل Refresh (F5 / Ctrl+R / Cmd+R)
- */
-(function () {
-  let internalNav = false;
-  let refreshing  = false;
-
-  // 1) اعتبار أي ضغط على روابط داخلية تنقل داخلي (لا تعمل logout)
-  document.addEventListener("click", function (e) {
-    const a = e.target.closest("a");
-    if (!a) return;
-    // تجاهل روابط تفتح نافذة جديدة
-    if (a.target && a.target !== "_self") return;
-    const url = new URL(a.href, location.origin);
-    if (url.origin === location.origin) {
-      internalNav = true;
-    }
-  }, true);
-
-  // 2) النماذج الداخلية أيضًا
-  document.addEventListener("submit", function (e) {
-    const form = e.target;
-    if (!form) return;
-    if (!form.hasAttribute("target")) internalNav = true;
-  }, true);
-
-  // 3) كشف أوامر الريفريش الشائعة
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "F5") refreshing = true;
-    if ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R")) refreshing = true;
-  });
-
-  // 4) السلوك الرئيسي: على beforeunload لو مش تنقّل داخلي ولا ريفريش -> logout
-  window.addEventListener("beforeunload", function () {
-    if (internalNav || refreshing) return;
-    try {
-      navigator.sendBeacon("/logout-ajax");
-    } catch {
-      fetch("/logout-ajax", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" }, body: "" });
-    }
-  });
-
-  // 5) بعد عرض الصفحة الجديدة صفّر الفلاجز
-  window.addEventListener("pageshow", function () {
-    internalNav = false;
-    refreshing  = false;
-  });
-})();
-  </script>
-
 </body>
 </html>
