@@ -1,193 +1,250 @@
 <%-
-/**
- * views/orders.ejs — قائمة الطلبات مع تحديد الكل وأكشنات جماعية
- * يعتمد على:
- *  - orders: [{id, customer_name, customer_phone, customer_city, status, created_at, items_count, revenue, profit}]
- *  - dayjs, faLink
- */
+// orders.ejs — قائمة الطلبات + أكشنات جماعية
+// يعتمد على: orders, dayjs, faLink
 -%>
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  :root{
-    --border:#f7cfe1; --muted:#6b7280; --card:#fff; --shadow:0 12px 30px rgba(255,126,179,.12);
-    --btn-green:#22c55e; --btn-blue:#2563eb; --btn-orange:#f59e0b; --btn-red:#ef4444; --btn-deepred:#dc2626;
-  }
-  .container{max-width:1200px;margin:0 auto;padding:16px}
-  h2{margin:0 0 14px}
-  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-  .select-all{display:flex;align-items:center;gap:8px;font-weight:800}
-  .actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-
+  .page{padding:12px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
   .pill{
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    color:#fff;border:0;border-radius:14px;padding:10px 14px;cursor:pointer;font-weight:900; box-shadow:0 2px 0 rgba(0,0,0,.08)
+    display:inline-flex;align-items:center;gap:8px;
+    border:0;border-radius:16px;padding:10px 14px;font-weight:700;color:#fff;cursor:pointer
   }
-  .pill.green{background:var(--btn-green)}      /* تم التوصيل */
-  .pill.blue{background:var(--btn-blue)}        /* قيد التوصيل */
-  .pill.orange{background:var(--btn-orange)}    /* قيد المعالجة */
-  .pill.red{background:var(--btn-red)}          /* لم يتم/فشل */
-  .pill.deepred{background:var(--btn-deepred)}  /* إرجاع */
   .pill:disabled{opacity:.5;cursor:not-allowed}
-
-  .grid{display:grid;gap:12px}
-  .card{
-    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px; box-shadow:var(--shadow);
-    display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;
-  }
-  .chk{display:flex;align-items:center;justify-content:center}
-  .meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-  .meta b{display:block;font-size:.8rem;color:#374151}
-  .meta .v{font-weight:900}
-  .status{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-weight:800}
-  .muted{color:var(--muted)}
-  .money{white-space:nowrap}
-  .row-actions{display:flex;gap:8px}
-  @media(max-width:900px){
-    .card{grid-template-columns:1fr}
-    .meta{grid-template-columns:repeat(2,1fr)}
-  }
+  .pill.red{background:#ef4444}
+  .pill.green{background:#16a34a}
+  .pill.blue{background:#2563eb}
+  .pill.orange{background:#f59e0b;color:#111}
+  .pill.gray{background:#64748b}
+  .soft{background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:10px}
+  .muted{color:#6b7280}
+  .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;font-weight:700}
+  .chip.pending{background:#fff7eb}
+  .chip.processing{background:#fff7eb}
+  .chip.shipping{background:#eef6ff}
+  .chip.delivered{background:#edfee8}
+  .chip.failed{background:#fff1f2}
+  table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
+  thead th{background:#f9fafb;font-weight:800;color:#334155;text-align:center;padding:10px}
+  tbody td{padding:10px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
+  .row-head{display:flex;gap:8px;align-items:center;justify-content:flex-start}
+  .search{flex:1;min-width:240px}
+  .search input{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:12px}
+  .right{margin-inline-start:auto}
+  .small{font-size:.9rem}
+  .count{font-weight:800}
+  .badge-mini{font-weight:800}
+  .nowrap{white-space:nowrap}
+  a.link{color:#2563eb;text-decoration:none}
+  a.link:hover{text-decoration:underline}
 </style>
 
-<div class="container">
-  <h2><i class="fa fa-list"></i> الطلبات</h2>
-
-  <!-- شريط التحكم -->
-  <div class="toolbar">
-    <label class="select-all">
-      <input id="checkAll" type="checkbox">
-      <span>تحديد الكل</span>
+<div class="page">
+  <div class="toolbar soft">
+    <label class="row-head">
+      <input type="checkbox" id="checkAll">
+      <span class="muted">تحديد الكل</span>
     </label>
 
-    <!-- نماذج الأكشنات الجماعية -->
-    <div class="actions">
-      <!-- تم التوصيل -->
-      <form id="fDelivered" action="/orders/bulk-status" method="post">
-        <input type="hidden" name="ids" id="idsDelivered">
-        <input type="hidden" name="status" value="delivered">
-        <input type="hidden" name="apply_to_items" value="on">
-        <button class="pill green" type="submit" disabled id="btnDelivered">
-          <i class="fa fa-check"></i> تم التوصيل
-        </button>
-      </form>
+    <div class="muted small">المحدد: <span id="selCount" class="count">0</span></div>
 
-      <!-- قيد التوصيل -->
-      <form id="fShipping" action="/orders/bulk-status" method="post">
-        <input type="hidden" name="ids" id="idsShipping">
-        <input type="hidden" name="status" value="shipping">
-        <input type="hidden" name="apply_to_items" value="on">
-        <button class="pill blue" type="submit" disabled id="btnShipping">
-          <i class="fa fa-truck"></i> قيد التوصيل
-        </button>
-      </form>
-
-      <!-- قيد المعالجة -->
-      <form id="fProcessing" action="/orders/bulk-status" method="post">
-        <input type="hidden" name="ids" id="idsProcessing">
-        <input type="hidden" name="status" value="processing">
-        <input type="hidden" name="apply_to_items" value="on">
-        <button class="pill orange" type="submit" disabled id="btnProcessing">
-          <i class="fa fa-spinner fa-spin"></i> قيد المعالجة
-        </button>
-      </form>
-
-      <!-- لم يتم/فشل -->
-      <form id="fFailed" action="/orders/bulk-status" method="post">
-        <input type="hidden" name="ids" id="idsFailed">
-        <input type="hidden" name="status" value="not_delivered">
-        <input type="hidden" name="apply_to_items" value="on">
-        <button class="pill red" type="submit" disabled id="btnFailed">
-          <i class="fa fa-xmark"></i> لم يتم التوصيل
-        </button>
-      </form>
-
-      <!-- إرجاع (كل بنود الطلب إلى الراجع) -->
-      <form id="fReturn" action="/orders/bulk-return" method="post">
-        <input type="hidden" name="ids" id="idsReturn">
-        <button class="pill deepred" type="submit" disabled id="btnReturn">
-          <i class="fa fa-rotate-left"></i> إرجاع
-        </button>
-      </form>
+    <div class="right search">
+      <input id="q" placeholder="بحث: الاسم / الهاتف / الحالة / المدينة / #الطلب">
     </div>
   </div>
 
-  <!-- قائمة الطلبات -->
-  <div class="grid" id="ordersList">
-    <% orders.forEach(o => { %>
-      <div class="card">
-        <div class="chk">
-          <input type="checkbox" class="chkRow" value="<%= o.id %>">
-        </div>
+  <!-- شريط الأزرار -->
+  <div class="toolbar">
+    <!-- إرجاع -->
+    <form id="fReturn" method="post" action="/orders/bulk-return">
+      <input type="hidden" name="ids" id="idsReturn">
+      <button type="submit" class="pill red" disabled id="btnReturn" title="إرجاع كل البنود في الطلبات المحددة">
+        <i class="fa fa-rotate-left"></i> إرجاع
+      </button>
+    </form>
 
-        <div class="meta">
-          <div><b>#الطلب</b><div class="v">#<%= o.id %></div></div>
-          <div><b>الزبون</b><div class="v"><%= o.customer_name || '—' %></div></div>
-          <div><b>الهاتف</b><div class="v"><%= o.customer_phone || '—' %></div></div>
-          <div><b>المدينة</b><div class="v"><%= o.customer_city || '—' %></div></div>
-          <div><b>البنود</b><div class="v"><%= o.items_count || 0 %></div></div>
-          <div><b>الإيراد</b><div class="v money">₪<%= Number(o.revenue||0).toFixed(2) %></div></div>
-          <div><b>الربح</b><div class="v money">₪<%= Number(o.profit||0).toFixed(2) %></div></div>
-          <div>
-            <b>الحالة</b>
-            <div class="v">
-              <span class="status"><i class="fa fa-circle-dot"></i> <%= o.status %></span>
-            </div>
-          </div>
-          <div style="grid-column:1 / -1" class="muted">
-            <i class="fa fa-clock"></i>
-            <%= (dayjs && dayjs.tz)
-                  ? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                  : (new Date(o.created_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'}) %>
-          </div>
-        </div>
+    <!-- فشل -->
+    <form id="fFailed" method="post" action="/orders/bulk-status">
+      <input type="hidden" name="ids" id="idsFailed">
+      <input type="hidden" name="status" value="failed">
+      <input type="hidden" name="apply_to_items" value="on">
+      <button type="submit" class="pill red" disabled id="btnFailed" title="تعيين فشل/لم يتم">
+        <i class="fa fa-xmark"></i> لم يتم
+      </button>
+    </form>
 
-        <div class="row-actions">
-          <a class="pill ghost" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> تعديل</a>
-        </div>
-      </div>
-    <% }) %>
+    <!-- تم التسليم -->
+    <form id="fDelivered" method="post" action="/orders/bulk-status">
+      <input type="hidden" name="ids" id="idsDelivered">
+      <input type="hidden" name="status" value="delivered">
+      <input type="hidden" name="apply_to_items" value="on">
+      <button type="submit" class="pill green" disabled id="btnDelivered" title="تعيين تمّ التسليم">
+        <i class="fa fa-check"></i> تم التسليم
+      </button>
+    </form>
 
-    <% if(!(orders||[]).length){ %>
-      <div class="muted">لا توجد طلبات.</div>
-    <% } %>
+    <!-- قيد التوصيل -->
+    <form id="fShipping" method="post" action="/orders/bulk-status">
+      <input type="hidden" name="ids" id="idsShipping">
+      <input type="hidden" name="status" value="shipping">
+      <input type="hidden" name="apply_to_items" value="on">
+      <button type="submit" class="pill blue" disabled id="btnShipping" title="تعيين قيد التوصيل">
+        <i class="fa fa-truck"></i> قيد التوصيل
+      </button>
+    </form>
+
+    <!-- قيد المعالجة -->
+    <form id="fProcessing" method="post" action="/orders/bulk-status">
+      <input type="hidden" name="ids" id="idsProcessing">
+      <input type="hidden" name="status" value="processing">
+      <input type="hidden" name="apply_to_items" value="on">
+      <button type="submit" class="pill orange" disabled id="btnProcessing" title="تعيين قيد المعالجة">
+        <i class="fa fa-spinner"></i> قيد المعالجة
+      </button>
+    </form>
+  </div>
+
+  <div class="soft small" style="display:flex;gap:14px;align-items:center">
+    <label class="row-head">
+      <input type="checkbox" id="applyAll" checked>
+      <span class="muted">تطبيق الحالة على كل البنود داخل الطلب</span>
+    </label>
+    <span class="muted">* مفعّل لكل الأزرار أعلاه.</span>
+  </div>
+
+  <div style="margin-top:12px;overflow:auto">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th style="width:46px">#</th>
+          <th>الزبون</th>
+          <th>الهاتف</th>
+          <th>المدينة</th>
+          <th>الحالة</th>
+          <th>بنود</th>
+          <th>الإيراد (₪)</th>
+          <th>الربح (₪)</th>
+          <th class="nowrap">التاريخ</th>
+          <th>فتح</th>
+        </tr>
+      </thead>
+      <tbody id="body">
+        <% (orders||[]).forEach(o=>{ %>
+          <tr data-row data-id="<%= o.id %>">
+            <td>
+              <div class="row-head">
+                <input type="checkbox" class="ck" value="<%= o.id %>">
+                <span class="badge-mini">#<%= o.id %></span>
+              </div>
+            </td>
+            <td style="text-align:right">
+              <div class="row-head">
+                <div>
+                  <div><strong><%= o.customer_name || 'بدون اسم' %></strong></div>
+                  <div class="muted small"><%= (o.note||'').slice(0,80) %></div>
+                </div>
+              </div>
+            </td>
+            <td><%= o.customer_phone || '—' %></td>
+            <td><%= o.customer_city  || '—' %></td>
+            <td>
+              <span class="chip <%= o.status %>">
+                <i class="fa <%= o.status==='delivered'?'fa-check':o.status==='shipping'?'fa-truck':o.status==='failed'?'fa-xmark':o.status==='processing'?'fa-spinner':'fa-hourglass-half' %>"></i>
+                <%= o.status==='delivered'?'تم التسليم':o.status==='shipping'?'قيد التوصيل':o.status==='failed'?'فشل/لم يتم':o.status==='processing'?'قيد المعالجة':'pending' %>
+              </span>
+            </td>
+            <td><%= o.items_count || 0 %></td>
+            <td><%= Number(o.revenue||0).toFixed(2) %></td>
+            <td><%= Number(o.profit ||0).toFixed(2) %></td>
+            <td class="nowrap">
+              <%= (dayjs && dayjs.tz)? dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') : new Date(o.created_at).toLocaleString('en-CA',{hour12:false}) %>
+            </td>
+            <td><a class="link" href="/orders/<%= o.id %>"><i class="fa fa-up-right-from-square"></i></a></td>
+          </tr>
+        <% }) %>
+        <% if(!(orders||[]).length){ %>
+          <tr><td colspan="10" class="muted">لا توجد طلبات.</td></tr>
+        <% } %>
+      </tbody>
+    </table>
   </div>
 </div>
 
 <script>
-  // إدارة التحديد الجماعي وتعبئة النماذج المخفية
-  (function(){
-    const checkAll = document.getElementById('checkAll');
-    const rows = Array.from(document.querySelectorAll('.chkRow'));
+(()=> {
+  const $ = s=>document.querySelector(s);
+  const $$ = s=>Array.from(document.querySelectorAll(s));
+  const q = $("#q");
+  const checkAll = $("#checkAll");
+  const selCount = $("#selCount");
+  const applyAll = $("#applyAll");
 
-    // أزرار ونماذج
-    const map = [
-      { idsEl: 'idsDelivered',  btn: 'btnDelivered'  },
-      { idsEl: 'idsShipping',   btn: 'btnShipping'   },
-      { idsEl: 'idsProcessing', btn: 'btnProcessing' },
-      { idsEl: 'idsFailed',     btn: 'btnFailed'     },
-      { idsEl: 'idsReturn',     btn: 'btnReturn'     },
-    ];
+  const btns = [
+    {btn:"#btnReturn", ids:"#idsReturn", form:"#fReturn", type:"return"},
+    {btn:"#btnFailed", ids:"#idsFailed", form:"#fFailed"},
+    {btn:"#btnDelivered", ids:"#idsDelivered", form:"#fDelivered"},
+    {btn:"#btnShipping", ids:"#idsShipping", form:"#fShipping"},
+    {btn:"#btnProcessing", ids:"#idsProcessing", form:"#fProcessing"},
+  ];
 
-    function getSelected(){
-      return rows.filter(r=>r.checked).map(r=>r.value);
+  function getSelectedIds(){
+    return $$(".ck:checked").map(i=>Number(i.value)).filter(Boolean);
+  }
+  function updateState(){
+    const ids = getSelectedIds();
+    selCount.textContent = ids.length;
+    btns.forEach(({btn}) => $(btn).disabled = ids.length===0);
+    checkAll.checked = ids.length && ids.length === $$(".ck").length;
+  }
+  function setHiddenAndSubmit(formSel, idsSel){
+    const ids = getSelectedIds();
+    if(!ids.length) return false;
+    $(idsSel).value = ids.join(",");
+    // تأكيد الإرجاع
+    if(formSel==="#fReturn"){
+      if(!confirm("إرجاع كل بنود الطلبات المحددة إلى الراجع؟")) return false;
     }
-    function refresh(){
-      const ids = getSelected();
-      map.forEach(m=>{
-        const input = document.getElementById(m.idsEl);
-        const btn   = document.getElementById(m.btn);
-        if(input) input.value = ids.join(',');
-        if(btn) btn.disabled = ids.length === 0;
-      });
-      checkAll.indeterminate = ids.length>0 && ids.length<rows.length;
-      checkAll.checked = ids.length === rows.length && rows.length>0;
+    // sync apply_to_items checkbox (مفعّل لكل الاستاتسات)
+    if(formSel!=="#fReturn"){
+      const f = $(formSel);
+      if(!f.querySelector('input[name="apply_to_items"]')){
+        const i = document.createElement('input'); i.type="hidden"; i.name="apply_to_items";
+        f.appendChild(i);
+      }
+      f.querySelector('input[name="apply_to_items"]').value = applyAll.checked ? "on":"off";
     }
+    $(formSel).submit();
+    return true;
+  }
 
-    checkAll?.addEventListener('change', e=>{
-      rows.forEach(r => r.checked = e.target.checked);
-      refresh();
+  // أحداث الجدول
+  $$("#body").forEach(()=>{});
+  document.addEventListener("change", e=>{
+    if(e.target.classList.contains("ck")) updateState();
+    if(e.target===checkAll){
+      $$(".ck").forEach(c=>c.checked = checkAll.checked);
+      updateState();
+    }
+  });
+
+  // أزرار الإرسال
+  btns.forEach(({btn, ids, form, type})=>{
+    $(btn).addEventListener("click", (ev)=>{
+      ev.preventDefault();
+      setHiddenAndSubmit(form, ids);
     });
-    rows.forEach(r => r.addEventListener('change', refresh));
-    refresh();
-  })();
+  });
+
+  // فلترة
+  q.addEventListener("input", ()=>{
+    const term = q.value.toLowerCase().trim();
+    $$("#body tr[data-row]").forEach(tr=>{
+      const t = tr.innerText.toLowerCase();
+      tr.style.display = t.includes(term) ? "" : "none";
+    });
+  });
+
+  updateState();
+})();
 </script>
