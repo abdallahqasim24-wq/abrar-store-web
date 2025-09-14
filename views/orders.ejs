@@ -2,7 +2,7 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <%
-// أماناً لو ما وصل متغيّر filters من السيرفر
+/** حماية في حال ما وصل filters من السيرفر */
 const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
 const st = _filters.status || 'all';
 const so = _filters.sort   || 'newest';
@@ -52,18 +52,18 @@ function statusLabel(s){
 
       <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-      <div class="bulk-actions">
+      <div class="bulk-actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <input type="hidden" name="apply_to_items" value="on">
-        <button class="btn warn"  formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
-        <button class="btn info"  formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-        <button class="btn gray"  formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-        <button class="btn success" formaction="/orders/bulk-status" name="status" value="delivered" type="submit"><i class="fa fa-check"></i> تعليم كمسلّمة</button>
-        <button class="btn danger" formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> تعليم كفاشلة</button>
+        <button data-bulk class="btn warn"     formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+        <button data-bulk class="btn info"     formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+        <button data-bulk class="btn gray"     formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+        <button data-bulk class="btn success"  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+        <button data-bulk class="btn danger"   formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
       </div>
 
       <span class="right"></span>
 
-      <button class="btn danger" formaction="/orders/bulk-delete" type="submit"
+      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit"
               onclick="return confirm('حذف الطلبات المحددة نهائيًا؟')">
         <i class="fa fa-trash"></i> حذف المحدّد
       </button>
@@ -85,7 +85,7 @@ function statusLabel(s){
            const profit   = its.reduce((a,x)=> a + (Number(x.sale_price)*Number(x.quantity) - Number(x.cost_price)*Number(x.quantity)), 0);
       %>
         <div class="card">
-          <!-- رأس البطاقة: تحديد + حالة + رقم + وقت -->
+          <!-- رأس البطاقة -->
           <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
             <div class="row" style="gap:12px;align-items:center">
               <input class="rowCheck" type="checkbox" name="ids" value="<%= o.id %>">
@@ -130,21 +130,21 @@ function statusLabel(s){
             <% }) %>
 
             <% if (more > 0) { %>
-              <span class="badge">+<%= more %> أخرى</span>
+              <span class="status-chip">+<%= more %> أخرى</span>
             <% } %>
           </div>
 
-          <!-- أزرار الحالة السريعة + زر فتح الطلب + إحصائيات -->
+          <!-- أزرار الحالة + فتح الطلب + إحصائيات -->
           <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
             <div class="row" style="gap:8px">
               <form method="post" action="/orders/bulk-status" class="row" style="gap:8px">
                 <input type="hidden" name="ids" value="<%= o.id %>">
                 <input type="hidden" name="apply_to_items" value="on">
-                <button class="btn warn"   name="status" value="pending"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
-                <button class="btn info"   name="status" value="processing"  title="قيد المعالجة"><i class="fa fa-gears"></i></button>
-                <button class="btn gray"   name="status" value="shipping"    title="قيد التوصيل"><i class="fa fa-truck"></i></button>
-                <button class="btn success"name="status" value="delivered"   title="تم التسليم"><i class="fa fa-check"></i></button>
-                <button class="btn danger" name="status" value="failed"      title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
+                <button class="btn warn"    name="status" value="pending"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
+                <button class="btn info"    name="status" value="processing" title="قيد المعالجة"><i class="fa fa-gears"></i></button>
+                <button class="btn gray"    name="status" value="shipping"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
+                <button class="btn success" name="status" value="delivered"  title="تم التسليم"><i class="fa fa-check"></i></button>
+                <button class="btn danger"  name="status" value="failed"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
               </form>
 
               <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')" class="row">
@@ -174,12 +174,19 @@ function statusLabel(s){
 </div>
 
 <script>
-  // تحديد الكل + عدّاد
+  // تحديد الكل + عدّاد + تعطيل/تفعيل أزرار الأوامر الجماعية
   (function(){
-    const all = document.getElementById('selectAll');
-    const rows = [...document.querySelectorAll('.rowCheck')];
-    const cnt  = document.getElementById('selCount');
-    function refresh(){ cnt.textContent = rows.filter(r=>r.checked).length; }
+    const all   = document.getElementById('selectAll');
+    const rows  = [...document.querySelectorAll('.rowCheck')];
+    const cnt   = document.getElementById('selCount');
+    const bulk  = [...document.querySelectorAll('[data-bulk]')];
+
+    function setDisabled(dis){ bulk.forEach(b => b.disabled = dis); }
+    function refresh(){
+      const n = rows.filter(r=>r.checked).length;
+      cnt.textContent = n;
+      setDisabled(n === 0);
+    }
     if (all) all.addEventListener('change', ()=>{ rows.forEach(r=>r.checked=all.checked); refresh(); });
     rows.forEach(r=> r.addEventListener('change', refresh));
     refresh();
