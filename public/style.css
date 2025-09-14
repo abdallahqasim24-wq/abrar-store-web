@@ -15,7 +15,7 @@ body{
 ========================= */
 :root{
   --bg:#fff7fb;
-  --text:#1f2937;
+  --text:#111827;
   --muted:#6b7280;
   --card:#ffffff;
   --border:#f7cfe1;
@@ -27,6 +27,10 @@ body{
   --warning:#f59e0b;
   --danger:#ef4444;
   --gray:#6b7280;
+
+  --disabled-bg:#e5e7eb;
+  --disabled-text:#6b7280;
+  --disabled-border:#cbd5e1;
 
   --shadow:0 12px 30px rgba(255,126,179,.15);
   --thumb-size:100px;
@@ -48,19 +52,19 @@ body{ background:var(--bg); color:var(--text) }
 }
 .page{ padding:18px 0 }
 
-.row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
 .right{ margin-inline-start:auto }
 .muted{ color:var(--muted) }
 .muted-sm{ color:#6b7280; font-size:.9rem }
 
-h1,h2,h3{ letter-spacing:.1px; margin:0 0 .35rem }
-h1{ font-size:1.85rem; font-weight:800 }
-h2{ font-size:1.45rem; font-weight:800 }
-h3{ font-size:1.05rem; font-weight:700 }
+h1,h2,h3{ letter-spacing:.1px; margin:0 0 .45rem }
+h1{ font-size:1.9rem; font-weight:800 }
+h2{ font-size:1.5rem; font-weight:800 }
+h3{ font-size:1.1rem; font-weight:700 }
 
-table{ width:100%; border-collapse:collapse; min-width: 900px; font-size:.97rem }
-th,td{ border-bottom:1px solid var(--border); padding:10px; vertical-align:middle; text-align:center }
-th{ background:#fff0f6; color:#374151 }
+table{ width:100%; border-collapse:collapse; min-width: 900px; font-size:1rem }
+th,td{ border-bottom:1px solid var(--border); padding:12px; vertical-align:middle; text-align:center }
+th{ background:#fff0f6; color:#374151; font-weight:800 }
 
 input,select,textarea{
   width:100%;
@@ -71,16 +75,13 @@ input,select,textarea{
   color:#111; outline:none;
   font-size:1rem;
 }
-label{ font-size:.95rem; color:#374151; font-weight:700 }
+label{ font-size:.9rem; color:#6b7280 }
 
-/* تكبير ووضوح checkboxes */
-input[type="checkbox"]{
-  width:18px; height:18px;
-  accent-color: var(--primary);
-}
+/* إبراز صناديق الاختيار */
+#selectAll, .rowCheck{ accent-color: var(--primary); transform: scale(1.15); }
 
 /* =========================
-   Topbar (اختياري)
+   Topbar
 ========================= */
 .topbar{ position:sticky; top:0; z-index:10;
   background:linear-gradient(90deg,var(--accent1),var(--accent2));
@@ -102,17 +103,17 @@ input[type="checkbox"]{
 .cards{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap:16px;
+  gap:18px;
 }
 .card{
   background:var(--card);
   border:1px solid var(--border);
   border-radius:18px;
-  padding:16px;
+  padding:18px;
   box-shadow:var(--shadow)
 }
-.card h3{ margin:0 0 6px; color:#374151; font-size:14px }
-.kpi{ font-size:26px; font-weight:800 }
+.card h3{ margin:0 0 6px; color:#374151; font-size:15px }
+.kpi{ font-size:28px; font-weight:800 }
 
 /* =========================
    Forms Grid
@@ -146,7 +147,7 @@ input[type="checkbox"]{
 #imgPreviewClose{
   position:fixed; inset:12px 12px auto auto; z-index:85;
   background:#fff; border:1px solid #e5e7eb; border-radius:999px;
-  width:40px; height:40px; display:flex; align-items:center; justify-content:center;
+  width:40px; height:40px; display:none; align-items:center; justify-content:center;
   cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.12)
 }
 
@@ -154,19 +155,19 @@ input[type="checkbox"]{
    Buttons (unified)
 ========================= */
 .btn{
-  padding:11px 16px;
-  border-radius:12px;
+  padding:12px 18px;
+  border-radius:14px;
   border:0;
   color:#fff;
   font-weight:800;
   cursor:pointer;
-  transition:.18s;
-  display:inline-flex; align-items:center; gap:8px;
+  transition:.2s;
+  display:inline-flex; align-items:center; gap:10px;
 }
-.btn:hover{ opacity:.94; transform:translateY(-1px) }
-.btn[disabled]{ cursor:not-allowed }
+.btn:hover{ opacity:.95; transform:translateY(-1px) }
+.btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
+.btn[disabled]{ opacity:.6; cursor:not-allowed; transform:none }
 
-/* ألوان صريحة وواضحة */
 .btn.add{ background:var(--primary) }
 .btn.save{ background:var(--success) }
 .btn.edit{ background:var(--warning); color:#111 }
@@ -182,10 +183,10 @@ input[type="checkbox"]{
 .btn.gray:hover,.btn.info:hover,.btn.warn:hover{ filter:brightness(1.05) }
 
 /* تكبيرات عامة */
-.btn-lg{ font-size:1.06rem; padding:12px 18px; border-radius:14px }
-.badge{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:.95rem; border:1px solid var(--border); background:#fff }
-.badge-lg{ font-size:1.06rem; padding:6px 14px }
-.chip-lg{ font-size:1.05rem !important; padding:8px 14px !important }
+.btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
+.badge{ display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-weight:800; font-size:.95rem; border:1px solid var(--border); background:#fff; color:#374151 }
+.badge-lg{ font-size:1.08rem; padding:8px 14px }
+.chip-lg{ font-size:1.06rem !important; padding:8px 14px !important }
 
 /* زر فتح الطلب الكبير */
 .btn.open-order{ background:#36495b; color:#fff }
@@ -196,49 +197,52 @@ input[type="checkbox"]{
 ========================= */
 .order-kpis{
   display:flex; gap:18px; flex-wrap:wrap;
-  font-size:1.05rem; color:#374151;
+  font-size:1.06rem; color:#374151;
 }
-.order-kpis strong{ font-size:1.1rem }
+.order-kpis strong{ font-size:1.12rem }
 
 /* =========================
-   Bulk toolbar
+   Bulk toolbar (actions on many orders)
 ========================= */
 .bulk-bar{
   display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px 14px;
+  background:#fff; border:1px solid var(--border); border-radius:16px; padding:14px 16px;
   box-shadow:var(--shadow);
 }
-.bulk-left{ display:flex; align-items:center; gap:10px }
-.bulk-right{ margin-inline-start:auto }
-.select-all{ display:inline-flex; align-items:center; gap:10px; cursor:pointer }
-.select-all input{ width:20px; height:20px; accent-color: var(--primary) }
-.select-all span{ font-weight:900; color:#111 }
-
-.bulk-count{ color:#111; font-weight:800 }
+.bulk-title{ font-weight:900; color:#374151 }
+.bulk-count{ color:#111827; font-weight:900 }
 .bulk-actions{ display:flex; gap:8px; flex-wrap:wrap }
+.bulk-actions .btn{ border-radius:999px; padding:11px 15px }
+.bulk-actions .btn.success{ background:#16a34a }
+.bulk-actions .btn.danger{ background:#dc2626 }
+.bulk-actions .btn.info{ background:#2563eb }
+.bulk-actions .btn.warn{ background:#f59e0b; color:#1f2937 }
+.bulk-actions .btn.gray{ background:#6b7280 }
 
-/* أزرار الأوامر المعطّلة: واضحة ولمّاعة */
-.bulk-actions .btn[disabled]{
-  opacity:.9;                     /* تقريبًا واضح */
-  filter: grayscale(.15) brightness(.98);
-  border:1px dashed #d1d5db;
-  color:#374151 !important;
+/* شكل واضح لتعطيل أزرار الـBulk */
+.bulk-actions .btn[disabled],
+button[data-bulk][disabled],
+.btn[disabled][data-bulk]{
+  background:var(--disabled-bg) !important;
+  color:var(--disabled-text) !important;
+  border:1px solid var(--disabled-border) !important;
+  opacity:1;
 }
 
 /* =========================
    Status chips / selects
 ========================= */
 .status-chip{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; font-weight:800; font-size:.95rem;
-  border:1px solid var(--border); user-select:none; background:#fff
+  display:inline-flex; align-items:center; gap:8px;
+  padding:7px 12px; border-radius:999px; font-weight:900; font-size:1rem;
+  border:1px solid var(--border); user-select:none; background:#fff; color:#374151;
 }
-.status-pending{ background:#fff7e6 }
-.status-shipping{ background:#eef6ff }
-.status-delivered{ background:#e6ffed }
-.status-failed{ background:#ffe6e6 }
+.status-pending{   background:#fff7e6; border-color:#fcd34d; color:#92400e }
+.status-shipping{  background:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
+.status-delivered{ background:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
+.status-failed{    background:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
 
-/* Select عام */
+/* Select (عام) */
 select{
   appearance:none; -webkit-appearance:none; -moz-appearance:none;
   background:
@@ -252,7 +256,7 @@ select:focus{
   box-shadow: 0 0 0 3px rgba(37,99,235,.15);
 }
 
-/* Select حالة ملوّن */
+/* Select حالة ملوّن (للأمر المفرد) */
 .select-status{
   appearance:none; -webkit-appearance:none; -moz-appearance:none;
   font-weight:800; cursor:pointer;
@@ -268,21 +272,21 @@ select:focus{
 .select-status.failed    { background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d; }
 .select-status:hover { filter:brightness(.98) }
 
-/* أزرار حالة أيقونية (اختياري) */
+/* أزرار حالة صغيرة منفصلة (أيقونية) */
 .order-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
 .pill{
-  width:48px; height:48px; border-radius:14px; border:0; cursor:pointer;
+  width:50px; height:50px; border-radius:14px; border:0; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
   transition: transform .15s, filter .15s;
 }
 .pill:hover{ transform:translateY(-2px); filter:saturate(1.05) }
 .pill i{ font-size:20px; color:#fff }
-.pill.pending  { background: var(--warning) }
-.pill.shipping { background: var(--primary) }
-.pill.done     { background: var(--success) }
-.pill.fail     { background: var(--danger) }
-.pill.return   { background: #ef4444 }
+.pill.pending  { background: var(--warning) }     /* قيد المعالجة */
+.pill.shipping { background: var(--primary) }     /* قيد التوصيل */
+.pill.done     { background: var(--success) }     /* تم التسليم */
+.pill.fail     { background: var(--danger) }      /* فشل */
+.pill.return   { background: #ef4444 }            /* إرجاع */
 .pill .dot{ width:10px; height:10px; border-radius:999px; background:#000; opacity:.25 }
 
 /* =========================
@@ -296,7 +300,6 @@ select:focus{
 }
 
 /* =========================
-   Helpers
+   Helpers for order card meta
 ========================= */
 .order-meta{ font-size:1rem; color:#6b7280 }
-.rowCheck{ width:18px; height:18px; accent-color:var(--primary) }
