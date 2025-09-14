@@ -1,216 +1,101 @@
-<%-
-/**
- * orders-new.ejs — إنشاء طلب جديد
- * يعتمد على:
- *  - products: [{id,name,stock,sale_price,cost_price,image_path}]
- *  - dayjs
- *  - faLink
- */
--%>
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
-  .items-grid{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
-  .items-grid th{background:#feeef5;text-align:center;padding:10px}
-  .items-grid td{padding:8px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
-  .thumb{width:48px;height:48px;border-radius:10px;border:1px solid #ebedf0;object-fit:cover;background:#fff}
-  .mini-tag{display:inline-block;padding:2px 8px;border:1px solid #ebedf0;border-radius:999px;background:#fff7fb;font-size:.8rem}
-  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
-  .btn.add{background:#2563eb;color:#fff}
-  .btn.secondary{background:#f1f5f9;color:#111}
-  .btn.danger{background:#ef4444;color:#fff}
-  .row{display:flex;gap:8px;align-items:center}
-  .right{margin-inline-start:auto}
-  .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-  @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
-  @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
-  .pcard{border:1px solid #ebedf0;border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
-  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid #ebedf0;border-radius:12px}
-  .tag{display:inline-block;padding:2px 8px;border:1px solid #ebedf0;border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
-  .name{font-weight:800;text-align:center;min-height:48px}
-  .modal{position:fixed;inset:0;display:none;z-index:90}
-  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-  .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid #ebedf0;display:flex;flex-direction:column}
-  .mclose{position:absolute;inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5}
-  .mhead{display:flex;gap:10px;align-items:center;padding:12px 12px 12px 56px;border-bottom:1px solid #f1f5f9}
-  input, select{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:10px}
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px;
+  }
+  .form-grid label{font-weight:700;font-size:.9rem;color:#374151;margin-bottom:4px;display:block}
+  .items-table{width:100%;border-collapse:collapse;margin-top:18px}
+  .items-table th,.items-table td{padding:10px;border:1px solid #f1f5f9;text-align:center}
+  .items-table th{background:#feeef5}
+  .btn.add-row{background:#2563eb;color:#fff;border:none;padding:8px 14px;border-radius:10px;font-weight:700}
+  .btn.save{background:#16a34a;color:#fff;padding:10px 16px;border:none;border-radius:12px;font-weight:700}
+  .remove-btn{background:#ef4444;color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer}
 </style>
 
-<div class="row" style="justify-content:space-between;align-items:center">
-  <h2 style="margin:0"><i class="fa fa-cart-plus"></i> إنشاء طلب جديد</h2>
-  <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> قائمة الطلبات</a>
-</div>
+<h2><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدة منتجات)</h2>
 
-<div class="card">
-  <form method="post" action="/orders" id="orderForm" class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div><label>اسم الزبون</label><input name="customer_name" required></div>
-    <div><label>الهاتف</label><input name="customer_phone"></div>
-    <div><label>المدينة</label><input name="customer_city"></div>
-    <div><label>ملاحظة عامة</label><input name="note"></div>
-
-    <div style="grid-column:1 / -1">
-      <table class="items-grid" id="itemsTable">
-        <thead>
-          <tr>
-            <th>المنتج</th>
-            <th>كمية</th>
-            <th>سعر بيع (₪)</th>
-            <th>سعر أصلي (₪)</th>
-            <th>شحن (₪)</th>
-            <th>ملاحظة</th>
-            <th>إجراء</th>
-          </tr>
-        </thead>
-        <tbody id="itemsBody"></tbody>
-      </table>
-      <div class="row right" style="margin-top:8px">
-        <button class="btn add" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
-      </div>
+<form method="post" action="/orders">
+  <div class="form-grid">
+    <div>
+      <label>رقم الطلب</label>
+      <input type="number" name="order_id" placeholder="أدخل رقم الطلب">
     </div>
-
-    <div class="right" style="grid-column:1 / -1">
-      <button class="btn add" type="submit"><i class="fa fa-paper-plane"></i> إنشاء الطلب</button>
+    <div>
+      <label>اسم الزبون</label>
+      <input type="text" name="customer_name">
     </div>
-  </form>
-</div>
-
-<!-- منتقي المنتجات (شبكة) -->
-<div class="modal" id="pickerModal" aria-hidden="true">
-  <div class="modal-bg"></div>
-  <div class="modal-card">
-    <button type="button" id="pickerClose" class="mclose" aria-label="إغلاق">
-      <i class="fa fa-xmark"></i>
-    </button>
-    <div class="mhead">
-      <i class="fa fa-grid-2"></i>
-      <div style="font-weight:800">اختيار منتج</div>
-      <input id="searchBox" placeholder="ابحث..." class="right" style="max-width:320px">
+    <div>
+      <label>الهاتف</label>
+      <input type="text" name="customer_phone">
     </div>
-    <div class="mgrid" id="gridWrap">
-      <% products.forEach(p=>{ %>
-        <div class="pcard" data-id="<%= p.id %>"
-             data-name="<%- p.name %>"
-             data-img="<%= p.image_path||'' %>"
-             data-sale="<%= Number(p.sale_price||0) %>"
-             data-cost="<%= Number(p.cost_price||0) %>"
-             data-stock="<%= Number(p.stock||0) %>">
-          <img src="<%= p.image_path||'' %>" alt="">
-          <div class="name"><%= p.name %></div>
-          <div style="text-align:center">
-            <span class="tag">بيع: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
-            <span class="tag">أصلي: ₪<%= Number(p.cost_price||0).toFixed(2) %></span>
-            <span class="tag">مخزون: <%= Number(p.stock||0) %></span>
-          </div>
-          <button class="btn add pickBtn" type="button"><i class="fa fa-check"></i> اختيار</button>
-        </div>
-      <% }) %>
+    <div>
+      <label>المدينة</label>
+      <input type="text" name="customer_city">
+    </div>
+    <div style="grid-column:1/-1">
+      <label>ملاحظة عامة</label>
+      <input type="text" name="note">
     </div>
   </div>
-</div>
+
+  <table class="items-table" id="itemsTable">
+    <thead>
+      <tr>
+        <th>المنتج</th>
+        <th>كمية</th>
+        <th>سعر بيع (₪)</th>
+        <th>سعر أصلي (₪)</th>
+        <th>شحن (₪)</th>
+        <th>ملاحظة</th>
+        <th>حذف</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <select name="product_id" required>
+            <option value="">— اختر —</option>
+            <% products.forEach(p => { %>
+              <option value="<%= p.id %>"><%= p.name %> (مخزون: <%= p.stock %>)</option>
+            <% }) %>
+          </select>
+        </td>
+        <td><input type="number" name="quantity" value="1" min="1"></td>
+        <td><input type="number" step="0.01" name="sale_price"></td>
+        <td><input type="number" step="0.01" name="cost_price"></td>
+        <td><input type="number" step="0.01" name="shipping_cost"></td>
+        <td><input type="text" name="item_note"></td>
+        <td><button type="button" class="remove-btn">&times;</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:12px">
+    <button type="button" class="btn add-row"><i class="fa fa-plus"></i> إضافة صف</button>
+  </div>
+
+  <div style="margin-top:16px">
+    <button type="submit" class="btn save"><i class="fa fa-save"></i> حفظ الطلب</button>
+  </div>
+</form>
 
 <script>
-  // مولّد صف
-  function makeRow(){
-    return `
-      <tr>
-        <td style="text-align:right">
-          <input type="hidden" name="product_id">
-          <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
-            <img class="thumb pimg" style="display:none">
-            <div class="pname" style="max-width:360px">— لم يتم الاختيار —</div>
-            <button class="btn secondary pick-btn" type="button"><i class="fa fa-grid-2"></i> اختيار</button>
-          </div>
-          <div class="row" style="gap:6px;margin-top:4px">
-            <span class="mini-tag">مخزون: <b class="pstock">0</b></span>
-            <span class="mini-tag">بيع إفتراضي: ₪<b class="psale">0.00</b></span>
-            <span class="mini-tag">أصلي: ₪<b class="pcost">0.00</b></span>
-          </div>
-        </td>
-        <td><input type="number" name="quantity" value="1" min="1" step="1" required></td>
-        <td><input type="number" name="sale_price" step="0.01" required></td>
-        <td><input type="number" name="cost_price" step="0.01" required></td>
-        <td><input type="number" name="shipping_cost" step="0.01" value="0"></td>
-        <td><input type="text" name="item_note"></td>
-        <td><button type="button" class="btn danger del-row"><i class="fa fa-trash"></i> حذف</button></td>
-      </tr>
-    `;
-  }
+  // تكرار الصفوف
+  const table = document.getElementById("itemsTable").querySelector("tbody");
+  document.querySelector(".add-row").addEventListener("click",()=>{
+    const clone = table.rows[0].cloneNode(true);
+    clone.querySelectorAll("input").forEach(i=>i.value="");
+    clone.querySelector("select").selectedIndex=0;
+    table.appendChild(clone);
+  });
 
-  (function(){
-    const body = document.getElementById('itemsBody');
-    const add  = document.getElementById('addRow');
-    function addRow(){ body.insertAdjacentHTML('beforeend', makeRow()); }
-    addRow();
-    add.addEventListener('click', addRow);
-
-    // حذف
-    body.addEventListener('click', e=>{
-      const btn = e.target.closest('.del-row');
-      if(!btn) return;
-      const tr = btn.closest('tr');
-      tr.remove();
-      if(!body.children.length) addRow();
-    });
-
-    // فتح منتقي
-    body.addEventListener('click', e=>{
-      const btn = e.target.closest('.pick-btn');
-      if(!btn) return;
-      openPickerFor(btn.closest('tr'));
-    });
-
-    window.fillRowWithProduct = function(tr, data){
-      tr.querySelector('input[name="product_id"]').value = data.id;
-      tr.querySelector('.pname').textContent = data.name;
-      tr.querySelector('.pstock').textContent = Number(data.stock||0);
-      tr.querySelector('.psale').textContent  = Number(data.sale||0).toFixed(2);
-      tr.querySelector('.pcost').textContent  = Number(data.cost||0).toFixed(2);
-      const img = tr.querySelector('.pimg');
-      if(data.img){ img.src=data.img; img.style.display='block'; } else { img.style.display='none'; }
-      const saleI=tr.querySelector('input[name="sale_price"]');
-      const costI=tr.querySelector('input[name="cost_price"]');
-      if(!saleI.value) saleI.value = Number(data.sale||0);
-      if(!costI.value) costI.value = Number(data.cost||0);
+  // حذف الصف
+  table.addEventListener("click",e=>{
+    if(e.target.classList.contains("remove-btn")){
+      if(table.rows.length>1) e.target.closest("tr").remove();
     }
-  })();
-
-  // مودال الشبكة
-  (function(){
-    const modal=document.getElementById('pickerModal');
-    const bg=modal.querySelector('.modal-bg');
-    const closeBtn=document.getElementById('pickerClose');
-    const search=document.getElementById('searchBox');
-    const cards=[...modal.querySelectorAll('.pcard')];
-    let targetRow=null;
-
-    function show(){ modal.style.display='block'; search.focus(); }
-    function hide(){ modal.style.display='none'; search.value=''; filter(''); targetRow=null; }
-    window.openPickerFor = (tr)=>{ targetRow=tr; show(); }
-    bg.addEventListener('click', hide);
-    closeBtn.addEventListener('click', hide);
-    document.addEventListener('keydown', e=>{ if(modal.style.display==='block' && e.key==='Escape') hide(); });
-
-    function filter(q){
-      const s=(q||'').trim().toLowerCase();
-      cards.forEach(c=> c.style.display = c.dataset.name.toLowerCase().includes(s) ? 'flex' : 'none');
-    }
-    search.addEventListener('input', e=>filter(e.target.value));
-
-    modal.addEventListener('click', e=>{
-      const btn=e.target.closest('.pickBtn');
-      if(!btn || !targetRow) return;
-      const card=btn.closest('.pcard');
-      const data={
-        id:card.dataset.id,
-        name:card.dataset.name,
-        img:card.dataset.img||'',
-        sale:Number(card.dataset.sale||0),
-        cost:Number(card.dataset.cost||0),
-        stock:Number(card.dataset.stock||0),
-      };
-      window.fillRowWithProduct(targetRow, data);
-      hide();
-    });
-  })();
+  });
 </script>

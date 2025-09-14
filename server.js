@@ -451,7 +451,6 @@ app.post("/products/bulk-delete", async (req, res) => {
 });
 
 // -------- Sales (واجهة المعاملات) --------
-// صفحة المبيعات — تُظهر المنتجات + الطلبات المفتوحة (مع البنود) + البنود المُسلّمة + flash
 app.get("/sales", async (req, res, next) => {
   try {
     const products = (
@@ -517,7 +516,7 @@ app.get("/sales", async (req, res, next) => {
   }
 });
 
-// إضافة بيع مفرد (تبقى كما هي دون ربط بطلب)
+// إضافة بيع مفرد
 app.post("/sales", async (req, res) => {
   const {
     product_id,
@@ -563,7 +562,7 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة — إنشاء/استخدام طلب + فحص مخزون صارم ===
+// === إضافة عدة بنود بيع دفعة واحدة (تبقى كما هي) ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -579,7 +578,6 @@ app.post("/sales/multi", async (req, res) => {
       order_note = "",
     } = req.body;
 
-    // طبّع المصفوفات
     const A = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
     const PIDS = A(product_id);
     const QTY = A(quantity);
@@ -591,7 +589,6 @@ app.post("/sales/multi", async (req, res) => {
     const valid = [];
     const skipped = [];
 
-    // تجميع البنود بعد التحقق من المخزون
     for (let i = 0; i < Math.max(PIDS.length, QTY.length, SP.length); i++) {
       const pid = Number(PIDS[i] || 0);
       if (!pid) continue;
@@ -630,7 +627,6 @@ app.post("/sales/multi", async (req, res) => {
       return res.redirect("/sales");
     }
 
-    // أنشئ/استخدم طلبًا مفتوحًا لنفس الزبون اليوم
     const orderId = await ensureOpenOrderForCustomer({
       name: customer_name,
       phone: customer_phone,
@@ -638,7 +634,6 @@ app.post("/sales/multi", async (req, res) => {
       note: order_note,
     });
 
-    // أدخل البنود الصالحة فقط وخفّض المخزون
     for (const it of valid) {
       await query(
         `
@@ -680,7 +675,7 @@ app.post("/sales/multi", async (req, res) => {
   }
 });
 
-// Edit sale (مفرد)
+// Edit sale
 app.get("/sales/:id/edit", async (req, res) => {
   const id = Number(req.params.id);
   const saleQ = await query(
@@ -861,14 +856,11 @@ app.get("/orders", async (_req, res) => {
 });
 
 // ===== أكشنات جماعية على الطلبات =====
-
-// تغيير حالة مجموعة طلبات مرة واحدة (+ خيار تطبيقها على البنود)
 app.post("/orders/bulk-status", async (req, res) => {
   const raw = req.body.ids || [];
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
   if (!ids.length) return res.redirect("/orders");
 
-  // تطبيع الحالة
   const wanted = String(req.body.status || "pending").toLowerCase();
   const normalize = {
     pending: "pending",
@@ -884,8 +876,7 @@ app.post("/orders/bulk-status", async (req, res) => {
   await query(`UPDATE orders SET status=$1 WHERE id = ANY($2::int[])`, [status, ids]);
 
   if (applyToItems) {
-    // تحويل حالة الطلب إلى حالة مناسبة للبنود
-    const itemStatus = status === "processing" ? "pending" : status; // لا يوجد processing للبنود
+    const itemStatus = status === "processing" ? "pending" : status;
     await query(
       `
       UPDATE sales
@@ -900,7 +891,6 @@ app.post("/orders/bulk-status", async (req, res) => {
   res.redirect("/orders");
 });
 
-// إرجاع جماعي (كل بنود الطلب -> الراجع)
 app.post("/orders/bulk-return", async (req, res) => {
   const raw = req.body.ids || [];
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
@@ -941,9 +931,10 @@ app.get("/orders/new", async (_req, res) => {
   res.render("orders-new", { products, dayjs });
 });
 
-// إنشاء طلب جديد (+ بنود)
+// ======= إنشاء طلب جديد (+ بنود) مع دعم رقم الطلب اليدوي =======
 app.post("/orders", async (req, res) => {
   const {
+    order_id,             // <<--- رقم الطلب اليدوي (اختياري)
     customer_name,
     customer_phone,
     customer_city,
@@ -956,20 +947,62 @@ app.post("/orders", async (req, res) => {
     item_note = [],
   } = req.body;
 
-  const orderIns = await query(
-    `
-    INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
-    VALUES ($1,$2,$3,$4,'pending') RETURNING id
-  `,
-    [
-      (customer_name || "").trim(),
-      (customer_phone || "").trim(),
-      (customer_city || "").trim(),
-      (note || "").trim(),
-    ]
-  );
-  const orderId = orderIns.rows[0].id;
+  // لو المستخدم أدخل رقم طلب يدويًا
+  const manualId = Number(order_id || 0) > 0 ? Number(order_id) : null;
+  let orderId;
 
+  if (manualId) {
+    // إذا موجود مسبقًا نستخدمه كما هو، وإلا ننشئ سجل جديد بنفس الـ id
+    const exists = await query(`SELECT id FROM orders WHERE id=$1`, [manualId]);
+    if (!exists.rowCount) {
+      await query(
+        `INSERT INTO orders (id, customer_name, customer_phone, customer_city, note, status)
+         VALUES ($1,$2,$3,$4,$5,'pending')`,
+        [
+          manualId,
+          (customer_name || "").trim(),
+          (customer_phone || "").trim(),
+          (customer_city || "").trim(),
+          (note || "").trim(),
+        ]
+      );
+      // مزامنة Sequence حتى لا يصير تعارض لاحقًا
+      await query(
+        `SELECT setval(pg_get_serial_sequence('orders','id'), (SELECT GREATEST(COALESCE(MAX(id),0), $1) FROM orders))`,
+        [manualId]
+      );
+    } else {
+      // ممكن تحديث بيانات العميل لو حبيت
+      await query(
+        `UPDATE orders SET customer_name=$1, customer_phone=$2, customer_city=$3, note=$4 WHERE id=$5`,
+        [
+          (customer_name || "").trim(),
+          (customer_phone || "").trim(),
+          (customer_city || "").trim(),
+          (note || "").trim(),
+          manualId,
+        ]
+      );
+    }
+    orderId = manualId;
+  } else {
+    // بدون رقم يدوي — إنشاء عادي
+    const ins = await query(
+      `
+      INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
+      VALUES ($1,$2,$3,$4,'pending') RETURNING id
+    `,
+      [
+        (customer_name || "").trim(),
+        (customer_phone || "").trim(),
+        (customer_city || "").trim(),
+        (note || "").trim(),
+      ]
+    );
+    orderId = ins.rows[0].id;
+  }
+
+  // إدخال البنود
   const count = Math.max([].concat(product_id).length, [].concat(quantity).length);
   for (let i = 0; i < count; i++) {
     const pid = Number([].concat(product_id)[i]);
@@ -1094,7 +1127,7 @@ app.post("/orders/:id/items", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// تحديث/حذف عدة بنود دفعة واحدة في الطلب
+// تحديث/حذف عدة بنود دفعة واحدة
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const id = Number(req.params.id);
   const {
