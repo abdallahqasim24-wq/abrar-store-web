@@ -122,12 +122,7 @@
         <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> الرئيسية</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> اضافة طلب</a>
-
-        <!-- الرابط الجديد: كل الطلبات -->
-        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
-          <i class="fa fa-list"></i> كل الطلبات
-        </a>
-
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
         <form class="right" method="post" action="/logout" style="margin:0">
@@ -176,12 +171,47 @@
       if(!wrap) document.querySelectorAll('.status-menu').forEach(m=>m.style.display='none');
     });
   </script>
-<script>
-  // لما المستخدم يسكر التبويب/المتصفح
-  window.addEventListener("beforeunload", function () {
-    navigator.sendBeacon("/logout-ajax");
-  });
-</script>
+
+  <!-- تسجيل خروج فقط عند إغلاق التبويب/المتصفح (ليس عند الـ Refresh) -->
+  <script>
+    (function () {
+      let logoutTimer = null;
+      const LOGOUT_DELAY_MS = 1500;
+
+      function scheduleLogout() {
+        cancelLogout();
+        logoutTimer = setTimeout(() => {
+          try {
+            navigator.sendBeacon("/logout-ajax");
+          } catch (e) {
+            fetch("/logout-ajax", { method: "POST", keepalive: true });
+          }
+        }, LOGOUT_DELAY_MS);
+      }
+
+      function cancelLogout() {
+        if (logoutTimer) {
+          clearTimeout(logoutTimer);
+          logoutTimer = null;
+        }
+      }
+
+      // عند اختفاء التبويب نجهّز تسجيل الخروج
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+          scheduleLogout();
+        } else {
+          // رجعت الصفحة (Reload/رجوع سريع) → نلغي
+          cancelLogout();
+        }
+      });
+
+      // لو كان مجرد Reload/Navigation بنفس التبويب، pageshow ترجع فوراً → نلغي
+      window.addEventListener("pageshow", () => {
+        cancelLogout();
+      });
+    })();
+  </script>
 
 </body>
 </html>
