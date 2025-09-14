@@ -1,5 +1,4 @@
-<!-- views/sales.ejs — استبدال كامل لتمكين زر الشبكة بكل سطر -->
-
+<!-- views/sales.ejs — استبدال كامل (أزلنا قسم "آخر البنود المُسلّمة") -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <div class="container page">
@@ -24,9 +23,8 @@
 
   <h2 style="margin:0 0 10px"><i class="fa fa-cart-shopping"></i> إضافة عملية بيع (عدّة منتجات)</h2>
 
-  <!-- ===== نموذج البيع المتعدد ===== -->
+  <!-- نموذج البيع -->
   <form id="multiSaleForm" action="/sales/multi" method="post" class="card">
-    <!-- بيانات الزبون -->
     <div class="form-grid">
       <input name="customer_name"  placeholder="اسم الزبون">
       <input name="customer_phone" placeholder="الهاتف">
@@ -34,18 +32,12 @@
       <input name="order_note"     placeholder="ملاحظة عامة للطلب" style="grid-column:1 / -1">
     </div>
 
-    <!-- أدوات عامة -->
     <div class="row" style="margin:14px 0 10px">
-      <button class="btn add" type="button" id="btnAddEmpty">
-        <i class="fa fa-plus"></i> إضافة سطر
-      </button>
-      <button class="btn danger" type="button" id="btnClear">
-        <i class="fa fa-trash"></i> إفراغ كل البنود
-      </button>
+      <button class="btn add" type="button" id="btnAddEmpty"><i class="fa fa-plus"></i> إضافة سطر</button>
+      <button class="btn danger" type="button" id="btnClear"><i class="fa fa-trash"></i> إفراغ كل البنود</button>
       <div class="right muted-sm">لكل سطر زر “اختيار من الشبكة” لتعبئة المنتج نفسه</div>
     </div>
 
-    <!-- الجدول -->
     <div class="table-scroll">
       <table>
         <thead>
@@ -63,19 +55,17 @@
       </table>
     </div>
 
-    <!-- الإجماليات -->
     <div class="row" style="gap:18px;margin-top:12px">
       <div class="muted-sm">الإيراد الكلي: ₪ <span id="sumRevenue">0.00</span></div>
       <div class="muted-sm">الربح الكلي: ₪ <span id="sumProfit">0.00</span></div>
     </div>
 
-    <!-- حفظ -->
     <div class="row" style="margin-top:14px">
       <button class="btn save" id="btnSubmit"><i class="fa fa-floppy-disk"></i> حفظ البنود</button>
     </div>
   </form>
 
-  <!-- ===== الطلبات المفتوحة (مختصر) ===== -->
+  <!-- الطلبات المفتوحة فقط -->
   <hr>
   <h2><i class="fa fa-list"></i> الطلبات المفتوحة</h2>
   <div class="cards">
@@ -129,40 +119,9 @@
       <div class="card"><div class="muted">لا توجد طلبات مفتوحة مؤخرًا.</div></div>
     <% } %>
   </div>
-
-  <!-- ===== آخر البنود المُسلّمة ===== -->
-  <hr>
-  <h2><i class="fa fa-check-circle"></i> آخر البنود المُسلّمة</h2>
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>المنتج</th><th>زبون</th><th>كمية</th><th>سعر</th><th>شحن</th><th>ربح</th><th>التاريخ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% (delivered||[]).forEach(r => { %>
-          <tr>
-            <td style="text-align:right">
-              <div class="row">
-                <img class="thumb" style="width:56px;height:56px" src="<%= r.product_image||'' %>">
-                <div><%= r.product_name %></div>
-              </div>
-            </td>
-            <td><%= r.customer_name||'-' %></td>
-            <td><%= r.quantity %></td>
-            <td>₪<%= Number(r.sale_price).toFixed(2) %></td>
-            <td>₪<%= Number(r.shipping_cost||0).toFixed(2) %></td>
-            <td>₪<%= Number(r._profit||0).toFixed(2) %></td>
-              <td><%= dayjs(r.delivered_at||r.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
 </div>
 
-<!-- ===== نافذة اختيار من الشبكة (تعمل لكل سطر) ===== -->
+<!-- مودال اختيار من الشبكة (لكل سطر) -->
 <div class="modal" id="picker" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
@@ -177,24 +136,19 @@
     </div>
 
     <style>
-      /* تمييز المنتجات النافدة */
       .pcard{position:relative}
-      .pcard.soldout{opacity:.55; filter:grayscale(1)}
-      .pcard .ribbon{
-        position:absolute; inset:8px auto auto 8px;
-        background:#ef4444; color:#fff; padding:2px 8px; border-radius:999px; font-weight:800; font-size:.8rem
-      }
-      .pcard .pickBtn[disabled]{opacity:.6; cursor:not-allowed}
-      /* شبكة وبطاقات أساسية (لو مش معرفة بالـ CSS العام) */
-      .modal{display:none; position:fixed; inset:0; z-index:60}
-      .modal-bg{position:absolute; inset:0; background:rgba(0,0,0,.5)}
-      .modal-card{position:relative; inset:auto; margin:auto; top:5vh; width:min(1100px,95vw); max-height:90vh; overflow:auto; background:#fff; border-radius:18px; padding:14px}
-      .mhead{display:flex; align-items:center; gap:10px; padding:4px 2px 10px 2px; border-bottom:1px solid #f1f5f9; margin-bottom:10px}
-      .mgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
-      .pcard{background:#fff; border:1px solid var(--border); border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow)}
-      .pcard img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; border:1px solid var(--border)}
+      .pcard.soldout{opacity:.55;filter:grayscale(1)}
+      .pcard .ribbon{position:absolute;inset:8px auto auto 8px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:999px;font-weight:800;font-size:.8rem}
+      .pcard .pickBtn[disabled]{opacity:.6;cursor:not-allowed}
+      .modal{display:none;position:fixed;inset:0;z-index:60}
+      .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+      .modal-card{position:relative;margin:auto;top:5vh;width:min(1100px,95vw);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:14px}
+      .mhead{display:flex;align-items:center;gap:10px;padding:4px 2px 10px 2px;border-bottom:1px solid #f1f5f9;margin-bottom:10px}
+      .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+      .pcard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+      .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
       .pcard .name{font-weight:800}
-      .tag{display:inline-block; font-size:.82rem; padding:4px 8px; border-radius:999px; background:#f8fafc; border:1px solid var(--border)}
+      .tag{display:inline-block;font-size:.82rem;padding:4px 8px;border-radius:999px;background:#f8fafc;border:1px solid var(--border)}
       .mclose{border:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer}
       .choose-btn{white-space:nowrap}
     </style>
@@ -222,8 +176,7 @@
           <div class="muted-sm" style="text-align:center;margin-top:6px">
             <%= (p.brand||'—') %> • <%= (p.category||'—') %>
           </div>
-          <button class="btn add pickBtn" type="button"
-                  <%= isOut ? 'disabled title="نفد المخزون"' : '' %>>
+          <button class="btn add pickBtn" type="button" <%= isOut ? 'disabled title="نفد المخزون"' : '' %>>
             <i class="fa fa-check"></i> اختيار
           </button>
         </div>
@@ -233,36 +186,28 @@
 </div>
 
 <script>
-  // ===== بيانات متاحة من السيرفر =====
   const PRODUCTS = <%- JSON.stringify(products||[]) %>;
-
-  const cartBody   = document.getElementById('cartBody');
+  const cartBody = document.getElementById('cartBody');
   const sumRevenue = document.getElementById('sumRevenue');
   const sumProfit  = document.getElementById('sumProfit');
   const btnAddRow  = document.getElementById('btnAddEmpty');
   const btnClear   = document.getElementById('btnClear');
 
-  // مودال الشبكة
-  const picker         = document.getElementById('picker');
-  const pickGrid       = document.getElementById('pickGrid');
-  const pickSearch     = document.getElementById('pickSearch');
+  const picker   = document.getElementById('picker');
+  const pickGrid = document.getElementById('pickGrid');
+  const pickSearch = document.getElementById('pickSearch');
+  const hideOut  = document.getElementById('hideOut');
   const pickerCloseBtn = document.getElementById('pickerClose');
-  const hideOut        = document.getElementById('hideOut');
 
-  // السطر الجاري الذي سيتعبّى من الشبكة
   let activeRow = null;
-
   function num(v){ return Number(v||0) || 0 }
   function fmt(n){ return (Number(n)||0).toFixed(2) }
 
-  // توليد صف جدول مع زر شبكة يخصه
   function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''} = {}) {
     const has = Boolean(pid && name);
     return `
       <tr class="sale-row" data-pid="${pid}">
-        <td>
-          <button class="btn danger" type="button" data-act="del" title="حذف" style="padding:8px 10px"><i class="fa fa-xmark"></i></button>
-        </td>
+        <td><button class="btn danger" type="button" data-act="del" title="حذف" style="padding:8px 10px"><i class="fa fa-xmark"></i></button></td>
         <td class="right">
           <input type="hidden" name="product_id[]" value="${pid}">
           <div class="row" style="justify-content:flex-end;gap:8px">
@@ -276,116 +221,75 @@
         <td><input name="cost_price[]" type="number" step="0.01" value="${cp}"></td>
         <td><input name="shipping_cost[]" type="number" step="0.01" value="${ship}"></td>
         <td><input name="item_note[]" placeholder="ملاحظة" value="${note}"></td>
-      </tr>
-    `;
+      </tr>`;
   }
-
-  function addRow(data={}) {
-    cartBody.insertAdjacentHTML('beforeend', rowTemplate(data));
-    recalc();
-  }
-
+  function addRow(data={}){ cartBody.insertAdjacentHTML('beforeend', rowTemplate(data)); recalc(); }
   function recalc(){
     let rev=0, prof=0;
     cartBody.querySelectorAll('tr.sale-row').forEach(tr=>{
-      const q  = num(tr.querySelector('input[name="quantity[]"]').value);
-      const sp = num(tr.querySelector('input[name="sale_price[]"]').value);
-      const cp = num(tr.querySelector('input[name="cost_price[]"]').value);
-      const sh = num(tr.querySelector('input[name="shipping_cost[]"]').value);
-      rev  += q*sp;
-      prof += (sp-cp)*q - sh;
+      const q=num(tr.querySelector('input[name="quantity[]"]').value);
+      const sp=num(tr.querySelector('input[name="sale_price[]"]').value);
+      const cp=num(tr.querySelector('input[name="cost_price[]"]').value);
+      const sh=num(tr.querySelector('input[name="shipping_cost[]"]').value);
+      rev+=q*sp; prof+=(sp-cp)*q - sh;
     });
-    sumRevenue.textContent = fmt(rev);
-    sumProfit .textContent = fmt(prof);
+    sumRevenue.textContent=fmt(rev); sumProfit.textContent=fmt(prof);
   }
 
-  // أحداث الجدول: حذف/إدخال/فتح الشبكة للسطر المحدد
-  cartBody.addEventListener('input', e=>{
-    if (e.target.matches('input')) recalc();
-  });
-
+  cartBody.addEventListener('input', e=>{ if (e.target.matches('input')) recalc(); });
   cartBody.addEventListener('click', e=>{
-    const btnDel = e.target.closest('[data-act="del"]');
-    if (btnDel){ btnDel.closest('tr').remove(); recalc(); return; }
-
-    const btnChoose = e.target.closest('[data-act="choose"]');
-    if (btnChoose){
-      activeRow = btnChoose.closest('tr');
-      showPicker();
-    }
+    const del=e.target.closest('[data-act="del"]'); if(del){ del.closest('tr').remove(); recalc(); return; }
+    const choose=e.target.closest('[data-act="choose"]'); if(choose){ activeRow=choose.closest('tr'); showPicker(); }
   });
 
-  // إضافة سطر جديد
-  btnAddRow.addEventListener('click', ()=> addRow({}));
+  btnAddRow.addEventListener('click', ()=>addRow({}));
+  btnClear.addEventListener('click', ()=>{ cartBody.innerHTML=''; recalc(); });
 
-  // إفراغ الكل
-  btnClear.addEventListener('click', ()=>{
-    cartBody.innerHTML = '';
-    recalc();
-  });
-
-  // ===== مودال الشبكة =====
   function showPicker(){ picker.style.display='block'; pickSearch.focus(); }
-  function hidePicker(){ picker.style.display='none'; pickSearch.value=''; filterGrid(''); }
+  function hidePicker(){ picker.style.display='none'; pickSearch.value=''; filterGrid(''); activeRow=null; }
 
   document.querySelector('#picker .modal-bg').addEventListener('click', hidePicker);
   pickerCloseBtn.addEventListener('click', hidePicker);
-  document.addEventListener('keydown', e=>{
-    if (picker.style.display==='block' && e.key==='Escape') hidePicker();
-  });
+  document.addEventListener('keydown', e=>{ if(picker.style.display==='block' && e.key==='Escape') hidePicker(); });
 
   function filterGrid(q){
-    const s = (q||'').trim().toLowerCase();
+    const s=(q||'').trim().toLowerCase();
     [...pickGrid.querySelectorAll('.pcard')].forEach(card=>{
-      const hay = (card.dataset.name + ' ' + (card.dataset.brand||'') + ' ' + (card.dataset.cat||'')).toLowerCase();
-      const out = Number(card.dataset.stock||0) <= 0;
-      const passText = hay.includes(s);
-      const passOut  = !hideOut.checked || !out;
-      card.style.display = (passText && passOut) ? 'flex' : 'none';
+      const hay=(card.dataset.name+' '+(card.dataset.brand||'')+' '+(card.dataset.cat||'')).toLowerCase();
+      const out=Number(card.dataset.stock||0)<=0;
+      const passText=hay.includes(s);
+      const passOut =!hideOut.checked || !out;
+      card.style.display=(passText && passOut)?'flex':'none';
     });
   }
-  pickSearch.addEventListener('input', e=> filterGrid(e.target.value));
-  hideOut.addEventListener('change', ()=> filterGrid(pickSearch.value));
+  pickSearch.addEventListener('input', e=>filterGrid(e.target.value));
+  hideOut.addEventListener('change', ()=>filterGrid(pickSearch.value));
 
-  // اختيار بطاقة -> تعبئة السطر النشِط فقط
   pickGrid.addEventListener('click', e=>{
-    const btn = e.target.closest('.pickBtn');
-    if (!btn || !activeRow) return;
+    const btn=e.target.closest('.pickBtn'); if(!btn||!activeRow) return;
+    const card=btn.closest('.pcard');
+    const stock=Number(card.dataset.stock||0);
+    if(stock<=0){ alert('لا يمكن إضافة منتج نفد من المخزون'); return; }
 
-    const card  = btn.closest('.pcard');
-    const stock = Number(card.dataset.stock||0);
-    if (stock <= 0) { alert('لا يمكن إضافة منتج نفد من المخزون'); return; }
+    const pid=Number(card.dataset.id||0);
+    const name=card.dataset.name||'';
+    const sp=Number(card.dataset.sp||0);
+    const cp=Number(card.dataset.cp||0);
+    const img=card.querySelector('img')?.getAttribute('src')||'';
 
-    const pid   = Number(card.dataset.id||0);
-    const name  = card.dataset.name || '';
-    const sp    = Number(card.dataset.sp||0);
-    const cp    = Number(card.dataset.cp||0);
-    const imgEl = card.querySelector('img');
-    const img   = imgEl ? imgEl.getAttribute('src') : '';
+    activeRow.dataset.pid=String(pid);
+    activeRow.querySelector('input[name="product_id[]"]').value=pid;
+    activeRow.querySelector('input[name="sale_price[]"]').value=sp;
+    activeRow.querySelector('input[name="cost_price[]"]').value=cp;
 
-    // حدّث الحقول داخل السطر الفعّال فقط
-    activeRow.dataset.pid = String(pid);
-    activeRow.querySelector('input[name="product_id[]"]').value = pid;
-    activeRow.querySelector('input[name="sale_price[]"]').value = sp;
-    activeRow.querySelector('input[name="cost_price[]"]').value = cp;
-
-    // تحديث العرض (صورة + اسم)
-    const productCell = activeRow.querySelector('td:nth-child(2) .row');
-    if (productCell){
-      const existingImg = productCell.querySelector('img.thumb');
-      if (img){
-        if (existingImg) existingImg.src = img;
-        else productCell.insertAdjacentHTML('afterbegin', `<img src="${img}" class="thumb" style="width:56px;height:56px">`);
-      }
-      const nameSpan = productCell.querySelector('span');
-      if (nameSpan) { nameSpan.textContent = name; nameSpan.classList.remove('muted-sm'); }
+    const cell=activeRow.querySelector('td:nth-child(2) .row');
+    if(cell){
+      const existing=cell.querySelector('img.thumb');
+      if(img){ if(existing) existing.src=img; else cell.insertAdjacentHTML('afterbegin', `<img src="${img}" class="thumb" style="width:56px;height:56px">`); }
+      const nameSpan=cell.querySelector('span'); if(nameSpan){ nameSpan.textContent=name; nameSpan.classList.remove('muted-sm'); }
     }
-
-    recalc();
-    hidePicker();
-    activeRow = null;
+    recalc(); hidePicker();
   });
 
-  // صف افتراضي كبداية
   addRow({});
 </script>
