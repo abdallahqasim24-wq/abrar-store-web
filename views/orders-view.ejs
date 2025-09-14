@@ -11,180 +11,160 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
-  .wrap{padding:14px}
-  .card{background:#fff;border:1px solid #eef2f7;border-radius:14px;padding:16px;margin:14px 0}
-  .row{display:flex;gap:10px;align-items:center}
-  .grow{flex:1}
-  .muted{color:#6b7280}
-  .nowrap{white-space:nowrap}
-
-  .pill{
-    display:inline-flex;align-items:center;gap:8px;
-    border:0;border-radius:16px;padding:10px 14px;font-weight:700;color:#fff;cursor:pointer
+  :root{
+    --pink:#fff0f6; --border:#f3e1ea; --muted:#748091;
+    --ok:#16a34a; --warn:#f59e0b; --danger:#ef4444; --blue:#2563eb; --red:#dc2626;
   }
-  .pill.red{background:#ef4444}
-  .pill.green{background:#16a34a}
-  .pill.blue{background:#2563eb}
-  .pill.orange{background:#f59e0b;color:#111}
-  .pill.gray{background:#64748b}
-  .pill:disabled{opacity:.6;cursor:not-allowed}
+  .page-title{display:flex;gap:10px;align-items:center;justify-content:space-between;margin:10px 0}
+  .chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);border-radius:999px;padding:6px 10px;font-weight:700}
+  .chip.pending{background:#fff7fb}.chip.processing{background:#fff7fb}.chip.shipping{background:#eef6ff}
+  .chip.delivered{background:#efffed}.chip.failed{background:#fff0f0}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px;margin:12px 0}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{display:inline-flex;gap:6px;align-items:center;border:0;border-radius:10px;padding:8px 12px;cursor:pointer}
+  .btn.secondary{background:#f1f5f9;color:#111}
+  .btn.add{background:#2563eb;color:#fff}
+  .btn.save{background:#16a34a;color:#fff}
+  .btn.danger{background:#ef4444;color:#fff}
+  .status-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .status-btn{border:0;border-radius:999px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px}
+  .status-btn:hover{opacity:.88}
+  .sb-pending{background:var(--warn);color:#000}
+  .sb-ship{background:var(--blue);color:#fff}
+  .sb-done{background:var(--ok);color:#fff}
+  .sb-fail{background:#ef4444;color:#fff}
+  .sb-ret{background:var(--red);color:#fff}
 
-  .status{display:inline-flex;gap:6px;align-items:center;border:1px solid #ebedf0;border-radius:999px;padding:6px 10px;font-weight:700}
-  .status.pending,.status.processing{background:#fff7eb}
-  .status.shipping{background:#eef6ff}
-  .status.delivered{background:#edfee8}
-  .status.failed{background:#fff1f2}
-
-  .items-grid{width:100%;border:1px solid #eef2f7;border-radius:12px;overflow:hidden}
-  .items-grid th{background:#f9fafb;text-align:center;padding:10px}
-  .items-grid td{padding:8px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .muted{color:var(--muted)}
   input,select{width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:10px}
-  .thumb{width:48px;height:48px;border-radius:10px;border:1px solid #ebedf0;object-fit:cover;background:#fff}
-  a.link{color:#2563eb;text-decoration:none}
-  a.link:hover{text-decoration:underline}
+  .items-grid{width:100%;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .items-grid th{background:var(--pink);text-align:center;padding:10px}
+  .items-grid td{padding:8px;border-top:1px solid #f5e8ef;text-align:center;vertical-align:middle}
+  .thumb{width:48px;height:48px;border-radius:10px;border:1px solid var(--border);object-fit:cover;background:#fff}
+  .head-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .mini-note{font-size:.9rem}
 </style>
 
-<div class="wrap">
-
-  <!-- ===== الهيدر مع كبسات الحالة ===== -->
-  <div class="card">
-    <div class="row" style="align-items:flex-start">
-      <div class="grow">
-        <div class="row" style="justify-content:space-between;align-items:center">
-          <div class="row">
-            <h2 style="margin:0">#<%= order.id %></h2>
-            <span class="muted">
-              <i class="fa fa-clock"></i>
-              <%= (dayjs && dayjs.tz)
-                    ? dayjs(order.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm')
-                    : new Date(order.created_at).toLocaleString('en-CA',{hour12:false}) %>
-            </span>
-            <span class="row muted"><i class="fa fa-user"></i> <%= order.customer_name || 'بدون اسم' %></span>
-          </div>
-
-          <span class="status <%= order.status %>">
-            <i class="fa <%= order.status==='delivered'?'fa-check':order.status==='shipping'?'fa-truck':order.status==='failed'?'fa-xmark':(order.status==='processing'?'fa-spinner':'fa-hourglass-half') %>"></i>
-            <%= order.status==='delivered'?'تم التسليم':order.status==='shipping'?'قيد التوصيل':order.status==='failed'?'فشل/لم يتم':order.status==='processing'?'قيد المعالجة':'pending' %>
-          </span>
-        </div>
-
-        <div class="row muted" style="margin-top:6px;flex-wrap:wrap">
-          <div><b>الهاتف:</b> <%= order.customer_phone || '—' %></div>
-          <div><b>المدينة:</b> <%= order.customer_city || '—' %></div>
-          <div><b>الإيراد:</b> ₪<%= Number(revenue||0).toFixed(2) %></div>
-          <div><b>الربح:</b> ₪<%= Number(profit||0).toFixed(2) %></div>
-        </div>
-
-        <% if (order.note) { %>
-          <div class="muted" style="margin-top:6px"><b>ملاحظة:</b> <%= order.note %></div>
-        <% } %>
-      </div>
-
-      <!-- كبسات الحالة في الهيدر -->
-      <div class="row" style="flex-wrap:wrap;justify-content:flex-end;min-width:340px">
-        <!-- إرجاع كل البنود -->
-        <form id="fReturnAll" action="/sales/bulk-return" method="post">
-          <input type="hidden" id="idsReturnAll" name="ids">
-          <button type="submit" class="pill red" title="إرجاع كل البنود للراجع"><i class="fa fa-rotate-left"></i></button>
-        </form>
-
-        <!-- فشل -->
-        <form class="fStatus" action="/orders/<%= order.id %>/status" method="post">
-          <input type="hidden" name="status" value="failed">
-          <input type="hidden" name="apply_to_items" value="on">
-          <button class="pill red" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
-        </form>
-
-        <!-- تم التسليم -->
-        <form class="fStatus" action="/orders/<%= order.id %>/status" method="post">
-          <input type="hidden" name="status" value="delivered">
-          <input type="hidden" name="apply_to_items" value="on">
-          <button class="pill green" title="تم التسليم"><i class="fa fa-check"></i></button>
-        </form>
-
-        <!-- قيد التوصيل -->
-        <form class="fStatus" action="/orders/<%= order.id %>/status" method="post">
-          <input type="hidden" name="status" value="shipping">
-          <input type="hidden" name="apply_to_items" value="on">
-          <button class="pill blue" title="قيد التوصيل"><i class="fa fa-truck"></i></button>
-        </form>
-
-        <!-- قيد المعالجة / pending -->
-        <form class="fStatus" action="/orders/<%= order.id %>/status" method="post">
-          <input type="hidden" name="status" value="processing">
-          <input type="hidden" name="apply_to_items" value="on">
-          <button class="pill orange" title="قيد المعالجة"><i class="fa fa-spinner"></i></button>
-        </form>
-      </div>
-    </div>
-
-    <!-- سويتش تطبيق الحالة على البنود -->
-    <div class="row muted" style="margin-top:10px">
-      <label class="row">
-        <input type="checkbox" id="applyToItems" checked>
-        <span>تطبيق الحالة على كل البنود داخل الطلب</span>
-      </label>
-      <span class="grow"></span>
-      <a class="link" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
+<div class="page-title">
+  <div class="row" style="gap:12px">
+    <h2 style="margin:0"><i class="fa fa-receipt"></i> طلب #<%= order.id %></h2>
+    <div class="muted">
+      <i class="fa fa-clock"></i>
+      <%= (dayjs && dayjs.tz)
+            ? dayjs(order.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm')
+            : (new Date(order.created_at)).toLocaleString('en-CA',{hour12:false,timeZone:'Asia/Hebron'}) %>
     </div>
   </div>
+  <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
+</div>
 
-  <!-- ===== جدول البنود ===== -->
-  <div class="card">
-    <form method="post" action="/orders/<%= order.id %>/items/bulk-update">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h3 style="margin:0"><i class="fa fa-list-check"></i> البنود</h3>
-        <button type="button" id="addRow" class="pill gray"><i class="fa fa-plus"></i> إضافة بند</button>
-      </div>
+<!-- بطاقة معلومات الطلب + شريط الحالة -->
+<div class="card">
+  <div class="grid">
+    <div><b>الزبون:</b> <%= order.customer_name||'—' %></div>
+    <div><b>الهاتف:</b> <%= order.customer_phone||'—' %></div>
+    <div><b>المدينة:</b> <%= order.customer_city||'—' %></div>
+    <div>
+      <b>الحالة الحالية:</b>
+      <span class="chip <%= order.status %>">
+        <i class="fa <%= order.status==='pending'||order.status==='processing' ? 'fa-spinner' : order.status==='shipping' ? 'fa-truck' : order.status==='delivered' ? 'fa-check' : 'fa-xmark' %>"></i>
+        <%= order.status==='pending'?'قيد المعالجة':order.status==='processing'?'قيد المعالجة':order.status==='shipping'?'قيد التوصيل':order.status==='delivered'?'تم التسليم':'فشل/لم يتم' %>
+      </span>
+    </div>
+    <div style="grid-column:1 / -1"><b>ملاحظة:</b> <%= order.note||'—' %></div>
+    <div><b>الإيراد:</b> ₪<%= Number(revenue||0).toFixed(2) %></div>
+    <div><b>الربح:</b> ₪<%= Number(profit||0).toFixed(2) %></div>
+  </div>
 
-      <table class="items-grid">
-        <thead>
-          <tr>
-            <th style="text-align:right">المنتج</th>
-            <th>كمية</th>
-            <th>سعر بيع (₪)</th>
-            <th>سعر أصلي (₪)</th>
-            <th>شحن (₪)</th>
-            <th>ملاحظة</th>
-            <th>حذف</th>
-          </tr>
-        </thead>
-        <tbody id="itemsBody">
-          <% items.forEach(it=>{ %>
-            <tr>
-              <td style="text-align:right">
-                <div class="row" style="justify-content:flex-start">
-                  <img class="thumb" src="<%= it.product_image||'/public/no-image.png' %>">
-                  <select name="product_id">
-                    <% products.forEach(p=>{ %>
-                      <option value="<%= p.id %>" <%= p.id===it.product_id?'selected':'' %>><%= p.name %></option>
-                    <% }) %>
-                  </select>
-                  <input type="hidden" name="item_id" value="<%= it.id %>">
-                </div>
-              </td>
-              <td><input type="number" name="quantity" value="<%= it.quantity %>" min="1" step="1" required></td>
-              <td><input type="number" name="sale_price" value="<%= it.sale_price %>" step="0.01" required></td>
-              <td><input type="number" name="cost_price" value="<%= it.cost_price %>" step="0.01" required></td>
-              <td><input type="number" name="shipping_cost" value="<%= it.shipping_cost||0 %>" step="0.01"></td>
-              <td><input type="text" name="item_note" value="<%= it.note||'' %>"></td>
-              <td><input type="checkbox" name="delete_flag"></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <!-- شريط إجراءات الحالة (الأيقونات) + النموذج التقليدي بجانبه -->
+  <div class="head-actions" style="margin-top:12px">
 
-      <div class="row" style="justify-content:flex-end;margin-top:10px">
-        <button class="pill blue" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات</button>
-      </div>
+    <!-- أزرار حالية مباشرة: تطبق على كل البنود -->
+    <form method="post" action="/orders/<%= order.id %>/status" class="status-bar">
+      <input type="hidden" name="apply_to_items" value="on">
+      <button type="submit" name="status" value="pending"   class="status-btn sb-pending" title="قيد المعالجة"><i class="fa fa-spinner"></i></button>
+      <button type="submit" name="status" value="shipping"  class="status-btn sb-ship"    title="قيد التوصيل"><i class="fa fa-truck"></i></button>
+      <button type="submit" name="status" value="delivered" class="status-btn sb-done"    title="تم التسليم"><i class="fa fa-check"></i></button>
+      <button type="submit" name="status" value="failed"    class="status-btn sb-fail"    title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
+      <button type="submit" name="status" value="returned"  class="status-btn sb-ret"     title="إرجاع"><i class="fa fa-rotate-left"></i></button>
     </form>
+
+    <!-- أو: تحديث الحالة بالطريقة التقليدية -->
+    <form method="post" action="/orders/<%= order.id %>/status" class="row" style="gap:8px">
+      <select name="status" required>
+        <option value="pending"   <%= order.status==='pending'?'selected':'' %>>قيد المعالجة</option>
+        <option value="processing" <%= order.status==='processing'?'selected':'' %>>قيد المعالجة</option>
+        <option value="shipping"  <%= order.status==='shipping'?'selected':'' %>>قيد التوصيل</option>
+        <option value="delivered" <%= order.status==='delivered'?'selected':'' %>>تم التسليم</option>
+        <option value="failed"    <%= order.status==='failed'?'selected':'' %>>فشل/لم يتم</option>
+      </select>
+      <label class="row mini-note" style="gap:6px">
+        <input type="checkbox" name="apply_to_items"> تطبيق على كل البنود
+      </label>
+      <button class="btn" style="background:#f59e0b" type="submit">
+        <i class="fa fa-rotate"></i> تحديث الحالة
+      </button>
+    </form>
+
   </div>
 </div>
 
+<!-- جدول البنود -->
+<div class="card">
+  <form method="post" action="/orders/<%= order.id %>/items/bulk-update">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h3 style="margin:0"><i class="fa fa-list-check"></i> بنود الطلب</h3>
+      <button class="btn add" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
+    </div>
+
+    <table class="items-grid" id="itemsTable">
+      <thead>
+        <tr>
+          <th>المنتج</th>
+          <th>كمية</th>
+          <th>سعر بيع (₪)</th>
+          <th>سعر أصلي (₪)</th>
+          <th>شحن (₪)</th>
+          <th>ملاحظة</th>
+          <th>حذف</th>
+        </tr>
+      </thead>
+      <tbody id="itemsBody">
+        <% items.forEach(it=>{ %>
+          <tr>
+            <td style="text-align:right">
+              <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
+                <img class="thumb" src="<%= it.product_image||'/public/no-image.png' %>">
+                <select name="product_id">
+                  <% products.forEach(p=>{ %>
+                    <option value="<%= p.id %>" <%= p.id===it.product_id?'selected':'' %>><%= p.name %></option>
+                  <% }) %>
+                </select>
+                <input type="hidden" name="item_id" value="<%= it.id %>">
+              </div>
+            </td>
+            <td><input type="number" name="quantity" value="<%= it.quantity %>" min="1" step="1" required></td>
+            <td><input type="number" name="sale_price" value="<%= it.sale_price %>" step="0.01" required></td>
+            <td><input type="number" name="cost_price" value="<%= it.cost_price %>" step="0.01" required></td>
+            <td><input type="number" name="shipping_cost" value="<%= it.shipping_cost||0 %>" step="0.01"></td>
+            <td><input type="text" name="item_note" value="<%= it.note||'' %>"></td>
+            <td><input type="checkbox" name="delete_flag"></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات</button>
+    </div>
+  </form>
+</div>
+
 <script>
-  // توليد صف جديد
+  // إضافة صف جديد للبنود
   (function(){
-    const products = <%- JSON.stringify(products||[]) %>;
+    const products = <%- JSON.stringify(products || []) %>;
     const body = document.getElementById('itemsBody');
     const add  = document.getElementById('addRow');
 
@@ -193,7 +173,7 @@
       return `
         <tr>
           <td style="text-align:right">
-            <div class="row" style="justify-content:flex-start">
+            <div class="row" style="gap:8px;align-items:center;justify-content:flex-start">
               <img class="thumb" src="/public/no-image.png">
               <select name="product_id">${opts}</select>
               <input type="hidden" name="item_id" value="">
@@ -209,34 +189,5 @@
       `;
     }
     add.addEventListener('click', ()=> body.insertAdjacentHTML('beforeend', makeRow()));
-  })();
-
-  // تزامن خيار "تطبيق على البنود" مع جميع فورمات الحالة في الهيدر
-  (function syncApply(){
-    const apply = document.getElementById('applyToItems');
-    const forms = Array.from(document.querySelectorAll('.fStatus'));
-    function setVal(){
-      forms.forEach(f=>{
-        const i = f.querySelector('input[name="apply_to_items"]');
-        if(i) i.value = apply.checked ? 'on' : 'off';
-      });
-    }
-    apply.addEventListener('change', setVal);
-    setVal();
-  })();
-
-  // زر إرجاع كل البنود (يجمع كل IDs البنود ويرسلها إلى /sales/bulk-return)
-  (function returnAll(){
-    const form = document.getElementById('fReturnAll');
-    const input = document.getElementById('idsReturnAll');
-    form.addEventListener('submit', (e)=>{
-      const ids = Array.from(document.querySelectorAll('input[name="item_id"]'))
-                  .map(i=>Number(i.value)).filter(Boolean);
-      if(!ids.length || !confirm('إرجاع كل بنود هذا الطلب إلى الراجع؟')) {
-        e.preventDefault();
-        return;
-      }
-      input.value = ids.join(',');
-    });
   })();
 </script>
