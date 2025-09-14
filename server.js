@@ -1,4 +1,4 @@
-// server.js — طلبات متعددة المنتجات + إدارة طلبات وبنود بالجملة (نسخة مُصحّحة)
+// server.js — طلبات متعددة المنتجات + إدارة طلبات وبنود بالجملة (نسخة مُصحّحة نهائية)
 // ===================================================
 import express from "express";
 import path from "path";
@@ -213,6 +213,7 @@ app.post("/login", (req, res) => {
   req.session.user = { username };
   res.redirect(next || "/");
 });
+app.get("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
 app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
 app.get("/healthz", (_req, res) => res.send("OK"));
 
@@ -272,7 +273,6 @@ app.get("/", async (_req, res) => {
     month_profit: prof(monthRows),
   };
 
-  // أقسام الداشبورد الأخرى (بدون "آخر المُسلّمة" بناءً على طلبك)
   const lowStock = (
     await query(`
       SELECT * FROM products
@@ -622,9 +622,10 @@ app.get("/sales/:id/edit", async (req, res) => {
   const id = Number(req.params.id);
   const saleQ = await query(
     `
-    SELECT s*, p.name AS product_name, p.image_path AS product_image
-    FROM sales s JOIN products p ON p.id=s.product_id WHERE s.id=$1
-  `,
+    SELECT s.*, p.name AS product_name, p.image_path AS product_image
+    FROM sales s JOIN products p ON p.id=s.product_id
+    WHERE s.id=$1
+    `,
     [id]
   );
   if (!saleQ.rowCount) return res.redirect("/sales");
@@ -771,7 +772,7 @@ app.get("/orders", async (_req, res) => {
     `)
   ).rows;
 
-  // نحضّر ملخّص المنتجات لكل طلب (لواجهتك الجديدة)
+  // ملخّص المنتجات لكل طلب (لو احتجته بالواجهة)
   let itemsByOrder = {};
   if (orders.length) {
     const ids = orders.map((o) => o.id);
@@ -792,7 +793,7 @@ app.get("/orders", async (_req, res) => {
   res.render("orders", { orders, itemsByOrder, dayjs });
 });
 
-// ===== أكشنات جماعية على الطلبات =====
+// أكشنات جماعية على الطلبات
 app.post("/orders/bulk-status", async (req, res) => {
   const raw = req.body.ids || [];
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
@@ -869,7 +870,7 @@ app.post("/orders", async (req, res) => {
       await query(
         `INSERT INTO orders (id, customer_name, customer_phone, customer_city, note, status)
          VALUES ($1,$2,$3,$4,$5,'pending')`,
-        [(customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim(), (note || "").trim(), manualId]
+        [manualId, (customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim(), (note || "").trim()]
       );
       await query(
         `SELECT setval(pg_get_serial_sequence('orders','id'), (SELECT GREATEST(COALESCE(MAX(id),0), $1) FROM orders))`,
@@ -1136,6 +1137,14 @@ app.get("/reports", async (req, res) => {
       day: Number(day) || Number(dayjs().tz(TZ_NAME).format("DD")),
     },
   });
+});
+
+// ========= معالج أخطاء عام =========
+app.use((err, req, res, next) => {
+  console.error(err);
+  res
+    .status(500)
+    .send(`<pre>Server error:\n${err?.message || err}\n\n${err?.stack || ""}</pre>`);
 });
 
 // ================== بدء التشغيل ==================
