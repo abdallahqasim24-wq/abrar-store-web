@@ -174,44 +174,65 @@
 
   <!-- تسجيل خروج فقط عند إغلاق التبويب/المتصفح (ليس عند الـ Refresh) -->
   <script>
-    (function () {
-      let logoutTimer = null;
-      const LOGOUT_DELAY_MS = 1500;
+/**
+ * Logout only on real tab/window close.
+ * - pagehide (persisted === false) => close/navigation away => logout
+ * - visibilitychange (hidden) => arm a short timer as backup
+ * - pageshow / visibilitychange (visible) => cancel (covers refresh & back/forward)
+ * - freeze => backup beacon on Chrome
+ */
+(function () {
+  let timer = null;
+  const DELAY = 400; // احتياطي صغير
 
-      function scheduleLogout() {
-        cancelLogout();
-        logoutTimer = setTimeout(() => {
-          try {
-            navigator.sendBeacon("/logout-ajax");
-          } catch (e) {
-            fetch("/logout-ajax", { method: "POST", keepalive: true });
-          }
-        }, LOGOUT_DELAY_MS);
-      }
+  function sendLogout() {
+    try {
+      navigator.sendBeacon("/logout-ajax");
+    } catch (e) {
+      // fallback لو sendBeacon مش متاح
+      fetch("/logout-ajax", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" }, body: "" });
+    }
+  }
 
-      function cancelLogout() {
-        if (logoutTimer) {
-          clearTimeout(logoutTimer);
-          logoutTimer = null;
-        }
-      }
+  function arm() {
+    cancel();
+    timer = setTimeout(sendLogout, DELAY);
+  }
 
-      // عند اختفاء التبويب نجهّز تسجيل الخروج
-      document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "hidden") {
-          scheduleLogout();
-        } else {
-          // رجعت الصفحة (Reload/رجوع سريع) → نلغي
-          cancelLogout();
-        }
-      });
+  function cancel() {
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
 
-      // لو كان مجرد Reload/Navigation بنفس التبويب، pageshow ترجع فوراً → نلغي
-      window.addEventListener("pageshow", () => {
-        cancelLogout();
-      });
-    })();
-  </script>
+  // 1) ينفع لسيناريو الإغلاق الحقيقي وعدم استخدام BFCache
+  window.addEventListener("pagehide", (ev) => {
+    // عندما persisted === false: الصفحة تُغادر السياق (إغلاق/تنقّل)، مش رجوع من BFCache
+    if (ev.persisted === false) {
+      sendLogout();
+    }
+  });
+
+  // 2) احتياطي عند الانتقال للحالة hidden
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      arm();
+    } else {
+      // رجعت الصفحة (refresh أو تفاعل)، نلغيه
+      cancel();
+    }
+  });
+
+  // 3) لو الصفحة رجعت للعرض (refresh / back-forward) نلغي
+  window.addEventListener("pageshow", () => {
+    cancel();
+  });
+
+  // 4) Chrome page lifecycle: قد يُجمّد التبويب قبل الإغلاق
+  document.addEventListener("freeze", () => {
+    sendLogout();
+  });
+})();
+</script>
+
 
 </body>
 </html>
