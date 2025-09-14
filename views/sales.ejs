@@ -1,68 +1,85 @@
-<!-- views/sales.ejs -->
+<!-- views/sales.ejs — استبدال كامل -->
+
 <link rel="stylesheet" href="<%= faLink %>">
 
 <div class="container page">
-  <h2><i class="fa fa-cart-shopping"></i> إضافة عملية بيع (عدّة منتجات)</h2>
+  <% if (flash) { %>
+    <div class="card" style="border-color:<%= flash.type==='success'?'#bbf7d0':'#fecaca' %>">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div>
+          <b><%= flash.type==='success'?'✅ نجاح':'⚠️ تنبيه' %>:</b>
+          <%= flash.msg %>
+          <% if (flash.skipped && flash.skipped.length) { %>
+            <div class="muted-sm" style="margin-top:6px">
+              تم تجاوز البنود التالية: <%= flash.skipped.join('، ') %>
+            </div>
+          <% } %>
+        </div>
+        <% if (flash.orderId) { %>
+          <a class="btn edit" href="/orders/<%= flash.orderId %>"><i class="fa fa-folder-open"></i> فتح الطلب</a>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
 
-  <!-- نموذج البيع المتعدد -->
+  <h2 style="margin:0 0 10px"><i class="fa fa-cart-shopping"></i> إضافة عملية بيع (عدّة منتجات)</h2>
+
+  <!-- ===== نموذج البيع المتعدد ===== -->
   <form id="multiSaleForm" action="/sales/multi" method="post" class="card">
+    <!-- بيانات الزبون -->
     <div class="form-grid">
       <input name="customer_name"  placeholder="اسم الزبون">
       <input name="customer_phone" placeholder="الهاتف">
       <input name="customer_city"  placeholder="المدينة">
-      <input name="order_note"     placeholder="ملاحظة عامة للطلب">
+      <input name="order_note"     placeholder="ملاحظة عامة للطلب" style="grid-column:1 / -1">
     </div>
 
-    <div class="table-scroll" style="margin-top:10px">
+    <!-- أدوات الإضافة -->
+    <div class="row" style="margin:14px 0 10px">
+      <button class="btn add" type="button" id="btnOpenPicker">
+        <i class="fa fa-grid-2"></i> إضافة من شبكة المنتجات
+      </button>
+      <button class="btn secondary" type="button" id="btnAddEmpty" style="background:#64748b">
+        <i class="fa fa-plus"></i> إضافة سطر فارغ
+      </button>
+      <button class="btn danger" type="button" id="btnClear">
+        <i class="fa fa-trash"></i> إفراغ السلة
+      </button>
+      <div class="right muted-sm">اختر من الشبكة ثم عدّل الكمية/الأسعار قبل الحفظ</div>
+    </div>
+
+    <!-- الجدول -->
+    <div class="table-scroll">
       <table>
         <thead>
           <tr>
-            <th>المنتج</th>
+            <th style="width:46px">حذف</th>
+            <th class="right">المنتج</th>
             <th>كمية</th>
-            <th>سعر بيع (₪)</th>
-            <th>سعر أصلي (₪)</th>
-            <th>شحن (₪)</th>
+            <th>(₪) سعر بيع</th>
+            <th>(₪) سعر أصلي</th>
+            <th>(₪) شحن</th>
             <th>ملاحظة</th>
-            <th>حذف</th>
           </tr>
         </thead>
         <tbody id="cartBody"></tbody>
       </table>
     </div>
 
-    <div class="row" style="margin-top:10px">
-      <button type="button" id="btnAddRow" class="btn add"><i class="fa fa-plus"></i> إضافة بند</button>
-      <button type="button" id="btnClear"  class="btn danger"><i class="fa fa-trash"></i> إفراغ السلة</button>
-      <button type="submit" id="btnSubmit" class="btn save right"><i class="fa fa-save"></i> حفظ البنود</button>
+    <!-- الإجماليات -->
+    <div class="row" style="gap:18px;margin-top:12px">
+      <div class="muted-sm">الإيراد الكلي: ₪ <span id="sumRevenue">0.00</span></div>
+      <div class="muted-sm">الربح الكلي: ₪ <span id="sumProfit">0.00</span></div>
     </div>
 
-    <div class="row" style="margin-top:8px">
-      <div class="card" style="margin:0">
-        <div class="row">
-          <b>الإيراد الكلي:</b> <span id="sumRevenue">0.00 ₪</span>
-          <b style="margin-inline-start:16px">الربح الكلي:</b> <span id="sumProfit">0.00 ₪</span>
-        </div>
-      </div>
+    <!-- حفظ -->
+    <div class="row" style="margin-top:14px">
+      <button class="btn save" id="btnSubmit"><i class="fa fa-floppy-disk"></i> حفظ البنود</button>
     </div>
   </form>
 
-  <% if (flash) { %>
-    <div class="card" style="border-color:<%= flash.type==='success'?'#bbf7d0':'#fecaca' %>">
-      <b><%= flash.msg %></b>
-      <% if ((flash.skipped||[]).length) { %>
-        <div class="muted-sm" style="margin-top:6px">تجاوز: <%= flash.skipped.join('، ') %></div>
-      <% } %>
-      <% if (flash.orderId) { %>
-        <div style="margin-top:8px">
-          <a class="btn secondary" href="/orders/<%= flash.orderId %>"><i class="fa fa-eye"></i> فتح الطلب #<%= flash.orderId %></a>
-        </div>
-      <% } %>
-    </div>
-  <% } %>
-
+  <!-- ===== الطلبات المفتوحة (مختصر) ===== -->
   <hr>
-
-  <!-- الطلبات المفتوحة (بطاقات مع أزرار الحالة بالعربي) -->
   <h2><i class="fa fa-list"></i> الطلبات المفتوحة</h2>
   <div class="cards">
     <% (openOrders||[]).forEach(o => { %>
@@ -74,10 +91,9 @@
               <%= dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %>
             </div>
           </div>
-          <a class="btn secondary" href="/orders/<%= o.id %>"><i class="fa fa-pen"></i> إدارة</a>
+          <a class="btn edit" href="/orders/<%= o.id %>"><i class="fa fa-pen"></i> إدارة</a>
         </div>
 
-        <!-- شارة الحالة بالنص العربي -->
         <div style="margin:10px 0">
           <span class="status-chip status-<%= o.status %>">
             <% if(o.status==='pending'){ %><i class="fa fa-hourglass-half"></i> قيد المعالجة
@@ -87,19 +103,6 @@
             <% } else { %><i class="fa fa-xmark"></i> لم يتم / فشل <% } %>
           </span>
         </div>
-
-        <!-- أزرار سريعة لتغيير الحالة -->
-        <form class="row" method="post" action="/orders/<%= o.id %>/status">
-          <input type="hidden" name="apply_to_items" value="on">
-          <input type="hidden" name="status" value="">
-          <div class="row">
-            <button type="button" class="btn edit status-action" data-val="pending"   title="قيد المعالجة">⏳</button>
-            <button type="button" class="btn add  status-action" data-val="shipping"  title="قيد التوصيل">🚚</button>
-            <button type="button" class="btn save status-action" data-val="delivered" title="تم التسليم">✔</button>
-            <button type="button" class="btn danger status-action" data-val="failed"    title="لم يتم / فشل">✖</button>
-            <a href="/orders/<%= o.id %>" class="btn secondary">فتح الطلب</a>
-          </div>
-        </form>
 
         <% if ((o.items||[]).length) { %>
           <div class="table-scroll" style="margin-top:10px">
@@ -136,13 +139,12 @@
       </div>
     <% }) %>
     <% if (!(openOrders||[]).length) { %>
-      <div class="muted">لا توجد طلبات مفتوحة مؤخرًا.</div>
+      <div class="card"><div class="muted">لا توجد طلبات مفتوحة مؤخرًا.</div></div>
     <% } %>
   </div>
 
+  <!-- ===== آخر البنود المُسلّمة ===== -->
   <hr>
-
-  <!-- آخر البنود المُسلّمة -->
   <h2><i class="fa fa-check-circle"></i> آخر البنود المُسلّمة</h2>
   <div class="table-scroll">
     <table>
@@ -173,86 +175,197 @@
   </div>
 </div>
 
+<!-- ===== نافذة اختيار من الشبكة (مع منع المخزون = 0) ===== -->
+<div class="modal" id="picker" aria-hidden="true">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <button class="mclose" type="button" id="pickerClose"><i class="fa fa-xmark"></i></button>
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <strong>اختيار منتج</strong>
+      <div class="right" style="display:flex;gap:8px;align-items:center">
+        <input id="pickSearch" placeholder="بحث بالاسم/الماركة/التصنيف..." style="max-width:320px">
+      </div>
+    </div>
+
+    <style>
+      /* تمييز المنتجات النافدة */
+      .pcard{position:relative}
+      .pcard.soldout{opacity:.55; filter:grayscale(1)}
+      .pcard .ribbon{
+        position:absolute; inset:8px auto auto 8px;
+        background:#ef4444; color:#fff; padding:2px 8px; border-radius:999px; font-weight:800; font-size:.8rem
+      }
+      .pcard .pickBtn[disabled]{opacity:.6; cursor:not-allowed}
+      /* شبكة وبطاقات أساسية (إن ما كانت معرفة في CSS العام) */
+      .modal{display:none; position:fixed; inset:0; z-index:60}
+      .modal-bg{position:absolute; inset:0; background:rgba(0,0,0,.5)}
+      .modal-card{position:relative; inset:auto; margin:auto; top:5vh; width:min(1100px,95vw); max-height:90vh; overflow:auto; background:#fff; border-radius:18px; padding:14px}
+      .mhead{display:flex; align-items:center; gap:10px; padding:4px 2px 10px 2px; border-bottom:1px solid #f1f5f9; margin-bottom:10px}
+      .mgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
+      .pcard{background:#fff; border:1px solid var(--border); border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:8px; box-shadow:var(--shadow)}
+      .pcard img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; border:1px solid var(--border)}
+      .pcard .name{font-weight:800}
+      .tag{display:inline-block; font-size:.82rem; padding:4px 8px; border-radius:999px; background:#f8fafc; border:1px solid var(--border)}
+      .mclose{border:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer}
+    </style>
+
+    <div class="mgrid" id="pickGrid">
+      <% (products||[]).forEach(p => { 
+           const stock = Number(p.stock||0);
+           const isOut = stock <= 0;
+      %>
+        <div class="pcard <%= isOut ? 'soldout' : '' %>"
+             data-id="<%= p.id %>"
+             data-name="<%- p.name %>"
+             data-brand="<%- p.brand||'' %>"
+             data-cat="<%- p.category||'' %>"
+             data-sp="<%= Number(p.sale_price||0) %>"
+             data-cp="<%= Number(p.cost_price||0) %>"
+             data-stock="<%= stock %>">
+          <% if(isOut){ %><div class="ribbon">نفد</div><% } %>
+          <img src="<%= p.image_path || 'https://via.placeholder.com/600?text=No+Image' %>" alt="<%- p.name %>">
+          <div class="name"><%- p.name %></div>
+          <div style="display:flex;justify-content:space-between">
+            <span class="tag">سعر: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= stock %></span>
+          </div>
+          <div class="muted-sm" style="text-align:center;margin-top:6px">
+            <%= (p.brand||'—') %> • <%= (p.category||'—') %>
+          </div>
+          <button class="btn add pickBtn" type="button"
+                  <%= isOut ? 'disabled title="نفد المخزون"' : '' %>>
+            <i class="fa fa-check"></i> اختيار
+          </button>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
 <script>
-  // ===== بيانات المنتجات من السيرفر =====
+  // ===== بيانات من السيرفر =====
   const PRODUCTS = <%- JSON.stringify(products||[]) %>;
 
   const cartBody   = document.getElementById('cartBody');
   const sumRevenue = document.getElementById('sumRevenue');
   const sumProfit  = document.getElementById('sumProfit');
-  const btnAddRow  = document.getElementById('btnAddRow');
+  const btnAddRow  = document.getElementById('btnAddEmpty');
   const btnClear   = document.getElementById('btnClear');
-  const btnSubmit  = document.getElementById('btnSubmit');
 
-  const fmt = n => (Number(n)||0).toFixed(2) + ' ₪';
+  // -- أدوات المودال
+  const picker         = document.getElementById('picker');
+  const pickGrid       = document.getElementById('pickGrid');
+  const pickSearch     = document.getElementById('pickSearch');
+  const pickerCloseBtn = document.getElementById('pickerClose');
+  const btnOpenPicker  = document.getElementById('btnOpenPicker');
 
-  function buildPicker(){
-    const sel = document.createElement('select');
-    sel.name = 'product_id[]';
-    sel.className = 'form-select';
-    sel.required = true;
-    sel.appendChild(new Option('— اختر —',''));
-    PRODUCTS.forEach(p=>{
-      const t = `${p.name} ${p.stock>0?`(مخزون: ${p.stock})`:''}`;
-      const o = new Option(t, p.id);
-      o.dataset.price = p.sale_price;
-      o.dataset.cost  = p.cost_price;
-      sel.appendChild(o);
-    });
-    sel.addEventListener('change', ()=>{
-      const o = sel.selectedOptions[0];
-      const tr = sel.closest('tr');
-      tr.querySelector('[name="sale_price[]"]').value = o?.dataset?.price || 0;
-      tr.querySelector('[name="cost_price[]"]').value = o?.dataset?.cost  || 0;
-      recalc();
-    });
-    return sel;
+  function num(v){ return Number(v||0) || 0 }
+  function fmt(n){ return (Number(n)||0).toFixed(2) }
+
+  // صف الجدول
+  function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''}) {
+    const nameHtml = name
+      ? `<div class="row" style="justify-content:flex-end;gap:8px">
+           ${img ? `<img src="${img}" class="thumb" style="width:56px;height:56px">` : ''}
+           <span>${name}</span>
+         </div>`
+      : `<span class="muted-sm">[اختر من الشبكة]</span>`;
+
+    return `
+      <tr class="sale-row" data-pid="${pid}">
+        <td>
+          <button class="btn danger" type="button" data-act="del" title="حذف" style="padding:8px 10px"><i class="fa fa-xmark"></i></button>
+        </td>
+        <td class="right">
+          <input type="hidden" name="product_id[]" value="${pid}">
+          ${nameHtml}
+        </td>
+        <td><input name="quantity[]" type="number" min="1" step="1" value="${qty}"></td>
+        <td><input name="sale_price[]" type="number" step="0.01" value="${sp}"></td>
+        <td><input name="cost_price[]" type="number" step="0.01" value="${cp}"></td>
+        <td><input name="shipping_cost[]" type="number" step="0.01" value="${ship}"></td>
+        <td><input name="item_note[]" placeholder="ملاحظة" value="${note}"></td>
+      </tr>
+    `;
   }
 
-  function addRow(pref={}){
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td></td>
-      <td><input name="quantity[]" type="number" min="1" value="${pref.quantity||1}"></td>
-      <td><input name="sale_price[]" type="number" step="0.01" value="${pref.sale_price||''}"></td>
-      <td><input name="cost_price[]" type="number" step="0.01" value="${pref.cost_price||''}"></td>
-      <td><input name="shipping_cost[]" type="number" step="0.01" value="${pref.shipping_cost||0}"></td>
-      <td><input name="item_note[]" value="${pref.item_note||''}"></td>
-      <td><button type="button" class="btn danger btn-sm btnDel"><i class="fa fa-times"></i></button></td>
-    `;
-    tr.children[0].appendChild(buildPicker());
-    tr.querySelectorAll('input').forEach(i=>i.addEventListener('input', recalc));
-    tr.querySelector('.btnDel').addEventListener('click', ()=>{ tr.remove(); recalc(); });
-    cartBody.appendChild(tr);
+  function addRow(data={}) {
+    cartBody.insertAdjacentHTML('beforeend', rowTemplate(data));
     recalc();
   }
 
   function recalc(){
-    let revenue=0, profit=0;
-    const hasRows = !!cartBody.querySelector('tr');
-    cartBody.querySelectorAll('tr').forEach(tr=>{
-      const q = +tr.querySelector('[name="quantity[]"]').value||0;
-      const sp= +tr.querySelector('[name="sale_price[]"]').value||0;
-      const cp= +tr.querySelector('[name="cost_price[]"]').value||0;
-      const sh= +tr.querySelector('[name="shipping_cost[]"]').value||0;
-      revenue += q*sp;
-      profit  += (q*sp)-(q*cp)-sh;
+    let rev=0, prof=0;
+    cartBody.querySelectorAll('tr.sale-row').forEach(tr=>{
+      const q  = num(tr.querySelector('input[name="quantity[]"]').value);
+      const sp = num(tr.querySelector('input[name="sale_price[]"]').value);
+      const cp = num(tr.querySelector('input[name="cost_price[]"]').value);
+      const sh = num(tr.querySelector('input[name="shipping_cost[]"]').value);
+      rev  += q*sp;
+      prof += (sp-cp)*q - sh;
     });
-    sumRevenue.textContent = fmt(revenue);
-    sumProfit.textContent  = fmt(profit);
-    btnSubmit.disabled = !hasRows;
+    sumRevenue.textContent = fmt(rev);
+    sumProfit .textContent = fmt(prof);
   }
 
-  btnAddRow.addEventListener('click', ()=>addRow());
-  btnClear.addEventListener('click', ()=>{ cartBody.innerHTML=''; recalc(); });
-  addRow();
-
-  // أزرار تغيير حالة الطلب من البطاقة
-  document.querySelectorAll('.status-action').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const form = b.closest('form');
-      form.querySelector('[name="status"]').value = b.dataset.val;
-      form.submit();
-    });
+  // أحداث الجدول
+  cartBody.addEventListener('input', e=>{
+    if (e.target.matches('input')) recalc();
   });
+  cartBody.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-act="del"]');
+    if (btn) { btn.closest('tr').remove(); recalc(); }
+  });
+
+  // إضافة سطر فارغ يدويًا
+  btnAddRow.addEventListener('click', ()=> addRow({}));
+
+  // إفراغ السلة
+  btnClear.addEventListener('click', ()=>{
+    cartBody.innerHTML = '';
+    recalc();
+  });
+
+  // ====== مودال الشبكة ======
+  function showPicker(){ picker.style.display='block'; pickSearch.focus(); }
+  function hidePicker(){ picker.style.display='none'; pickSearch.value=''; filterGrid(''); }
+
+  btnOpenPicker.addEventListener('click', showPicker);
+  document.querySelector('#picker .modal-bg').addEventListener('click', hidePicker);
+  pickerCloseBtn.addEventListener('click', hidePicker);
+  document.addEventListener('keydown', e=>{
+    if (picker.style.display==='block' && e.key==='Escape') hidePicker();
+  });
+
+  function filterGrid(q){
+    const s = (q||'').trim().toLowerCase();
+    [...pickGrid.querySelectorAll('.pcard')].forEach(card=>{
+      const hay = (card.dataset.name + ' ' + (card.dataset.brand||'') + ' ' + (card.dataset.cat||'')).toLowerCase();
+      card.style.display = hay.includes(s) ? 'flex' : 'none';
+    });
+  }
+  pickSearch.addEventListener('input', e=> filterGrid(e.target.value));
+
+  // اختيار منتج من الشبكة -> سطر جديد في الجدول (مع منع المخزون الصفر)
+  pickGrid.addEventListener('click', e=>{
+    const btn = e.target.closest('.pickBtn');
+    if (!btn) return;
+    const card  = btn.closest('.pcard');
+    const stock = Number(card.dataset.stock||0);
+    if (stock <= 0) { alert('لا يمكن إضافة منتج نفد من المخزون'); return; }
+
+    const pid   = Number(card.dataset.id||0);
+    const name  = card.dataset.name || '';
+    const sp    = Number(card.dataset.sp||0);
+    const cp    = Number(card.dataset.cp||0);
+    const imgEl = card.querySelector('img');
+    const img   = imgEl ? imgEl.getAttribute('src') : '';
+
+    addRow({ pid, name, qty:1, sp, cp, ship:0, note:'', img });
+    hidePicker();
+  });
+
+  // صف افتراضي كبداية
+  addRow({});
 </script>
