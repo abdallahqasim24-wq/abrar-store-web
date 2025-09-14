@@ -1,163 +1,92 @@
-<!-- views/orders-view.ejs -->
 <link rel="stylesheet" href="<%= faLink %>">
 
-<div class="container page">
+<style>
+  .orders-wrap{display:grid;grid-template-columns:1fr;gap:14px}
+  .ocard{background:#fff;border:1px solid #f7cfe1;border-radius:16px;padding:14px;box-shadow:0 12px 30px rgba(255,126,179,.08)}
+  .head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .id{font-weight:900}
+  .muted{color:#6b7280}
+  .right{margin-inline-start:auto}
 
-  <!-- رأس الطلب + أزرار سريعة للحالة -->
-  <div class="card">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <div class="row">
-        <h2 style="margin:0"><i class="fa fa-receipt"></i> طلب #<%= order.id %></h2>
-        <div class="muted-sm">
-          <i class="fa fa-clock"></i>
-          <%= dayjs(order.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %>
-        </div>
-      </div>
-      <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
-    </div>
+  /* حالة */
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #f7cfe1;border-radius:999px;padding:6px 10px;font-weight:800}
+  .pending{background:#fff7e6}
+  .shipping{background:#eef7ff}
+  .delivered{background:#e6ffed}
+  .failed{background:#ffe6e6}
 
-    <div class="row" style="margin-top:10px;gap:16px">
-      <div><b>الزبون:</b> <%= order.customer_name||'—' %></div>
-      <div><b>الهاتف:</b> <%= order.customer_phone||'—' %></div>
-      <div><b>المدينة:</b> <%= order.customer_city||'—' %></div>
-    </div>
+  /* أزرار الحالة السريعة */
+  .quick{display:flex;gap:10px;align-items:center;margin-top:10px}
+  .qbtn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:44px;height:44px;border-radius:14px;border:0;cursor:pointer;
+    box-shadow:0 2px 0 rgba(0,0,0,.06)
+  }
+  .q-pending   {background:#f59e0b;color:#111}
+  .q-shipping  {background:#2563eb;color:#fff}
+  .q-delivered {background:#16a34a;color:#fff}
+  .q-failed    {background:#ef4444;color:#fff}
+  .q-reset     {background:#ef4444;color:#fff}
 
-    <div style="margin-top:10px">
-      <span class="status-chip status-<%= order.status %>">
-        <% if(order.status==='pending'){ %><i class="fa fa-hourglass-half"></i> قيد المعالجة
-        <% } else if(order.status==='processing'){ %><i class="fa fa-spinner"></i> معالجة
-        <% } else if(order.status==='shipping'){ %><i class="fa fa-truck"></i> قيد التوصيل
-        <% } else if(order.status==='delivered'){ %><i class="fa fa-check"></i> تم التسليم
-        <% } else { %><i class="fa fa-xmark"></i> لم يتم / فشل <% } %>
-      </span>
-    </div>
+  .nums{display:flex;gap:18px;flex-wrap:wrap}
+  .nums b{font-size:16px}
+  .open{background:#475569;color:#fff;border:0;border-radius:12px;padding:8px 12px;display:inline-flex;align-items:center;gap:8px}
+</style>
 
-    <!-- شريط أزرار الحالة أسفل العنوان مباشرة -->
-    <form class="row" method="post" action="/orders/<%= order.id %>/status" style="margin-top:10px">
-      <input type="hidden" name="apply_to_items" value="on">
-      <input type="hidden" name="status" value="">
-      <div class="row">
-        <button type="button" class="btn edit status-action" data-val="pending"   title="قيد المعالجة">⏳</button>
-        <button type="button" class="btn add  status-action" data-val="shipping"  title="قيد التوصيل">🚚</button>
-        <button type="button" class="btn save status-action" data-val="delivered" title="تم التسليم">✔</button>
-        <button type="button" class="btn danger status-action" data-val="failed"    title="لم يتم / فشل">✖</button>
-        <button type="submit" class="btn secondary" onclick="this.form.status.value=this.form.status.value||'<%= order.status %>'">
-          <i class="fa fa-rotate"></i> تحديث الحالة
-        </button>
-      </div>
-    </form>
-
-    <% if (order.note) { %>
-      <div class="muted-sm" style="margin-top:8px"><b>ملاحظة:</b> <%= order.note %></div>
-    <% } %>
-
-    <div class="row" style="margin-top:8px">
-      <b>الإيراد:</b> ₪<%= Number(revenue||0).toFixed(2) %>
-      <b style="margin-inline-start:16px">الربح:</b> ₪<%= Number(profit||0).toFixed(2) %>
-    </div>
-  </div>
-
-  <!-- البنود -->
-  <div class="card">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <h3 style="margin:0"><i class="fa fa-list-check"></i> بنود الطلب</h3>
-      <button class="btn add" type="button" id="addRow"><i class="fa fa-plus"></i> إضافة بند</button>
-    </div>
-
-    <form method="post" action="/orders/<%= order.id %>/items/bulk-update" style="margin-top:10px">
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>المنتج</th>
-              <th>كمية</th>
-              <th>سعر بيع (₪)</th>
-              <th>سعر أصلي (₪)</th>
-              <th>شحن (₪)</th>
-              <th>ملاحظة</th>
-              <th>حالة البند</th>
-              <th>حذف</th>
-            </tr>
-          </thead>
-          <tbody id="itemsBody">
-          <% items.forEach(it=>{ %>
-            <tr>
-              <td style="text-align:right">
-                <div class="row">
-                  <img class="thumb" style="width:60px;height:60px" src="<%= it.product_image||'' %>">
-                  <select name="product_id">
-                    <% products.forEach(p=>{ %>
-                      <option value="<%= p.id %>" <%= p.id===it.product_id?'selected':'' %>><%= p.name %></option>
-                    <% }) %>
-                  </select>
-                  <input type="hidden" name="item_id" value="<%= it.id %>">
-                </div>
-              </td>
-              <td><input type="number" name="quantity" value="<%= it.quantity %>" min="1" step="1" required></td>
-              <td><input type="number" name="sale_price" value="<%= it.sale_price %>" step="0.01" required></td>
-              <td><input type="number" name="cost_price" value="<%= it.cost_price %>" step="0.01" required></td>
-              <td><input type="number" name="shipping_cost" value="<%= it.shipping_cost||0 %>" step="0.01"></td>
-              <td><input type="text" name="item_note" value="<%= it.note||'' %>"></td>
-              <td>
-                <span class="status-chip status-<%= it.delivery_status %>">
-                  <% if(it.delivery_status==='pending'){ %><i class="fa fa-hourglass-half"></i> قيد المعالجة
-                  <% } else if(it.delivery_status==='shipping'){ %><i class="fa fa-truck"></i> قيد التوصيل
-                  <% } else if(it.delivery_status==='delivered'){ %><i class="fa fa-check"></i> تم التسليم
-                  <% } else { %><i class="fa fa-xmark"></i> لم يتم / فشل <% } %>
-                </span>
-              </td>
-              <td><input type="checkbox" name="delete_flag"></td>
-            </tr>
-          <% }) %>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="row" style="margin-top:10px;justify-content:flex-end">
-        <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات</button>
-      </div>
-    </form>
-  </div>
+<div class="head" style="margin-bottom:10px">
+  <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات</h2>
+  <span class="muted">(<%= (orders||[]).length %>)</span>
 </div>
 
-<script>
-  // إضافة صف جديد
-  (function(){
-    const products = <%- JSON.stringify(products||[]) %>;
-    const body = document.getElementById('itemsBody');
-    const add  = document.getElementById('addRow');
+<div class="orders-wrap">
+  <% if (!orders || !orders.length) { %>
+    <div class="muted">لا توجد طلبات بعد.</div>
+  <% } else { orders.forEach(o => { %>
+    <div class="ocard">
+      <div class="head">
+        <div class="id">#<%= o.id %></div>
+        <div class="muted">
+          <i class="fa fa-clock"></i>
+          <%= dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %>
+        </div>
 
-    function makeRow(){
-      const opts = products.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
-      return `
-        <tr>
-          <td style="text-align:right">
-            <div class="row">
-              <img class="thumb" style="width:60px;height:60px" src="">
-              <select name="product_id">${opts}</select>
-              <input type="hidden" name="item_id" value="">
-            </div>
-          </td>
-          <td><input type="number" name="quantity" value="1" min="1" step="1" required></td>
-          <td><input type="number" name="sale_price" step="0.01" required></td>
-          <td><input type="number" name="cost_price" step="0.01" required></td>
-          <td><input type="number" name="shipping_cost" value="0" step="0.01"></td>
-          <td><input type="text" name="item_note"></td>
-          <td>
-            <span class="status-chip status-pending"><i class="fa fa-hourglass-half"></i> قيد المعالجة</span>
-          </td>
-          <td><input type="checkbox" name="delete_flag"></td>
-        </tr>
-      `;
-    }
-    add.addEventListener('click', ()=> body.insertAdjacentHTML('beforeend', makeRow()));
-  })();
+        <div class="right chip <%= o.status %>">
+          <% if (o.status==='pending'){ %><i class="fa fa-hourglass-half"></i><span>قيد المعالجة</span><% } %>
+          <% if (o.status==='shipping'){ %><i class="fa fa-truck"></i><span>قيد التوصيل</span><% } %>
+          <% if (o.status==='delivered'){ %><i class="fa fa-check"></i><span>تم التسليم</span><% } %>
+          <% if (o.status==='failed'){ %><i class="fa fa-xmark"></i><span>فشل/لم يتم</span><% } %>
+        </div>
+      </div>
 
-  // أزرار تغيير حالة الطلب السريعة
-  document.querySelectorAll('.status-action').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const form = b.closest('form');
-      form.querySelector('[name="status"]').value = b.dataset.val;
-    });
-  });
-</script>
+      <div class="nums" style="margin-top:8px">
+        <div><b><i class="fa fa-user"></i></b> <%= o.customer_name || 'بدون اسم' %></div>
+        <div class="muted"><b><i class="fa fa-phone"></i></b> <%= o.customer_phone || '—' %></div>
+        <div class="muted"><b><i class="fa fa-location-dot"></i></b> <%= o.customer_city || '—' %></div>
+        <div class="muted"><b><i class="fa fa-boxes-stacked"></i></b> <%= o.items_count %> بند</div>
+        <div class="muted"><b>الإيراد:</b> ₪<%= Number(o.revenue||0).toFixed(2) %></div>
+        <div class="muted"><b>الربح:</b> ₪<%= Number(o.profit||0).toFixed(2) %></div>
+        <a class="open" href="/orders/<%= o.id %>"><i class="fa fa-folder-open"></i> فتح الطلب</a>
+      </div>
+
+      <!-- أزرار الحالة السريعة -->
+      <div class="quick">
+        <form method="post" action="/orders/<%= o.id %>/status">
+          <input type="hidden" name="status" value="pending">
+          <button class="qbtn q-pending" title="قيد المعالجة"><i class="fa fa-hourglass-half"></i></button>
+        </form>
+        <form method="post" action="/orders/<%= o.id %>/status">
+          <input type="hidden" name="status" value="shipping">
+          <button class="qbtn q-shipping" title="قيد التوصيل"><i class="fa fa-truck"></i></button>
+        </form>
+        <form method="post" action="/orders/<%= o.id %>/status">
+          <input type="hidden" name="status" value="delivered">
+          <button class="qbtn q-delivered" title="تم التسليم"><i class="fa fa-check"></i></button>
+        </form>
+        <form method="post" action="/orders/<%= o.id %>/status">
+          <input type="hidden" name="status" value="failed">
+          <button class="qbtn q-failed" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
+        </form>
+      </div>
+    </div>
+  <% }) } %>
+</div>
