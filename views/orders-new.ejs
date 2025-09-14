@@ -1,101 +1,199 @@
-<link rel="stylesheet" href="<%= faLink %>">
+<!-- views/orders-new.ejs -->
+<div class="card">
+  <h2 style="margin:0 0 12px"><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدّة منتجات)</h2>
 
-<style>
-  .form-grid{
-    display:grid;
-    grid-template-columns:repeat(2,1fr);
-    gap:14px;
-  }
-  .form-grid label{font-weight:700;font-size:.9rem;color:#374151;margin-bottom:4px;display:block}
-  .items-table{width:100%;border-collapse:collapse;margin-top:18px}
-  .items-table th,.items-table td{padding:10px;border:1px solid #f1f5f9;text-align:center}
-  .items-table th{background:#feeef5}
-  .btn.add-row{background:#2563eb;color:#fff;border:none;padding:8px 14px;border-radius:10px;font-weight:700}
-  .btn.save{background:#16a34a;color:#fff;padding:10px 16px;border:none;border-radius:12px;font-weight:700}
-  .remove-btn{background:#ef4444;color:#fff;border:none;border-radius:50%;width:32px;height:32px;cursor:pointer}
-</style>
+  <form id="orderForm" method="post" action="/orders">
+    <!-- رقم الطلب اليدوي (اختياري) -->
+    <div class="form-grid">
+      <div>
+        <label>رقم الطلب (اختياري)</label>
+        <input type="number" min="1" name="order_id" placeholder="مثال: 1234">
+      </div>
+      <div>
+        <label>اسم الزبون</label>
+        <input name="customer_name" placeholder="اسم الزبون">
+      </div>
+      <div>
+        <label>الهاتف</label>
+        <input name="customer_phone" placeholder="الهاتف">
+      </div>
+      <div>
+        <label>المدينة</label>
+        <input name="customer_city" placeholder="المدينة">
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>ملاحظة عامة للطلب</label>
+        <input name="note" placeholder="ملاحظة عامة للطلب">
+      </div>
+    </div>
 
-<h2><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدة منتجات)</h2>
+    <!-- الجدول -->
+    <div class="row" style="margin:14px 0 8px">
+      <button class="btn add" type="button" id="btnOpenPicker">
+        <i class="fa fa-grid-2"></i> إضافة منتج من الشبكة
+      </button>
+      <button class="btn secondary" type="button" id="btnAddEmpty" style="background:#64748b">
+        <i class="fa fa-plus"></i> إضافة سطر فارغ
+      </button>
+      <div class="right muted-sm">اختر من الشبكة لإضافة بنود بسرعة</div>
+    </div>
 
-<form method="post" action="/orders">
-  <div class="form-grid">
-    <div>
-      <label>رقم الطلب</label>
-      <input type="number" name="order_id" placeholder="أدخل رقم الطلب">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:46px">حذف</th>
+            <th class="right">المنتج</th>
+            <th>كمية</th>
+            <th>(₪) سعر بيع</th>
+            <th>(₪) سعر أصلي</th>
+            <th>(₪) شحن</th>
+            <th>ملاحظة</th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          <!-- صف افتراضي واحد -->
+        </tbody>
+      </table>
     </div>
-    <div>
-      <label>اسم الزبون</label>
-      <input type="text" name="customer_name">
+
+    <!-- الإجماليات -->
+    <div class="row" style="gap:18px;margin-top:12px">
+      <div class="muted-sm">الإيراد الكلي: ₪ <span id="sumRevenue">0.00</span></div>
+      <div class="muted-sm">الربح الكلي: ₪ <span id="sumProfit">0.00</span></div>
     </div>
-    <div>
-      <label>الهاتف</label>
-      <input type="text" name="customer_phone">
+
+    <div class="row" style="margin-top:16px">
+      <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ البنود</button>
     </div>
-    <div>
-      <label>المدينة</label>
-      <input type="text" name="customer_city">
+  </form>
+</div>
+
+<!-- نافذة اختيار من الشبكة -->
+<div class="modal" id="picker">
+  <div class="modal-bg"></div>
+  <div class="modal-card">
+    <button class="mclose" type="button" id="pickerClose"><i class="fa fa-xmark"></i></button>
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <strong>اختيار منتج</strong>
+      <div class="right" style="display:flex;gap:8px;align-items:center">
+        <input id="pickSearch" placeholder="بحث..." style="max-width:260px">
+      </div>
     </div>
-    <div style="grid-column:1/-1">
-      <label>ملاحظة عامة</label>
-      <input type="text" name="note">
+    <div class="mgrid" id="pickGrid">
+      <% products.forEach(p => { %>
+        <div class="pcard" data-pid="<%= p.id %>" data-name="<%- p.name %>" data-sp="<%= Number(p.sale_price||0) %>" data-cp="<%= Number(p.cost_price||0) %>">
+          <img src="<%= p.image_path || 'https://via.placeholder.com/400x400?text=No+Image' %>" alt="<%- p.name %>">
+          <div class="name"><%- p.name %></div>
+          <div style="display:flex;justify-content:space-between">
+            <span class="tag">سعر: ₪<%= Number(p.sale_price||0).toFixed(2) %></span>
+            <span class="tag">مخزون: <%= p.stock||0 %></span>
+          </div>
+        </div>
+      <% }) %>
     </div>
   </div>
-
-  <table class="items-table" id="itemsTable">
-    <thead>
-      <tr>
-        <th>المنتج</th>
-        <th>كمية</th>
-        <th>سعر بيع (₪)</th>
-        <th>سعر أصلي (₪)</th>
-        <th>شحن (₪)</th>
-        <th>ملاحظة</th>
-        <th>حذف</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>
-          <select name="product_id" required>
-            <option value="">— اختر —</option>
-            <% products.forEach(p => { %>
-              <option value="<%= p.id %>"><%= p.name %> (مخزون: <%= p.stock %>)</option>
-            <% }) %>
-          </select>
-        </td>
-        <td><input type="number" name="quantity" value="1" min="1"></td>
-        <td><input type="number" step="0.01" name="sale_price"></td>
-        <td><input type="number" step="0.01" name="cost_price"></td>
-        <td><input type="number" step="0.01" name="shipping_cost"></td>
-        <td><input type="text" name="item_note"></td>
-        <td><button type="button" class="remove-btn">&times;</button></td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div style="margin-top:12px">
-    <button type="button" class="btn add-row"><i class="fa fa-plus"></i> إضافة صف</button>
-  </div>
-
-  <div style="margin-top:16px">
-    <button type="submit" class="btn save"><i class="fa fa-save"></i> حفظ الطلب</button>
-  </div>
-</form>
+</div>
 
 <script>
-  // تكرار الصفوف
-  const table = document.getElementById("itemsTable").querySelector("tbody");
-  document.querySelector(".add-row").addEventListener("click",()=>{
-    const clone = table.rows[0].cloneNode(true);
-    clone.querySelectorAll("input").forEach(i=>i.value="");
-    clone.querySelector("select").selectedIndex=0;
-    table.appendChild(clone);
+(function(){
+  const products = <%- JSON.stringify(products||[]) %>;
+  const itemsBody = document.getElementById('itemsBody');
+
+  function num(v){ return Number(v||0) || 0 }
+  function fmt(n){ return (Number(n)||0).toFixed(2) }
+
+  function rowTemplate(data){
+    const {pid=0, name='', qty=1, sp=0, cp=0, ship=0, note=''} = data||{};
+    const pidHidden = `<input type="hidden" name="product_id" value="${pid}">`;
+    const nameHtml = name ? `<div class="row" style="justify-content:flex-end;gap:8px">
+        <span>${name}</span>
+      </div>` : `<span class="muted-sm">[اختر من الشبكة]</span>`;
+    return `
+      <tr class="sale-row" data-pid="${pid}">
+        <td>
+          <button class="btn danger" type="button" data-act="del" title="حذف" style="padding:8px 10px"><i class="fa fa-xmark"></i></button>
+        </td>
+        <td class="right">
+          ${pidHidden}
+          ${nameHtml}
+        </td>
+        <td><input name="quantity" type="number" min="1" value="${qty}"></td>
+        <td><input name="sale_price" type="number" step="0.01" value="${sp}"></td>
+        <td><input name="cost_price" type="number" step="0.01" value="${cp}"></td>
+        <td><input name="shipping_cost" type="number" step="0.01" value="${ship}"></td>
+        <td><input name="item_note" placeholder="ملاحظة" value="${note}"></td>
+      </tr>
+    `;
+  }
+
+  function addRow(data){ itemsBody.insertAdjacentHTML('beforeend', rowTemplate(data)); recalc() }
+  function recalc(){
+    let rev=0, prof=0;
+    itemsBody.querySelectorAll('tr.sale-row').forEach(tr=>{
+      const q = num(tr.querySelector('input[name="quantity"]').value);
+      const sp = num(tr.querySelector('input[name="sale_price"]').value);
+      const cp = num(tr.querySelector('input[name="cost_price"]').value);
+      const sh = num(tr.querySelector('input[name="shipping_cost"]').value);
+      rev += q*sp;
+      prof += (sp-cp)*q - sh;
+    });
+    document.getElementById('sumRevenue').textContent = fmt(rev);
+    document.getElementById('sumProfit').textContent  = fmt(prof);
+  }
+
+  // صف افتراضي
+  addRow({});
+
+  itemsBody.addEventListener('input', e=>{
+    if(e.target.matches('input')) recalc();
+  });
+  itemsBody.addEventListener('click', e=>{
+    const btn = e.target.closest('[data-act="del"]');
+    if(btn){ btn.closest('tr').remove(); recalc(); }
   });
 
-  // حذف الصف
-  table.addEventListener("click",e=>{
-    if(e.target.classList.contains("remove-btn")){
-      if(table.rows.length>1) e.target.closest("tr").remove();
-    }
+  // إضافة سطر فارغ
+  document.getElementById('btnAddEmpty').addEventListener('click', ()=> addRow({}));
+
+  // ===== نافذة الشبكة =====
+  const picker = document.getElementById('picker');
+  const pickGrid = document.getElementById('pickGrid');
+  const pickSearch = document.getElementById('pickSearch');
+  const pickerClose = document.getElementById('pickerClose');
+
+  function openPicker(){ picker.style.display='block' }
+  function closePicker(){ picker.style.display='none' }
+
+  document.getElementById('btnOpenPicker').addEventListener('click', openPicker);
+  document.querySelector('#picker .modal-bg').addEventListener('click', closePicker);
+  pickerClose.addEventListener('click', closePicker);
+
+  // بحث
+  pickSearch.addEventListener('input', ()=>{
+    const k = pickSearch.value.trim().toLowerCase();
+    pickGrid.querySelectorAll('.pcard').forEach(card=>{
+      const name = (card.dataset.name||'').toLowerCase();
+      card.style.display = name.includes(k) ? '' : 'none';
+    });
   });
+
+  // اختيار منتج
+  pickGrid.addEventListener('click', e=>{
+    const card = e.target.closest('.pcard');
+    if(!card) return;
+    const pid  = Number(card.dataset.pid);
+    const name = card.dataset.name || '';
+    const sp   = Number(card.dataset.sp||0);
+    const cp   = Number(card.dataset.cp||0);
+    addRow({ pid, name, qty:1, sp, cp, ship:0, note:'' });
+    closePicker();
+  });
+
+  // عند الإرسال: تأكد أن الحقول Array
+  document.getElementById('orderForm').addEventListener('submit', ()=>{
+    // لا شيء إضافي؛ لدينا نفس أسماء الحقول مكررة وسيجمّعها Express كقوائم
+  });
+})();
 </script>
