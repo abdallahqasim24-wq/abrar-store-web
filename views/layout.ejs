@@ -185,23 +185,23 @@
   let internalNav = false;
   let refreshing  = false;
 
-  // 1) اعتبر أي ضغط على روابط داخلية تنقّل داخلي (لا تعمل logout)
+  // 1) اعتبار أي ضغط على روابط داخلية تنقل داخلي (لا تعمل logout)
   document.addEventListener("click", function (e) {
     const a = e.target.closest("a");
     if (!a) return;
+    // تجاهل روابط تفتح نافذة جديدة
+    if (a.target && a.target !== "_self") return;
     const url = new URL(a.href, location.origin);
     if (url.origin === location.origin) {
       internalNav = true;
     }
   }, true);
 
-  // 2) النماذج داخلية برضو
+  // 2) النماذج الداخلية أيضًا
   document.addEventListener("submit", function (e) {
     const form = e.target;
-    // نفس الأصل؟ (أغلب النماذج داخلية)
-    if (!form.action || form.action.startsWith(location.origin) || form.action.startsWith("/")) {
-      internalNav = true;
-    }
+    if (!form) return;
+    if (!form.hasAttribute("target")) internalNav = true;
   }, true);
 
   // 3) كشف أوامر الريفريش الشائعة
@@ -214,22 +214,19 @@
   window.addEventListener("beforeunload", function () {
     if (internalNav || refreshing) return;
     try {
-      // يشتغل حتى لو الصفحة بتتقفل
       navigator.sendBeacon("/logout-ajax");
     } catch {
       fetch("/logout-ajax", { method: "POST", keepalive: true, headers: { "Content-Type": "text/plain" }, body: "" });
     }
   });
 
-  // 5) بعد ما ندخل صفحة جديدة، صفّر الفلاجز
+  // 5) بعد عرض الصفحة الجديدة صفّر الفلاجز
   window.addEventListener("pageshow", function () {
     internalNav = false;
     refreshing  = false;
   });
 })();
-</script>
-
-
+  </script>
 
 </body>
 </html>

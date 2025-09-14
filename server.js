@@ -37,6 +37,9 @@ const AUTH_ENABLED = (process.env.AUTH_ENABLED ?? "1") !== "0";
 const AUTH_USER = process.env.AUTH_USER || "abrar";
 const AUTH_PASS = process.env.AUTH_PASS || "1143";
 
+// مهلة الخمول (بالدقائق) — يمكن ضبطها عبر متغير بيئة
+const IDLE_MAX_MINUTES = Number(process.env.IDLE_MAX_MINUTES || 20);
+
 // ================== قاعدة البيانات ==================
 const { Pool } = pg;
 const pool = new Pool({
@@ -183,15 +186,43 @@ app.use(
     secret: process.env.SESSION_SECRET || "abrar_store_secret",
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" },
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
   })
 );
+
+// === تتبّع النشاط + مهلة خمول (لا تسجّل خروج مع الريفريش) ===
+app.use((req, res, next) => {
+  if (req.session) req.session.lastActivity = Date.now();
+  next();
+});
+
+// نبضة من الواجهة كل دقيقة للمحافظة على الجلسة طالما التبويب مفتوح
+app.post("/heartbeat", (req, res) => {
+  if (req.session) req.session.lastActivity = Date.now();
+  res.sendStatus(204);
+});
+
+// تحقّق الخمول: إن مرّت المهلة بلا نشاط، دمّر الجلسة
+app.use((req, res, next) => {
+  if (!req.session?.user) return next();
+  const last = req.session.lastActivity || 0;
+  const idleMs = Date.now() - last;
+  if (idleMs > IDLE_MAX_MINUTES * 60 * 1000) {
+    return req.session.destroy(() => res.redirect("/login"));
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   next();
 });
 
-const openPaths = new Set(["/login", "/logout", "/healthz"]);
+const openPaths = new Set(["/login", "/logout", "/healthz", "/heartbeat", "/logout-ajax"]);
 function requireAuth(req, res, next) {
   if (!AUTH_ENABLED) return next();
   if (openPaths.has(req.path)) return next();
@@ -226,14 +257,12 @@ app.post("/login", (req, res) => {
 });
 app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login")));
 
-// تسجيل خروج تلقائي عبر AJAX (لما يسكر التبويب)
+// تسجيل خروج تلقائي عبر AJAX (لو استدعيتَه يدويًا من الواجهة)
 app.post("/logout-ajax", (req, res) => {
   if (req.session) {
-    req.session.destroy(() => {
-      res.sendStatus(200);
-    });
+    req.session.destroy(() => res.sendStatus(204));
   } else {
-    res.sendStatus(200);
+    res.sendStatus(204);
   }
 });
 
@@ -491,20 +520,23 @@ app.get("/sales", async (req, res, next) => {
     // بنود كل طلب
     let openOrders = [];
     if (orders.length) {
-      const ids = orders.map(o => o.id);
+      const ids = orders.map((o) => o.id);
       const items = (
-        await query(`
+        await query(
+          `
           SELECT s.*, p.name AS product_name, p.image_path AS product_image
           FROM sales s
           JOIN products p ON p.id = s.product_id
           WHERE s.order_id = ANY($1::int[])
           ORDER BY s.id ASC
-        `, [ids])
-      ).rows.map(r => ({ ...r, _profit: profitOf(r) }));
+        `,
+          [ids]
+        )
+      ).rows.map((r) => ({ ...r, _profit: profitOf(r) }));
 
       const by = {};
       for (const it of items) (by[it.order_id] = by[it.order_id] || []).push(it);
-      openOrders = orders.map(o => ({ ...o, items: by[o.id] || [] }));
+      openOrders = orders.map((o) => ({ ...o, items: by[o.id] || [] }));
     }
 
     const delivered = (
@@ -516,7 +548,7 @@ app.get("/sales", async (req, res, next) => {
         ORDER BY s.delivered_at DESC NULLS LAST, s.id DESC
         LIMIT 50
       `)
-    ).rows.map(r => ({ ...r, _profit: profitOf(r) }));
+    ).rows.map((r) => ({ ...r, _profit: profitOf(r) }));
 
     const flash = req.session.sales_flash || null;
     req.session.sales_flash = null;
@@ -528,7 +560,7 @@ app.get("/sales", async (req, res, next) => {
   }
 });
 
-// إضافة بيع مفرد
+// إضافة بيع مفرد (تبقى كما هي دون ربط بطلب)
 app.post("/sales", async (req, res) => {
   const {
     product_id,
@@ -574,7 +606,7 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة (تبقى كما هي) ===
+// === إضافة عدة بنود بيع دفعة واحدة — إنشاء/استخدام طلب + فحص مخزون صارم ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -687,7 +719,7 @@ app.post("/sales/multi", async (req, res) => {
   }
 });
 
-// Edit sale
+// Edit sale (مفرد)
 app.get("/sales/:id/edit", async (req, res) => {
   const id = Number(req.params.id);
   const saleQ = await query(
@@ -946,7 +978,7 @@ app.get("/orders/new", async (_req, res) => {
 // ======= إنشاء طلب جديد (+ بنود) مع دعم رقم الطلب اليدوي =======
 app.post("/orders", async (req, res) => {
   const {
-    order_id,             // <<--- رقم الطلب اليدوي (اختياري)
+    order_id,             // رقم الطلب اليدوي (اختياري)
     customer_name,
     customer_phone,
     customer_city,
@@ -984,7 +1016,6 @@ app.post("/orders", async (req, res) => {
         [manualId]
       );
     } else {
-      // ممكن تحديث بيانات العميل لو حبيت
       await query(
         `UPDATE orders SET customer_name=$1, customer_phone=$2, customer_city=$3, note=$4 WHERE id=$5`,
         [
@@ -998,7 +1029,6 @@ app.post("/orders", async (req, res) => {
     }
     orderId = manualId;
   } else {
-    // بدون رقم يدوي — إنشاء عادي
     const ins = await query(
       `
       INSERT INTO orders (customer_name, customer_phone, customer_city, note, status)
@@ -1139,7 +1169,7 @@ app.post("/orders/:id/items", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// تحديث/حذف عدة بنود دفعة واحدة
+// تحديث/حذف عدة بنود دفعة واحدة في الطلب
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const id = Number(req.params.id);
   const {
