@@ -13,17 +13,18 @@ body{ font-family:'Tajawal','Cairo',system-ui,-apple-system,'Segoe UI',Roboto,Ar
   --border:#f7cfe1;
   --accent1:#ff7eb3;
   --accent2:#ffb07b;
-  --ok:#16a34a;
-  --danger:#ef4444;
+
   --primary:#2563eb;
   --success:#16a34a;
   --warning:#f59e0b;
+  --danger:#ef4444;
+
   --shadow:0 12px 30px rgba(255,126,179,.15);
   --thumb-size:100px;
 
   /* حاوية عريضة قابلة للتكيّف */
-  --container-max: 1680px;   /* الحد الأقصى */
-  --container-pad: clamp(12px, 2vw, 28px); /* حواف داخلية متكيّفة */
+  --container-max: 1680px;
+  --container-pad: clamp(12px, 2vw, 28px);
 }
 
 /* ===== Base ===== */
@@ -66,6 +67,7 @@ table{ font-size:.95rem }
   font-weight:700;
   cursor:pointer;
   transition:.2s;
+  display:inline-flex; align-items:center; gap:8px;
 }
 .btn:hover{ opacity:.92; transform:translateY(-1px) }
 
@@ -115,27 +117,106 @@ th{ background:#fff0f6; color:#374151 }
 }
 .thumb.lg{ width:120px; height:120px }
 
-/* شارات الحالة */
-.status-chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem; border:1px solid var(--border); cursor:pointer; user-select:none; background:#fff }
-.status-pending{ background:#fff7e6 }
-.status-shipping{ background:#fff3cd }
-.status-delivered{ background:#e6ffed }
-.status-failed{ background:#ffe6e6 }
-.status-wrap{ position:relative; display:inline-block }
-.status-menu{ position:absolute; inset:auto auto auto 0; transform:translateY(6px); background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); min-width:180px; padding:6px; z-index:30; display:none }
-.status-menu form{ margin:0 }
-.status-menu button{ width:100%; text-align:right; background:#fff; color:#111; border:0; padding:8px 10px; border-radius:8px; cursor:pointer }
-.status-menu button:hover{ background:#f8fafc }
-
 /* الحقول */
-input,select,textarea{ width:100%; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 12px; color:#111; outline:none }
+input,select,textarea{
+  width:100%; background:#fff; border:1px solid var(--border);
+  border-radius:12px; padding:12px 12px; color:#111; outline:none
+}
 label{ font-size:12px; color:#6b7280 }
 .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap }
 .right{ margin-inline-start:auto }
 .muted{ color:var(--muted) }
 .muted-sm{ color:#6b7280; font-size:.85rem }
 
-/* Lightbox */
+/* ===== تحسين شكل select العام ===== */
+select{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  background:
+    #fff
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>")
+    no-repeat left 12px center/16px 16px;
+  padding-inline-start:40px;
+}
+select:focus{
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+
+/* ===== شارات الحالة (chip) ===== */
+.status-chip{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 10px; border-radius:999px; font-weight:700; font-size:.85rem;
+  border:1px solid var(--border); user-select:none; background:#fff
+}
+.status-pending{ background:#fff7e6 }
+.status-shipping{ background:#eef6ff }
+.status-delivered{ background:#e6ffed }
+.status-failed{ background:#ffe6e6 }
+.status-wrap{ position:relative; display:inline-block }
+.status-menu{
+  position:absolute; inset:auto auto auto 0; transform:translateY(6px);
+  background:#fff; border:1px solid var(--border); border-radius:10px;
+  box-shadow:var(--shadow); min-width:180px; padding:6px; z-index:30; display:none
+}
+.status-menu form{ margin:0 }
+.status-menu button{
+  width:100%; text-align:right; background:#fff; color:#111;
+  border:0; padding:8px 10px; border-radius:8px; cursor:pointer
+}
+.status-menu button:hover{ background:#f8fafc }
+
+/* ===== قائمة الحالة المنسدلة الملوّنة (خاص الطلب) ===== */
+.select-status{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  font-weight:700; cursor:pointer;
+  padding:12px 48px 12px 14px; /* السهم يسار */
+  border-radius:12px; border:1px solid var(--border);
+  background-position: left 12px center;
+  background-size: 18px 18px;
+}
+/* سهم أسود افتراضي */
+.select-status{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>");
+}
+
+/* ألوان الحالات */
+.select-status.pending   { background-color:#fffbea; border-color:#fcd34d; color:#92400e; }
+.select-status.shipping  { background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a; }
+.select-status.delivered { background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46; }
+.select-status.failed    { background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d; }
+.select-status:hover { filter:brightness(.98); }
+
+/* ===== أزرار الحالة الدائرية (للأوامر) ===== */
+.order-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+.pill{
+  width:48px; height:48px; border-radius:14px; border:0; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  transition: transform .15s, filter .15s;
+}
+.pill:hover{ transform:translateY(-2px); filter:saturate(1.05) }
+.pill i{ font-size:20px; color:#fff }
+
+/* ألوان الأزرار */
+.pill.pending  { background: var(--warning); }     /* قيد المعالجة */
+.pill.shipping { background: var(--primary); }     /* قيد التوصيل */
+.pill.done     { background: var(--success); }     /* تم التسليم */
+.pill.fail     { background: var(--danger); }      /* فشل */
+.pill.return   { background: #ef4444; }            /* إرجاع */
+
+.pill .dot{ width:10px; height:10px; border-radius:999px; background:#000; opacity:.25 }
+
+/* شريط أزرار الحالة + زر تحديث */
+.order-status-bar{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap
+}
+.btn.refresh{
+  background:var(--warning); color:#111; font-weight:800;
+  box-shadow:0 3px 10px rgba(245,158,11,.25)
+}
+.btn.refresh i{ color:#111 }
+
+/* ===== Lightbox ===== */
 .thumb-btn{ all:unset; cursor:zoom-in; display:inline-block; line-height:0 }
 #imgPreviewBg{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; z-index:70 }
 #imgPreview{ position:fixed; inset:0; margin:auto; max-width:min(92vw, 1200px); max-height:92vh; display:none; z-index:80; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35) }
