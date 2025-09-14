@@ -122,7 +122,13 @@
         <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
-                <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
+
+        <!-- الرابط الجديد: كل الطلبات -->
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
+          <i class="fa fa-list"></i> كل الطلبات
+        </a>
+
+        <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
         <form class="right" method="post" action="/logout" style="margin:0">
           <button class="logout-btn" type="submit" title="تسجيل الخروج">

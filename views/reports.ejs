@@ -1,4 +1,3 @@
-<!-- views/reports.ejs -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
@@ -20,15 +19,11 @@
 </style>
 
 <%
-  // حراس أمان
   const dj   = (typeof dayjs !== 'undefined' && dayjs) ? dayjs : null;
   const NOW  = dj && dj.tz ? dj().tz('Asia/Hebron') : null;
   const sel  = (typeof selected === 'object' && selected) ? selected : {};
   const RANGE= (typeof range==='string'&&range) ? range : 'daily';
-  // ✅ الفحص الصحيح على years
-  const YEARS= (typeof years!=='undefined' && Array.isArray(years) && years.length)
-               ? years
-               : [2024,2025,2026,2027,2028,2029,2030];
+  const YEARS= [2024,2025,2026,2027,2028,2029,2030];
 
   const curY = Number(NOW ? NOW.format('YYYY') : new Date().getFullYear());
   const curM = Number(NOW ? NOW.format('MM')   : (new Date().getMonth()+1));
@@ -37,143 +32,123 @@
   const selY = Number(sel.year  ?? curY);
   const selM = Number(sel.month ?? curM);
   const selD = Number(sel.day   ?? curD);
-
-  const qsPDF = new URLSearchParams({
-    range: RANGE,
-    year: selY, month: selM, day: selD
-  }).toString();
 %>
 
-<div class="container page">
-  <div class="card" style="margin-top:10px">
-    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
-      <h2 style="margin:0"><i class="fa fa-chart-column"></i> التقارير</h2>
+<div class="card">
+  <form id="reportForm" method="get" action="/reports" class="filters">
+    <input type="hidden" name="range" id="rangeInput" value="<%= RANGE %>">
 
-      <div class="row" style="gap:8px">
-        <a class="btn secondary" href="/"><i class="fa fa-house"></i> الرئيسية</a>
-        <a class="btn edit" href="/reports/pdf?<%= qsPDF %>" target="_blank">
-          <i class="fa fa-file-pdf"></i> تنزيل PDF
-        </a>
-      </div>
+    <button type="button" id="btnDaily"   class="btn-toggle <%= RANGE==='daily'?'btn-on':'btn-ghost' %>">
+      <i class="fa fa-calendar-day"></i> تقرير يومي
+    </button>
+    <button type="button" id="btnMonthly" class="btn-toggle <%= RANGE==='monthly'?'btn-off':'btn-ghost' %>">
+      <i class="fa fa-calendar"></i> تقرير شهري
+    </button>
+
+    <div>
+      <label class="muted">السنة</label>
+      <select name="year" id="ySel">
+        <% YEARS.forEach(y => { %>
+          <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
+        <% }) %>
+      </select>
     </div>
 
-    <form id="reportForm" method="get" action="/reports" class="filters">
-      <input type="hidden" name="range" id="rangeInput" value="<%= RANGE %>">
+    <div>
+      <label class="muted">الشهر</label>
+      <select name="month" id="mSel">
+        <% for (let m=1;m<=12;m++){ %>
+          <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
+        <% } %>
+      </select>
+    </div>
 
-      <button type="button" id="btnDaily"   class="btn-toggle <%= RANGE==='daily'?'btn-on':'btn-ghost' %>">
-        <i class="fa fa-calendar-day"></i> تقرير يومي
-      </button>
-      <button type="button" id="btnMonthly" class="btn-toggle <%= RANGE==='monthly'?'btn-off':'btn-ghost' %>">
-        <i class="fa fa-calendar"></i> تقرير شهري
-      </button>
+    <div id="dayWrap">
+      <label class="muted">اليوم</label>
+      <select name="day" id="dSel">
+        <% for (let d=1; d<=31; d++){ %>
+          <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
+        <% } %>
+      </select>
+    </div>
 
-      <div>
-        <label class="muted">السنة</label>
-        <select name="year" id="ySel">
-          <% YEARS.forEach(y => { %>
-            <option value="<%= y %>" <%= y===selY?'selected':'' %>><%= y %></option>
-          <% }) %>
-        </select>
-      </div>
+    <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
+  </form>
 
-      <div>
-        <label class="muted">الشهر</label>
-        <select name="month" id="mSel">
-          <% for (let m=1;m<=12;m++){ %>
-            <option value="<%= m %>" <%= m===selM?'selected':'' %>><%= m %></option>
-          <% } %>
-        </select>
-      </div>
-
-      <div id="dayWrap">
-        <label class="muted">اليوم</label>
-        <select name="day" id="dSel">
-          <% for (let d=1; d<=31; d++){ %>
-            <option value="<%= d %>" <%= d===selD?'selected':'' %>><%= d %></option>
-          <% } %>
-        </select>
-      </div>
-
-      <button class="btn save" type="submit"><i class="fa fa-magnifying-glass"></i> عرض</button>
-    </form>
-
-    <div class="cards">
-      <div class="kpi">
-        <div class="muted">الإيراد</div>
-        <div style="font-size:28px;font-weight:800">
-          ₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %>
-        </div>
-      </div>
-      <div class="kpi">
-        <div class="muted">التكاليف</div>
-        <div style="font-size:28px;font-weight:800">
-          ₪<%= (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2) %>
-        </div>
-      </div>
-      <div class="kpi">
-        <div class="muted">الربح</div>
-        <div style="font-size:28px;font-weight:800">
-          ₪<%= (rows||[]).reduce((a,s)=>{
-              const revenue = Number(s.sale_price)*Number(s.quantity);
-              const cost    = Number(s.cost_price)*Number(s.quantity) + Number(s.shipping_cost||0);
-              return a + (revenue - cost);
-            },0).toFixed(2)
-          %>
-        </div>
+  <div class="cards">
+    <div class="kpi">
+      <div class="muted">الإيراد</div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %>
       </div>
     </div>
-  </div>
-
-  <div class="card" style="margin-top:16px">
-    <h3 style="margin-top:0">
-      <i class="fa fa-clipboard-list"></i>
-      تفاصيل العمليات — <%= title %>
-    </h3>
-
-    <div class="table-scroll">
-      <table class="table">
-        <thead class="thead">
-          <tr>
-            <th>التاريخ</th>
-            <th class="right">المنتج</th>
-            <th>الكمية</th>
-            <th>سعر البيع (₪)</th>
-            <th>السعر الأصلي (₪)</th>
-            <th>الشحن (₪)</th>
-            <th>الربح (₪)</th>
-          </tr>
-        </thead>
-        <tbody>
-        <% if (!rows || !rows.length){ %>
-          <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
-        <% } else { rows.forEach(s => {
-            const revenue = Number(s.sale_price) * Number(s.quantity);
-            const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
+    <div class="kpi">
+      <div class="muted">التكاليف</div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%= (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2) %>
+      </div>
+    </div>
+    <div class="kpi">
+      <div class="muted">الربح</div>
+      <div style="font-size:28px;font-weight:800">
+        ₪<%= (rows||[]).reduce((a,s)=>{
+            const revenue = Number(s.sale_price)*Number(s.quantity);
+            const cost    = Number(s.cost_price)*Number(s.quantity) + Number(s.shipping_cost||0);
+            return a + (revenue - cost);
+          },0).toFixed(2)
         %>
-          <tr>
-            <td>
-              <%= (dayjs && dayjs.tz)
-                    ? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
-                    : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
-              %>
-            </td>
-            <td class="right">
-              <% if (s.product_image) { %>
-                <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">
-              <% } %>
-              <%= s.product_name %>
-            </td>
-            <td><%= s.quantity %></td>
-            <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
-            <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
-            <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
-            <td>₪<%= profit.toFixed(2) %></td>
-          </tr>
-        <% }) } %>
-        </tbody>
-      </table>
+      </div>
     </div>
   </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3>
+    <i class="fa fa-clipboard-list"></i>
+    تفاصيل العمليات — <%= title %>
+  </h3>
+
+  <table class="table">
+    <thead class="thead">
+      <tr>
+        <th>التاريخ</th>
+        <th>المنتج</th>
+        <th>الكمية</th>
+        <th>سعر بيع (₪)</th>
+        <th>السعر الأصلي (₪)</th>
+        <th>الشحن (₪)</th>
+        <th>الربح (₪)</th>
+      </tr>
+    </thead>
+    <tbody>
+    <% if (!rows || !rows.length){ %>
+      <tr><td colspan="7" class="muted">لا توجد بيانات ضمن الفترة المختارة.</td></tr>
+    <% } else { rows.forEach(s => {
+        const revenue = Number(s.sale_price) * Number(s.quantity);
+        const profit  = revenue - (Number(s.cost_price)*Number(s.quantity)) - Number(s.shipping_cost||0);
+    %>
+      <tr>
+        <td>
+          <%= (dayjs && dayjs.tz)
+                ? dayjs(s.sold_at).tz('Asia/Hebron').format('YYYY-MM-DD hh:mm A')
+                : (new Date(s.sold_at)).toLocaleString('en-CA',{hour12:true,timeZone:'Asia/Hebron'})
+          %>
+        </td>
+        <td class="right">
+          <% if (s.product_image) { %>
+            <img src="<%= s.product_image %>" class="thumb" style="width:72px;height:72px;vertical-align:middle;margin-inline-start:6px" alt="<%= s.product_name %>">
+          <% } %>
+          <%= s.product_name %>
+        </td>
+        <td><%= s.quantity %></td>
+        <td>₪<%= Number(s.sale_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.cost_price).toFixed(2) %></td>
+        <td>₪<%= Number(s.shipping_cost||0).toFixed(2) %></td>
+        <td>₪<%= profit.toFixed(2) %></td>
+      </tr>
+    <% }) } %>
+    </tbody>
+  </table>
 </div>
 
 <script>
