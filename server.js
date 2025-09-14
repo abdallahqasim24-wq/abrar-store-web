@@ -160,7 +160,7 @@ app.use(expressLayouts);
 app.set("layout", "layout");
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json()));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use((req, res, next) => {
@@ -218,7 +218,7 @@ app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login
 app.get("/healthz", (_req, res) => res.send("OK"));
 
 // ================== Helpers ==================
-// الربح الصحيح بدون طرح الشحن: (qty*sale) - (qty*cost)
+// الربح الصحيح بدون طرح الشحن: (qty*sale) − (qty*cost)
 const profitOf = (s) =>
   Number(s.sale_price) * Number(s.quantity) - Number(s.cost_price) * Number(s.quantity);
 
@@ -246,51 +246,66 @@ async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
 // ================== Routes ==================
 
 // -------- Dashboard --------
-app.get("/", async (_req, res) => {
-  const statsQ = await query(`
-    SELECT
-      COUNT(*)::int AS products_count,
-      COALESCE(SUM(stock),0)::int AS total_units,
-      COALESCE(SUM(stock*cost_price),0)::float8 AS total_cost_value,
-      COALESCE(SUM(stock*sale_price),0)::float8 AS total_sale_value
-    FROM products
-  `);
+app.get("/", async (_req, res, next) => {
+  try {
+    const statsQ = await query(`
+      SELECT
+        COUNT(*)::int AS products_count,
+        COALESCE(SUM(stock),0)::int AS total_units,
+        COALESCE(SUM(stock*cost_price),0)::float8 AS total_cost_value,
+        COALESCE(SUM(stock*sale_price),0)::float8 AS total_sale_value
+      FROM products
+    `);
 
-  const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
-  const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
+    const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
+    const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
 
-  const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
-  const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
+    const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
+    const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
-  const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-  const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
+    const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
+    const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
 
-  const stats = {
-    ...statsQ.rows[0],
-    today_revenue: rev(todayRows),
-    today_profit: prof(todayRows),
-    month_revenue: rev(monthRows),
-    month_profit: prof(monthRows),
-  };
+    const stats = {
+      ...statsQ.rows[0],
+      today_revenue: rev(todayRows),
+      today_profit: prof(todayRows),
+      month_revenue: rev(monthRows),
+      month_profit: prof(monthRows),
+    };
 
-  const lowStock = (
-    await query(`
-      SELECT * FROM products
-      WHERE stock <= 5
-      ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
-      LIMIT 12
-    `)
-  ).rows;
+    const lowStock = (
+      await query(`
+        SELECT * FROM products
+        WHERE stock <= 5
+        ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
+        LIMIT 12
+      `)
+    ).rows;
 
-  const byCat = (
-    await query(`
-      SELECT p.category AS label, COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
-      FROM products p LEFT JOIN sales s ON s.product_id=p.id
-      GROUP BY p.category ORDER BY value DESC
-    `)
-  ).rows;
+    const byCat = (
+      await query(`
+        SELECT p.category AS label, COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
+        FROM products p LEFT JOIN sales s ON s.product_id=p.id
+        GROUP BY p.category ORDER BY value DESC
+      `)
+    ).rows;
 
-  res.render("index", { stats, byCat, lowStock, lastSales: [], dayjs });
+    // >>> totals (فقط تمّ التسليم) لاستخدامه في index.ejs
+    const totals = (
+      await query(
+        `SELECT
+            COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+            COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
+         FROM sales s
+         WHERE s.delivery_status='delivered'`
+      )
+    ).rows[0];
+
+    res.render("index", { stats, byCat, lowStock, lastSales: [], totals, dayjs });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // -------- Products --------
