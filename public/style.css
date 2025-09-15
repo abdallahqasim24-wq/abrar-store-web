@@ -138,7 +138,14 @@ input[type="checkbox"],input[type="radio"]{
   width:46px; height:46px; padding:0; border-radius:14px;
   box-shadow:0 2px 8px rgba(0,0,0,.08)
 }
-.order-quick .btn i{ font-size:18px }
+/* ألوان قسرية لعدم تأثّرها بأي ستايل قديم */
+.order-quick .btn{ border:0 !important }
+.order-quick .btn.info{    background:var(--primary) !important; color:#fff !important }
+.order-quick .btn.success{  background:var(--success) !important; color:#fff !important }
+.order-quick .btn.warn{     background:var(--warning) !important; color:#1f2937 !important }
+.order-quick .btn.gray{     background:var(--gray) !important;    color:#fff !important }
+.order-quick .btn.danger{   background:var(--danger) !important;  color:#fff !important }
+.order-quick .btn i{ color:inherit !important }
 
 /* زر إدارة الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
@@ -183,7 +190,7 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn.warn[disabled]{     background:#fde68a!important; color:#92400e!important; border:1px solid #fcd34d!important }
 .bulk-actions .btn.gray[disabled]{     background:#e5e7eb!important; color:#374151!important; border:1px solid #cbd5e1!important }
 .bulk-actions .btn.danger[disabled]{   background:#fecaca!important; color:#7f1d1d!important; border:1px solid #fca5a5!important }
-/* خلي الأيقونات ترث اللون */
+.bulk-actions .btn:not([disabled]):hover{ filter:brightness(1.06) }
 .bulk-actions .btn[disabled] i,
 .bulk-actions .btn[disabled] .fa{ color:inherit!important; opacity:1!important }
 
