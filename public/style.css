@@ -66,7 +66,7 @@ table{ width:100%; border-collapse:collapse; min-width: 900px; font-size:1rem }
 th,td{ border-bottom:1px solid var(--border); padding:12px; vertical-align:middle; text-align:center }
 th{ background:#fff0f6; color:#374151; font-weight:800 }
 
-/* حقول نصية */
+/* حقول */
 input,select,textarea{
   width:100%;
   background:#fff;
@@ -174,12 +174,12 @@ input[type="checkbox"], input[type="radio"]{
 .btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
 .btn[disabled]{ opacity:.6; cursor:not-allowed; transform:none }
 
-/* ألوان صريحة وواضحة */
-.btn.info{    background:var(--primary) !important; }
-.btn.success{ background:var(--success) !important; }
-.btn.warn{    background:var(--warning) !important; color:#1f2937 !important; }
-.btn.gray{    background:var(--gray) !important; }
-.btn.danger{  background:var(--danger) !important; }
+/* ألوان صريحة */
+.btn.info{    background:var(--primary) !important }
+.btn.success{ background:var(--success) !important }
+.btn.warn{    background:var(--warning) !important; color:#1f2937 !important }
+.btn.gray{    background:var(--gray) !important }
+.btn.danger{  background:var(--danger) !important }
 
 .btn.add{ background:var(--primary) }
 .btn.save{ background:var(--success) }
@@ -209,12 +209,12 @@ input[type="checkbox"], input[type="radio"]{
 .btn.manage { background:#0ea5e9; color:#fff }
 .btn.manage:hover{ filter:brightness(1.05) }
 
-/* زر فتح الطلب الكبير (لو استخدمته) */
+/* زر فتح الطلب الكبير (اختياري) */
 .btn.open-order{ background:#36495b; color:#fff }
 .btn.open-order:hover{ filter:brightness(1.05) }
 
 /* =========================
-   Order KPIs line
+   Order KPIs
 ========================= */
 .order-kpis{
   display:flex; gap:18px; flex-wrap:wrap;
@@ -235,24 +235,17 @@ input[type="checkbox"], input[type="radio"]{
 .bulk-count{ color:#111827; font-weight:900 }
 .bulk-actions{ display:flex; gap:8px; flex-wrap:wrap }
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
-.bulk-actions .btn.success{ background:#16a34a }
-.bulk-actions .btn.danger{ background:#dc2626 }
-.bulk-actions .btn.info{ background:#2563eb }
-.bulk-actions .btn.warn{ background:#f59e0b; color:#1f2937 }
-.bulk-actions .btn.gray{ background:#6b7280 }
 
-/* تعطيل واضح */
-.bulk-actions .btn[disabled],
-button[data-bulk][disabled],
-.btn[disabled][data-bulk]{
-  background:var(--disabled-bg) !important;
-  color:var(--disabled-text) !important;
-  border:1px solid var(--disabled-border) !important;
-  opacity:1;
-}
+/* تعطيل واضح وملوّن لأزرار الـBulk */
+.bulk-actions .btn[disabled]{ opacity:1 } /* لا تبهّت */
+.bulk-actions .btn.info[disabled]{    background:#bfdbfe !important; color:#1e3a8a !important; border:1px solid #93c5fd !important }
+.bulk-actions .btn.success[disabled]{ background:#bbf7d0 !important; color:#065f46 !important; border:1px solid #86efac !important }
+.bulk-actions .btn.warn[disabled]{    background:#fde68a !important; color:#92400e !important; border:1px solid #fcd34d !important }
+.bulk-actions .btn.gray[disabled]{    background:#e5e7eb !important; color:#374151 !important; border:1px solid #cbd5e1 !important }
+.bulk-actions .btn.danger[disabled]{  background:#fecaca !important; color:#7f1d1d !important; border:1px solid #fca5a5 !important }
 
 /* =========================
-   Status chips / selects
+   Status chips
 ========================= */
 .status-chip{
   display:inline-flex; align-items:center; gap:8px;
