@@ -50,20 +50,20 @@
         <span class="bulk-title">تحديد الكل</span>
       </label>
 
-      <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
+      <span class="muted">على <span id="selCount" class="bulk-count" aria-live="polite">0</span> طلب</span>
 
       <div class="bulk-actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <input type="hidden" name="apply_to_items" value="on">
-        <button class="btn warn"     formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
-        <button class="btn info"     formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-        <button class="btn gray"     formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-        <button class="btn success"  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-        <button class="btn danger"   formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
+        <button class="btn warn"     data-bulk disabled formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+        <button class="btn info"     data-bulk disabled formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+        <button class="btn gray"     data-bulk disabled formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+        <button class="btn success"  data-bulk disabled formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+        <button class="btn danger"   data-bulk disabled formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
       </div>
 
       <span class="right"></span>
 
-      <button class="btn danger" formaction="/orders/bulk-delete" type="submit"
+      <button class="btn danger" data-bulk disabled formaction="/orders/bulk-delete" type="submit"
               onclick="return confirm('حذف الطلبات المحددة نهائيًا؟')">
         <i class="fa fa-trash"></i> حذف المحدّد
       </button>
@@ -171,14 +171,24 @@
 </div>
 
 <script>
-  // تحديد الكل + العداد
+  // تحديد الكل + العداد + تفعيل/تعطيل أزرار الـBulk
   (function(){
-    const all = document.getElementById('selectAll');
-    const rows = [...document.querySelectorAll('.rowCheck')];
-    const cnt  = document.getElementById('selCount');
-    function refresh(){ cnt.textContent = rows.filter(r=>r.checked).length; }
-    if (all) all.addEventListener('change', ()=>{ rows.forEach(r=>r.checked=all.checked); refresh(); });
-    rows.forEach(r=> r.addEventListener('change', refresh));
+    const all   = document.getElementById('selectAll');
+    const rows  = [...document.querySelectorAll('.rowCheck')];
+    const cnt   = document.getElementById('selCount');
+    const bulkBtns = [...document.querySelectorAll('[data-bulk]')];
+
+    function refresh(){
+      const n = rows.filter(r => r.checked).length;
+      if (cnt) cnt.textContent = n;
+      bulkBtns.forEach(b => b.disabled = n === 0);
+    }
+
+    if (all) all.addEventListener('change', () => {
+      rows.forEach(r => r.checked = all.checked);
+      refresh();
+    });
+    rows.forEach(r => r.addEventListener('change', refresh));
     refresh();
   })();
 
@@ -217,4 +227,3 @@
     }
   }
 </script>
-
