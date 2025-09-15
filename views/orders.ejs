@@ -182,6 +182,8 @@
       const n = rows.filter(r => r.checked).length;
       if (cnt) cnt.textContent = n;
       bulkBtns.forEach(b => b.disabled = n === 0);
+      if(all && n < rows.length) all.checked = false;
+      if(all && n === rows.length && rows.length) all.checked = true;
     }
 
     if (all) all.addEventListener('change', () => {
