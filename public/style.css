@@ -237,12 +237,14 @@ input[type="checkbox"], input[type="radio"]{
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
 
 /* تعطيل واضح وملوّن لأزرار الـBulk */
-.bulk-actions .btn[disabled]{ opacity:1 } /* لا تبهّت */
+.bulk-actions .btn[disabled]{ opacity:1; cursor:not-allowed } /* لا تبهّت */
 .bulk-actions .btn.info[disabled]{    background:#bfdbfe !important; color:#1e3a8a !important; border:1px solid #93c5fd !important }
 .bulk-actions .btn.success[disabled]{ background:#bbf7d0 !important; color:#065f46 !important; border:1px solid #86efac !important }
 .bulk-actions .btn.warn[disabled]{    background:#fde68a !important; color:#92400e !important; border:1px solid #fcd34d !important }
 .bulk-actions .btn.gray[disabled]{    background:#e5e7eb !important; color:#374151 !important; border:1px solid #cbd5e1 !important }
 .bulk-actions .btn.danger[disabled]{  background:#fecaca !important; color:#7f1d1d !important; border:1px solid #fca5a5 !important }
+/* الأيقونات داخل الأزرار المعطلة تبقى واضحة */
+.bulk-actions .btn[disabled] i{ color:inherit !important; opacity:1 !important }
 
 /* =========================
    Status chips

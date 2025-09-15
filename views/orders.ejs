@@ -185,19 +185,29 @@
   // تعديل حالة الطلب من الخارج بدون الدخول عليه
   async function quickStatus(orderId, status){
     try{
-      const fd = new FormData();
-      fd.append('ids', orderId);
-      fd.append('status', status);
-      fd.append('apply_to_items', 'on');
-
-      const res = await fetch('/orders/bulk-status', { method:'POST', body: fd });
+      const body = new URLSearchParams({
+        ids: String(orderId),
+        status: String(status),
+        apply_to_items: 'on'
+      });
+      const res = await fetch('/orders/bulk-status', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+        body
+      });
       if(!res.ok) throw new Error('HTTP '+res.status);
 
       // تحديث الشارة على البطاقة مباشرة
       const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
       if(card){
         const chip = card.querySelector('.js-chip');
-        const map  = { pending:'قيد الإدخال', processing:'قيد المعالجة', shipping:'قيد التوصيل', delivered:'تم التسليم', failed:'فشل/لم يتم' };
+        const map  = {
+          pending:'قيد الإدخال',
+          processing:'قيد المعالجة',
+          shipping:'قيد التوصيل',
+          delivered:'تم التسليم',
+          failed:'فشل/لم يتم'
+        };
         chip.textContent = map[status] || status;
         chip.className = `status-chip chip-lg js-chip status-${status}`;
       }
@@ -207,3 +217,4 @@
     }
   }
 </script>
+
