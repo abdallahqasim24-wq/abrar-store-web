@@ -303,3 +303,57 @@ select:focus{
    Helpers
 ========================= */
 .order-meta{ font-size:1rem; color:#6b7280 }
+
+
+/* ===== Buttons: vivid colors (even when disabled in bulk bar) ===== */
+.btn{
+  padding:12px 18px;border:0;border-radius:14px;
+  display:inline-flex;align-items:center;gap:10px;
+  font-weight:800;color:#fff;cursor:pointer;transition:.2s;
+}
+.btn:hover{opacity:.95;transform:translateY(-1px)}
+.btn:focus-visible{outline:3px solid rgba(37,99,235,.25);outline-offset:2px}
+.btn[disabled]{opacity:.6;cursor:not-allowed;transform:none}
+
+/* صريحة */
+.btn.info{background:var(--primary)!important}
+.btn.success{background:var(--success)!important}
+.btn.warn{background:var(--warning)!important;color:#1f2937!important}
+.btn.gray{background:var(--gray)!important}
+.btn.danger{background:var(--danger)!important}
+
+/* أزرار الحالة السريعة داخل البطاقة */
+.order-quick .btn{width:46px;height:46px;padding:0;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.order-quick .btn i{font-size:18px}
+
+/* زر إدارة الطلب */
+.btn.manage{background:#0ea5e9;color:#fff}
+.btn.manage:hover{filter:brightness(1.05)}
+
+/* ===== Bulk bar ===== */
+.bulk-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow)}
+.bulk-bar label{display:flex;align-items:center;gap:8px}
+.bulk-title{font-weight:900;color:#374151}
+.bulk-count{color:#111827;font-weight:900}
+.bulk-actions{display:flex;gap:8px;flex-wrap:wrap}
+.bulk-actions .btn{border-radius:999px;padding:11px 15px}
+.bulk-actions .btn i{pointer-events:none}
+
+/* هنا السر: ألوان واضحة عند التعطيل */
+.bulk-actions .btn[disabled]{opacity:1!important;filter:none!important;cursor:not-allowed}
+.bulk-actions .btn.info[disabled]{background:#bfdbfe!important;color:#1e3a8a!important;border:1px solid #93c5fd!important}
+.bulk-actions .btn.success[disabled]{background:#bbf7d0!important;color:#065f46!important;border:1px solid #86efac!important}
+.bulk-actions .btn.warn[disabled]{background:#fde68a!important;color:#92400e!important;border:1px solid #fcd34d!important}
+.bulk-actions .btn.gray[disabled]{background:#e5e7eb!important;color:#374151!important;border:1px solid #cbd5e1!important}
+.bulk-actions .btn.danger[disabled]{background:#fecaca!important;color:#7f1d1d!important;border:1px solid #fca5a5!important}
+
+/* توضيح الشارة */
+.status-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;font-weight:900;font-size:1rem;border:1px solid var(--border);user-select:none;background:#fff;color:#374151}
+.status-pending{background:#fff7e6;border-color:#fcd34d;color:#92400e}
+.status-shipping{background:#eef6ff;border-color:#93c5fd;color:#1e3a8a}
+.status-delivered{background:#ecfdf5;border-color:#6ee7b7;color:#065f46}
+.status-failed{background:#fef2f2;border-color:#fca5a5;color:#7f1d1d}
+
+/* لا تمدد الـ checkbox */
+input[type="checkbox"],input[type="radio"]{width:auto;height:auto;padding:0;margin:0;accent-color:var(--primary);transform:scale(1.15)}
+
