@@ -1,6 +1,6 @@
 /* =========================================
-   Abrar Manager — style.css (Final Replace)
-   عربي | ألوان واضحة | بدون تكرارات
+   Abrar Manager — style.css (Final)
+   عربي | ألوان واضحة | بدون تكرار
 ========================================= */
 
 /* ===== Font & Base ===== */
@@ -23,10 +23,6 @@ html[data-fs="110"]{ font-size:110% }
   --warning:#f59e0b;
   --danger:#ef4444;
   --gray:#6b7280;
-
-  --disabled-bg:#e5e7eb;
-  --disabled-text:#6b7280;
-  --disabled-border:#cbd5e1;
 
   --shadow:0 12px 30px rgba(255,126,179,.15);
   --thumb-size:100px;
@@ -114,7 +110,7 @@ input[type="checkbox"],input[type="radio"]{
   box-shadow:0 2px 8px rgba(0,0,0,.12)
 }
 
-/* ===== Buttons (موحَّدة) ===== */
+/* ===== Buttons (موحّدة) ===== */
 .btn{
   padding:12px 18px; border:0; border-radius:14px;
   display:inline-flex; align-items:center; gap:10px;
@@ -122,7 +118,6 @@ input[type="checkbox"],input[type="radio"]{
 }
 .btn:hover{ opacity:.95; transform:translateY(-1px) }
 .btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
-.btn[disabled]{ opacity:.6; cursor:not-allowed; transform:none }
 
 /* ألوان صريحة */
 .btn.info{ background:var(--primary)!important }
@@ -133,19 +128,17 @@ input[type="checkbox"],input[type="radio"]{
 
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
 
-/* أزرار الحالة السريعة داخل البطاقة */
+/* أزرار الحالة السريعة داخل البطاقة (ألوان قسرية) */
 .order-quick .btn{
   width:46px; height:46px; padding:0; border-radius:14px;
-  box-shadow:0 2px 8px rgba(0,0,0,.08)
+  box-shadow:0 2px 8px rgba(0,0,0,.08); border:0!important;
 }
-/* ألوان قسرية لعدم تأثّرها بأي ستايل قديم */
-.order-quick .btn{ border:0 !important }
-.order-quick .btn.info{    background:var(--primary) !important; color:#fff !important }
-.order-quick .btn.success{  background:var(--success) !important; color:#fff !important }
-.order-quick .btn.warn{     background:var(--warning) !important; color:#1f2937 !important }
-.order-quick .btn.gray{     background:var(--gray) !important;    color:#fff !important }
-.order-quick .btn.danger{   background:var(--danger) !important;  color:#fff !important }
-.order-quick .btn i{ color:inherit !important }
+.order-quick .btn.info{    background:var(--primary)!important; color:#fff!important }
+.order-quick .btn.success{  background:var(--success)!important; color:#fff!important }
+.order-quick .btn.warn{     background:var(--warning)!important; color:#1f2937!important }
+.order-quick .btn.gray{     background:var(--gray)!important;    color:#fff!important }
+.order-quick .btn.danger{   background:var(--danger)!important;  color:#fff!important }
+.order-quick .btn i{ color:inherit!important }
 
 /* زر إدارة الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
@@ -158,7 +151,7 @@ input[type="checkbox"],input[type="radio"]{
 /* ===== Badges / Chips ===== */
 .badge{ display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-weight:800; font-size:.95rem; border:1px solid var(--border); background:#fff; color:#374151 }
 .badge-lg{ font-size:1.08rem; padding:8px 14px }
-.chip-lg{ font-size:1.06rem !important; padding:8px 14px !important }
+.chip-lg{ font-size:1.06rem!important; padding:8px 14px!important }
 
 .status-chip{
   display:inline-flex; align-items:center; gap:8px;
@@ -176,14 +169,14 @@ input[type="checkbox"],input[type="radio"]{
   background:#fff; border:1px solid var(--border); border-radius:16px; padding:14px 16px;
   box-shadow:var(--shadow)
 }
-.bulk-bar label{ display:flex; align-items:center; gap:8px } /* checkbox بجانب النص */
+.bulk-bar label{ display:flex; align-items:center; gap:8px }
 .bulk-title{ font-weight:900; color:#374151 }
 .bulk-count{ color:#111827; font-weight:900 }
 .bulk-actions{ display:flex; gap:8px; flex-wrap:wrap }
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
 .bulk-actions .btn i{ pointer-events:none }
 
-/* ألوان واضحة عند التعطيل داخل الشريط (تتغلب على أي قواعد قديمة) */
+/* ألوان واضحة عند التعطيل داخل الشريط */
 .bulk-actions .btn[disabled]{ opacity:1!important; filter:none!important; cursor:not-allowed }
 .bulk-actions .btn.info[disabled]{    background:#bfdbfe!important; color:#1e3a8a!important; border:1px solid #93c5fd!important }
 .bulk-actions .btn.success[disabled]{  background:#bbf7d0!important; color:#065f46!important; border:1px solid #86efac!important }
@@ -191,6 +184,8 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn.gray[disabled]{     background:#e5e7eb!important; color:#374151!important; border:1px solid #cbd5e1!important }
 .bulk-actions .btn.danger[disabled]{   background:#fecaca!important; color:#7f1d1d!important; border:1px solid #fca5a5!important }
 .bulk-actions .btn:not([disabled]):hover{ filter:brightness(1.06) }
+
+/* خلي الأيقونات ترث اللون */
 .bulk-actions .btn[disabled] i,
 .bulk-actions .btn[disabled] .fa{ color:inherit!important; opacity:1!important }
 
@@ -205,7 +200,7 @@ select{
 }
 select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15) }
 
-/* Select حالة ملوّن (إن استخدمته) */
+/* Select حالة ملوّن (اختياري) */
 .select-status{
   appearance:none; -webkit-appearance:none; -moz-appearance:none;
   font-weight:800; cursor:pointer;
@@ -233,3 +228,7 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
   .btn{ width:100%; text-align:center }
   .thumb{ width:80px; height:80px }
 }
+
+/* ===== ألوان زاهية عالميًا حتى عند التعطيل (اختياري إن بدكها بكل الأزرار) ===== */
+.btn.info[disabled], .btn.success[disabled], .btn.warn[disabled],
+.btn.gray[disabled], .btn.danger[disabled]{ opacity:1!important }
