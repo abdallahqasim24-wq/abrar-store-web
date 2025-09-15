@@ -188,6 +188,18 @@ label{ font-size:.9rem; color:#6b7280 }
 .badge-lg{ font-size:1.08rem; padding:8px 14px }
 .chip-lg{ font-size:1.06rem !important; padding:8px 14px !important }
 
+/* أزرار الحالة السريعة داخل البطاقة (حجم ثابت واضح) */
+.order-quick .btn{
+  width:46px; height:46px; padding:0;
+  border-radius:14px; display:inline-flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+.order-quick .btn i{ font-size:18px }
+
+/* زر إدارة الطلب */
+.btn.manage { background:#0ea5e9; color:#fff }
+.btn.manage:hover{ filter:brightness(1.05) }
+
 /* زر فتح الطلب الكبير */
 .btn.open-order{ background:#36495b; color:#fff }
 .btn.open-order:hover{ filter:brightness(1.05) }
@@ -209,6 +221,7 @@ label{ font-size:.9rem; color:#6b7280 }
   background:#fff; border:1px solid var(--border); border-radius:16px; padding:14px 16px;
   box-shadow:var(--shadow);
 }
+.bulk-bar label{ display:flex; align-items:center; gap:8px } /* مربّع + نص معًا */
 .bulk-title{ font-weight:900; color:#374151 }
 .bulk-count{ color:#111827; font-weight:900 }
 .bulk-actions{ display:flex; gap:8px; flex-wrap:wrap }
