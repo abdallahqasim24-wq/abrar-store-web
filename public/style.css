@@ -126,14 +126,16 @@ input[type="checkbox"],input[type="radio"]{
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* لا تغييم عند التعطيل — حافظ على اللون */
-.btn[disabled]{ opacity:1; filter:none; cursor:not-allowed }
-.btn.info[disabled]{    background:var(--primary)!important; color:#fff!important }
-.btn.success[disabled]{  background:var(--success)!important; color:#fff!important }
-.btn.warn[disabled]{     background:var(--warning)!important; color:#1f2937!important }
-.btn.gray[disabled]{     background:var(--gray)!important;    color:#fff!important }
-.btn.danger[disabled]{   background:var(--danger)!important;  color:#fff!important }
-.btn[disabled] i,.btn[disabled] .fa{ color:inherit!important }
+/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
+.btn[disabled],
+.btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+.btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
+.btn.success[disabled],.btn.success:disabled{  background:var(--success) !important; color:#fff !important }
+.btn.warn[disabled],   .btn.warn:disabled{     background:var(--warning) !important; color:#1f2937 !important }
+.btn.gray[disabled],   .btn.gray:disabled{     background:var(--gray) !important;    color:#fff !important }
+.btn.danger[disabled], .btn.danger:disabled{   background:var(--danger) !important;  color:#fff !important }
+.btn[disabled] i,.btn[disabled] .fa,
+.btn:disabled i,.btn:disabled .fa{ color:inherit !important; opacity:1 !important }
 
 /* حجم كبير */
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
@@ -182,12 +184,13 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn i{ pointer-events:none }
 
 /* الألوان تبقى حتى لو Disabled */
-.bulk-actions .btn[disabled]{ opacity:1!important; filter:none!important; cursor:not-allowed }
-.bulk-actions .btn.info[disabled]{    background:var(--primary)!important;  color:#fff!important }
-.bulk-actions .btn.success[disabled]{  background:var(--success)!important;  color:#fff!important }
-.bulk-actions .btn.warn[disabled]{     background:var(--warning)!important;  color:#1f2937!important }
-.bulk-actions .btn.gray[disabled]{     background:var(--gray)!important;     color:#fff!important }
-.bulk-actions .btn.danger[disabled]{   background:var(--danger)!important;   color:#fff!important }
+.bulk-actions .btn[disabled],
+.bulk-actions .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled{    background:var(--primary) !important;  color:#fff !important }
+.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled{  background:var(--success) !important;  color:#fff !important }
+.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled{     background:var(--warning) !important;  color:#1f2937 !important }
+.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled{     background:var(--gray) !important;     color:#fff !important }
+.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled{   background:var(--danger) !important;   color:#fff !important }
 
 /* ===== Selects ===== */
 select{
