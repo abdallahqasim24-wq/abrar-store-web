@@ -232,3 +232,61 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
 /* ===== ألوان زاهية عالميًا حتى عند التعطيل (اختياري إن بدكها بكل الأزرار) ===== */
 .btn.info[disabled], .btn.success[disabled], .btn.warn[disabled],
 .btn.gray[disabled], .btn.danger[disabled]{ opacity:1!important }
+
+/* ===== Force vivid colors for bulk actions in ALL states ===== */
+.bulk-actions .btn { opacity: 1 !important; filter: none !important; }
+
+/* info (primary) */
+.bulk-actions .btn.info,
+.bulk-actions .btn.info:disabled,
+.bulk-actions .btn.info[disabled],
+.bulk-actions .btn.info.disabled {
+  background: var(--primary) !important;
+  color: #fff !important;
+  border: 1px solid var(--primary) !important;
+}
+
+/* success (green) */
+.bulk-actions .btn.success,
+.bulk-actions .btn.success:disabled,
+.bulk-actions .btn.success[disabled],
+.bulk-actions .btn.success.disabled {
+  background: var(--success) !important;
+  color: #fff !important;
+  border: 1px solid var(--success) !important;
+}
+
+/* warn (amber) */
+.bulk-actions .btn.warn,
+.bulk-actions .btn.warn:disabled,
+.bulk-actions .btn.warn[disabled],
+.bulk-actions .btn.warn.disabled {
+  background: var(--warning) !important;
+  color: #1f2937 !important;
+  border: 1px solid var(--warning) !important;
+}
+
+/* gray */
+.bulk-actions .btn.gray,
+.bulk-actions .btn.gray:disabled,
+.bulk-actions .btn.gray[disabled],
+.bulk-actions .btn.gray.disabled {
+  background: var(--gray) !important;
+  color: #fff !important;
+  border: 1px solid var(--gray) !important;
+}
+
+/* danger (red) */
+.bulk-actions .btn.danger,
+.bulk-actions .btn.danger:disabled,
+.bulk-actions .btn.danger[disabled],
+.bulk-actions .btn.danger.disabled {
+  background: var(--danger) !important;
+  color: #fff !important;
+  border: 1px solid var(--danger) !important;
+}
+
+/* خلّي الأيقونات تورّث اللون دايمًا */
+.bulk-actions .btn i,
+.bulk-actions .btn .fa { color: inherit !important; opacity: 1 !important; }
+
