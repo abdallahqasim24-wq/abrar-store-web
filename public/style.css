@@ -1,292 +1,260 @@
-/* =========================================
-   Abrar Manager — style.css (Final)
-   عربي | ألوان واضحة | بدون تكرار
-========================================= */
+<!-- views/orders.ejs -->
+<link rel="stylesheet" href="<%= faLink %>">
 
-/* ===== Font & Base ===== */
-html{ font-size:100% }
-html[data-fs="90"]{ font-size:90% }
-html[data-fs="110"]{ font-size:110% }
-*{ box-sizing:border-box }
+<%
+  const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
+  const st = _filters.status || 'all';
+  const so = _filters.sort   || 'newest';
 
-:root{
-  --bg:#fff7fb;
-  --text:#111827;
-  --muted:#6b7280;
-  --card:#ffffff;
-  --border:#f7cfe1;
-  --accent1:#ff7eb3;
-  --accent2:#ffb07b;
+  function statusLabel(s){
+    switch(String(s||'').toLowerCase()){
+      case 'pending':    return 'قيد الإدخال';
+      case 'processing': return 'قيد المعالجة';
+      case 'shipping':   return 'إلى قيد التوصيل';
+      case 'delivered':  return 'تم التسليم';
+      case 'failed':     return 'فشل/لم يتم';
+      default:           return s || '—';
+    }
+  }
+%>
 
-  --primary:#2563eb;
-  --success:#16a34a;
-  --warning:#f59e0b;
-  --danger:#ef4444;
-  --gray:#6b7280;
+<style id="orders-page-overrides">
+  /* أزرار شريط العمليات الجماعية تبقى ملوّنة دائماً سواء مفعلة أو معطلة */
+  .bulk-actions .btn{opacity:1!important;filter:none!important;border-radius:999px}
+  .bulk-actions .btn[data-bulk]:disabled{opacity:1!important;filter:none!important}
 
-  --shadow:0 12px 30px rgba(255,126,179,.15);
-  --thumb-size:100px;
+  .bulk-actions .btn.info,
+  .bulk-actions .btn.info:disabled{
+    background:var(--primary)!important;color:#fff!important;border:1px solid var(--primary)!important
+  }
+  .bulk-actions .btn.success,
+  .bulk-actions .btn.success:disabled{
+    background:var(--success)!important;color:#fff!important;border:1px solid var(--success)!important
+  }
+  .bulk-actions .btn.warn,
+  .bulk-actions .btn.warn:disabled{
+    background:#fde68a!important;color:#92400e!important;border:1px solid #fcd34d!important
+  }
+  .bulk-actions .btn.gray,
+  .bulk-actions .btn.gray:disabled{
+    background:var(--gray)!important;color:#fff!important;border:1px solid var(--gray)!important
+  }
+  .bulk-actions .btn.danger,
+  .bulk-actions .btn.danger:disabled{
+    background:var(--danger)!important;color:#fff!important;border:1px solid var(--danger)!important
+  }
+  .bulk-actions .btn[disabled] i{color:inherit!important;opacity:1!important}
 
-  --container-max:1680px;
-  --container-pad:clamp(12px,2vw,28px);
-}
+  /* أزرار الحالة السريعة داخل البطاقة */
+  .order-quick .btn{border:0!important;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .order-quick .btn.info{   background:var(--primary)!important;color:#fff!important}
+  .order-quick .btn.success{background:var(--success)!important;color:#fff!important}
+  .order-quick .btn.warn{   background:var(--warning)!important;color:#1f2937!important}
+  .order-quick .btn.gray{   background:var(--gray)!important;color:#fff!important}
+  .order-quick .btn.danger{ background:var(--danger)!important;color:#fff!important}
 
-body{
-  margin:0; background:var(--bg); color:var(--text);
-  font-family:'Tajawal','Cairo',system-ui,-apple-system,'Segoe UI',Roboto,Arial;
-  line-height:1.65;
-}
+  /* checkbox واضح */
+  input[type="checkbox"],input[type="radio"]{
+    width:auto;height:auto;margin:0;vertical-align:middle;accent-color:var(--primary);transform:scale(1.15)
+  }
+</style>
 
-.container{ width:100%; max-width:min(var(--container-max),98vw); margin-inline:auto; padding-inline:var(--container-pad) }
-.page{ padding:18px 0 }
+<div class="container page">
+  <!-- العنوان + فلاتر -->
+  <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+    <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات <span class="muted">(<%= (orders||[]).length %>)</span></h2>
 
-.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-.right{ margin-inline-start:auto }
-.muted{ color:var(--muted) }
-.muted-sm{ color:#6b7280; font-size:.9rem }
+    <form method="get" action="/orders" class="row" style="gap:8px">
+      <select name="status" onchange="this.form.submit()">
+        <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
+        <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
+        <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
+        <option value="shipping"   <%= st==='shipping'?'selected':'' %>   >قيد التوصيل</option>
+        <option value="delivered"  <%= st==='delivered'?'selected':'' %>  >تم التسليم</option>
+        <option value="failed"     <%= st==='failed'?'selected':'' %>     >فشل/لم يتم</option>
+      </select>
 
-h1,h2,h3{ letter-spacing:.1px; margin:0 0 .45rem }
-h1{ font-size:1.9rem; font-weight:800 }
-h2{ font-size:1.5rem; font-weight:800 }
-h3{ font-size:1.1rem; font-weight:700 }
+      <select name="sort" onchange="this.form.submit()">
+        <option value="newest" <%= so==='newest'?'selected':'' %> >الأحدث أولاً</option>
+        <option value="oldest" <%= so==='oldest'?'selected':'' %> >الأقدم أولاً</option>
+      </select>
+      <noscript><button class="btn info">تطبيق</button></noscript>
+    </form>
+  </div>
 
-table{ width:100%; border-collapse:collapse; min-width:900px; font-size:1rem }
-th,td{ border-bottom:1px solid var(--border); padding:12px; vertical-align:middle; text-align:center }
-th{ background:#fff0f6; color:#374151; font-weight:800 }
+  <!-- شريط الأوامر الجماعية -->
+  <form id="bulkForm" method="post">
+    <div class="bulk-bar" style="margin:12px 0">
+      <label class="row" style="gap:8px;align-items:center">
+        <input id="selectAll" type="checkbox">
+        <span class="bulk-title">تحديد الكل</span>
+      </label>
 
-/* ===== Inputs ===== */
-input,select,textarea{
-  width:100%; background:#fff; border:1px solid var(--border); border-radius:12px;
-  padding:12px; color:#111; outline:none; font-size:1rem;
-}
-label{ font-size:.9rem; color:#6b7280 }
+      <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-/* لا تمدد الـ checkbox/radio + لون مميز */
-input[type="checkbox"],input[type="radio"]{
-  width:auto; height:auto; padding:0; margin:0; vertical-align:middle;
-  accent-color:var(--primary); transform:scale(1.15);
-}
+      <div class="bulk-actions">
+        <input type="hidden" name="apply_to_items" value="on">
 
-/* ===== Topbar ===== */
-.topbar{ position:sticky; top:0; z-index:10;
-  background:linear-gradient(90deg,var(--accent1),var(--accent2));
-  box-shadow:0 6px 20px rgba(0,0,0,.08)
-}
-.nav{ display:flex; align-items:center; gap:12px; padding:10px var(--container-pad) }
-.brand{ font-weight:900; color:#fff }
-.links{ display:flex; gap:8px; margin-inline-start:12px }
-.links a{
-  background:rgba(255,255,255,.55); color:#111; padding:8px 12px;
-  border-radius:999px; border:1px solid rgba(255,255,255,.7); text-decoration:none
-}
-.links a.active{ background:#fff }
+        <button class="btn danger"  data-bulk formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
+        <button class="btn success" data-bulk formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+        <button class="btn gray"    data-bulk formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+        <button class="btn info"    data-bulk formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+        <button class="btn warn"    data-bulk formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+      </div>
 
-/* ===== Cards / Grid ===== */
-.cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px }
-.card{ background:var(--card); border:1px solid var(--border); border-radius:18px; padding:18px; box-shadow:var(--shadow) }
-.card h3{ margin:0 0 6px; color:#374151; font-size:15px }
-.kpi{ font-size:28px; font-weight:800 }
+      <span class="right"></span>
 
-/* ===== Table Scroll ===== */
-.table-scroll{ width:100%; overflow:auto; border-radius:14px }
+      <button class="btn danger" formaction="/orders/bulk-delete" type="submit"
+              onclick="return confirm('حذف الطلبات المحددة نهائيًا؟')">
+        <i class="fa fa-trash"></i> حذف المحدّد
+      </button>
+    </div>
 
-/* ===== Thumbs + Lightbox ===== */
-.thumb{
-  width:var(--thumb-size); height:var(--thumb-size);
-  border-radius:12px; object-fit:cover; border:1px solid var(--border);
-  box-shadow:0 1px 3px rgba(0,0,0,.08)
-}
-.thumb.lg{ width:120px; height:120px }
-.thumb-btn{ all:unset; cursor:zoom-in; display:inline-block; line-height:0 }
-#imgPreviewBg{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; z-index:70 }
-#imgPreview{
-  position:fixed; inset:0; margin:auto; max-width:min(92vw,1200px); max-height:92vh;
-  display:none; z-index:80; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.35)
-}
-#imgPreviewClose{
-  position:fixed; inset:12px 12px auto auto; z-index:85;
-  background:#fff; border:1px solid #e5e7eb; border-radius:999px; width:40px; height:40px;
-  display:none; align-items:center; justify-content:center; cursor:pointer;
-  box-shadow:0 2px 8px rgba(0,0,0,.12)
-}
+    <!-- بطاقات الطلبات -->
+    <div class="cards">
+      <% (orders||[]).forEach(o => {
+        const its   = (itemsByOrder && itemsByOrder[o.id]) || [];
+        const shown = its.slice(0, 4);
+        const more  = Math.max(0, its.length - shown.length);
 
-/* ===== Buttons (موحّدة) ===== */
-.btn{
-  padding:12px 18px; border:0; border-radius:14px;
-  display:inline-flex; align-items:center; gap:10px;
-  font-weight:800; color:#fff; cursor:pointer; transition:.2s;
-}
-.btn:hover{ opacity:.95; transform:translateY(-1px) }
-.btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
+        const allDelivered = its.length && its.every(x=>x.delivery_status==='delivered');
+        const allFailed    = its.length && its.every(x=>x.delivery_status==='failed');
+        const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
 
-/* ألوان صريحة */
-.btn.info{ background:var(--primary)!important }
-.btn.success{ background:var(--success)!important }
-.btn.warn{ background:var(--warning)!important; color:#1f2937!important }
-.btn.gray{ background:var(--gray)!important }
-.btn.danger{ background:var(--danger)!important }
+        const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
+        const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
+        const profit   = its.reduce((a,x)=> a + (Number(x.sale_price)*Number(x.quantity) - Number(x.cost_price)*Number(x.quantity)), 0);
+      %>
 
-.btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
+      <div class="card order-card" data-oid="<%= o.id %>">
+        <!-- رأس البطاقة -->
+        <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
+          <div class="row" style="gap:12px;align-items:center">
+            <input class="rowCheck" type="checkbox" name="ids" value="<%= o.id %>">
 
-/* أزرار الحالة السريعة داخل البطاقة (ألوان قسرية) */
-.order-quick .btn{
-  width:46px; height:46px; padding:0; border-radius:14px;
-  box-shadow:0 2px 8px rgba(0,0,0,.08); border:0!important;
-}
-.order-quick .btn.info{    background:var(--primary)!important; color:#fff!important }
-.order-quick .btn.success{  background:var(--success)!important; color:#fff!important }
-.order-quick .btn.warn{     background:var(--warning)!important; color:#1f2937!important }
-.order-quick .btn.gray{     background:var(--gray)!important;    color:#fff!important }
-.order-quick .btn.danger{   background:var(--danger)!important;  color:#fff!important }
-.order-quick .btn i{ color:inherit!important }
+            <span class="status-chip chip-lg status-<%= effStatus %> js-chip">
+              <%= statusLabel(effStatus) %>
+            </span>
 
-/* زر إدارة الطلب */
-.btn.manage{ background:#0ea5e9; color:#fff }
-.btn.manage:hover{ filter:brightness(1.05) }
+            <strong>#<%= o.id %></strong>
+          </div>
 
-/* زر فتح الطلب (اختياري) */
-.btn.open-order{ background:#36495b; color:#fff }
-.btn.open-order:hover{ filter:brightness(1.05) }
+          <div class="muted-sm">
+            <i class="fa fa-clock"></i>
+            <%= dayjs(o.created_at).tz(TZ_NAME).format('YYYY-MM-DD HH:mm') %>
+          </div>
+        </div>
 
-/* ===== Badges / Chips ===== */
-.badge{ display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-weight:800; font-size:.95rem; border:1px solid var(--border); background:#fff; color:#374151 }
-.badge-lg{ font-size:1.08rem; padding:8px 14px }
-.chip-lg{ font-size:1.06rem!important; padding:8px 14px!important }
+        <!-- بيانات مختصرة -->
+        <div class="row muted-sm" style="gap:14px; margin-top:8px; flex-wrap:wrap">
+          <span><i class="fa fa-user"></i> <%= o.customer_name  || 'بدون اسم' %></span>
+          <span><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
+          <span><i class="fa fa-location-dot"></i> <%= o.customer_city  || '—' %></span>
+        </div>
 
-.status-chip{
-  display:inline-flex; align-items:center; gap:8px;
-  padding:7px 12px; border-radius:999px; font-weight:900; font-size:1rem;
-  border:1px solid var(--border); user-select:none; background:#fff; color:#374151;
-}
-.status-pending{   background:#fff7e6; border-color:#fcd34d; color:#92400e }
-.status-shipping{  background:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.status-delivered{ background:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.status-failed{    background:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
+        <!-- معاينة سريعة للمنتجات -->
+        <div class="row" style="gap:10px; margin:12px 0; align-items:center; flex-wrap:wrap">
+          <% if (!its.length) { %>
+            <div class="muted">لا يوجد بنود بعد.</div>
+          <% } %>
 
-/* ===== Bulk toolbar ===== */
-.bulk-bar{
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-  background:#fff; border:1px solid var(--border); border-radius:16px; padding:14px 16px;
-  box-shadow:var(--shadow)
-}
-.bulk-bar label{ display:flex; align-items:center; gap:8px }
-.bulk-title{ font-weight:900; color:#374151 }
-.bulk-count{ color:#111827; font-weight:900 }
-.bulk-actions{ display:flex; gap:8px; flex-wrap:wrap }
-.bulk-actions .btn{ border-radius:999px; padding:11px 15px }
-.bulk-actions .btn i{ pointer-events:none }
+          <% shown.forEach(it => { %>
+            <div class="row" title="<%- it.product_name %>"
+                 style="gap:10px; padding:6px 8px; border:1px solid var(--border); border-radius:12px; background:#fff">
+              <img src="<%= it.product_image || 'https://via.placeholder.com/80?text=No+Img' %>"
+                   style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid var(--border)"
+                   onerror="this.onerror=null;this.src='https://via.placeholder.com/80?text=No+Img';">
+              <div class="right" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">
+                <div style="font-weight:700"><%- it.product_name %></div>
+                <div class="muted-sm">× <%= it.quantity %></div>
+              </div>
+            </div>
+          <% }) %>
 
-/* ألوان واضحة عند التعطيل داخل الشريط */
-.bulk-actions .btn[disabled]{ opacity:1!important; filter:none!important; cursor:not-allowed }
-.bulk-actions .btn.info[disabled]{    background:#bfdbfe!important; color:#1e3a8a!important; border:1px solid #93c5fd!important }
-.bulk-actions .btn.success[disabled]{  background:#bbf7d0!important; color:#065f46!important; border:1px solid #86efac!important }
-.bulk-actions .btn.warn[disabled]{     background:#fde68a!important; color:#92400e!important; border:1px solid #fcd34d!important }
-.bulk-actions .btn.gray[disabled]{     background:#e5e7eb!important; color:#374151!important; border:1px solid #cbd5e1!important }
-.bulk-actions .btn.danger[disabled]{   background:#fecaca!important; color:#7f1d1d!important; border:1px solid #fca5a5!important }
-.bulk-actions .btn:not([disabled]):hover{ filter:brightness(1.06) }
+          <% if (more > 0) { %>
+            <span class="status-chip">+<%= more %> أخرى</span>
+          <% } %>
+        </div>
 
-/* خلي الأيقونات ترث اللون */
-.bulk-actions .btn[disabled] i,
-.bulk-actions .btn[disabled] .fa{ color:inherit!important; opacity:1!important }
+        <!-- أزرار الحالة السريعة + إدارة الطلب + مؤشرات -->
+        <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="row order-quick" style="gap:8px">
+            <button type="button" class="btn warn"    onclick="quickStatus(<%= o.id %>,'pending')"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
+            <button type="button" class="btn info"    onclick="quickStatus(<%= o.id %>,'processing')" title="قيد المعالجة"><i class="fa fa-gears"></i></button>
+            <button type="button" class="btn gray"    onclick="quickStatus(<%= o.id %>,'shipping')"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
+            <button type="button" class="btn success" onclick="quickStatus(<%= o.id %>,'delivered')"  title="تم التسليم"><i class="fa fa-check"></i></button>
+            <button type="button" class="btn danger"  onclick="quickStatus(<%= o.id %>,'failed')"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
 
-/* ===== Selects ===== */
-select{
-  appearance:none; -webkit-appearance:none; -moz-appearance:none;
-  background:
-    #fff
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>")
-    no-repeat left 12px center/16px 16px;
-  padding-inline-start:40px;
-}
-select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15) }
+            <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')">
+              <input type="hidden" name="ids" value="<%= o.id %>">
+              <button class="btn danger" title="حذف"><i class="fa fa-trash"></i></button>
+            </form>
+          </div>
 
-/* Select حالة ملوّن (اختياري) */
-.select-status{
-  appearance:none; -webkit-appearance:none; -moz-appearance:none;
-  font-weight:800; cursor:pointer;
-  padding:12px 48px 12px 14px; border-radius:12px; border:1px solid var(--border);
-  background-position:left 12px center; background-size:18px 18px;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>");
-}
-.select-status.pending{   background-color:#fffbea; border-color:#fcd34d; color:#92400e }
-.select-status.shipping{  background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.select-status.delivered{ background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.select-status.failed{    background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
-.select-status:hover{ filter:brightness(.98) }
+          <a class="btn manage btn-lg" href="/orders/<%= o.id %>">
+            <i class="fa fa-wrench"></i> إدارة الطلب
+          </a>
 
-/* ===== Order KPIs ===== */
-.order-kpis{ display:flex; gap:18px; flex-wrap:wrap; font-size:1.06rem; color:#374151 }
-.order-kpis strong{ font-size:1.12rem }
+          <div class="order-kpis">
+            <span>بنود: <strong><%= totalQty %></strong></span>
+            <span>الإيراد: <strong>₪<%= revenue.toFixed(2) %></strong></span>
+            <span>الربح: <strong>₪<%= profit.toFixed(2) %></strong></span>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </form>
 
-/* ===== Helpers ===== */
-.order-meta{ font-size:1rem; color:#6b7280 }
+  <% if (!(orders||[]).length) { %>
+    <div class="card"><div class="muted">لا يوجد طلبات.</div></div>
+  <% } %>
+</div>
 
-/* ===== Responsive ===== */
-@media (max-width:900px){
-  .cards{ grid-template-columns:1fr }
-  table{ min-width:700px }
-  .btn{ width:100%; text-align:center }
-  .thumb{ width:80px; height:80px }
-}
+<script>
+  // تحديد الكل + عدّاد
+  (function(){
+    const all = document.getElementById('selectAll');
+    const rows = [...document.querySelectorAll('.rowCheck')];
+    const cnt  = document.getElementById('selCount');
+    function refresh(){ cnt.textContent = rows.filter(r=>r.checked).length; }
+    if (all) all.addEventListener('change', ()=>{ rows.forEach(r=>r.checked=all.checked); refresh(); });
+    rows.forEach(r=> r.addEventListener('change', refresh));
+    refresh();
+  })();
 
-/* ===== ألوان زاهية عالميًا حتى عند التعطيل (اختياري إن بدكها بكل الأزرار) ===== */
-.btn.info[disabled], .btn.success[disabled], .btn.warn[disabled],
-.btn.gray[disabled], .btn.danger[disabled]{ opacity:1!important }
+  // تعديل الحالة من خارج البطاقة
+  async function quickStatus(orderId, status){
+    try{
+      const body = new URLSearchParams({
+        ids: String(orderId),
+        status: String(status),
+        apply_to_items: 'on'
+      });
+      const res = await fetch('/orders/bulk-status', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+        body
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
 
-/* ===== Force vivid colors for bulk actions in ALL states ===== */
-.bulk-actions .btn { opacity: 1 !important; filter: none !important; }
-
-/* info (primary) */
-.bulk-actions .btn.info,
-.bulk-actions .btn.info:disabled,
-.bulk-actions .btn.info[disabled],
-.bulk-actions .btn.info.disabled {
-  background: var(--primary) !important;
-  color: #fff !important;
-  border: 1px solid var(--primary) !important;
-}
-
-/* success (green) */
-.bulk-actions .btn.success,
-.bulk-actions .btn.success:disabled,
-.bulk-actions .btn.success[disabled],
-.bulk-actions .btn.success.disabled {
-  background: var(--success) !important;
-  color: #fff !important;
-  border: 1px solid var(--success) !important;
-}
-
-/* warn (amber) */
-.bulk-actions .btn.warn,
-.bulk-actions .btn.warn:disabled,
-.bulk-actions .btn.warn[disabled],
-.bulk-actions .btn.warn.disabled {
-  background: var(--warning) !important;
-  color: #1f2937 !important;
-  border: 1px solid var(--warning) !important;
-}
-
-/* gray */
-.bulk-actions .btn.gray,
-.bulk-actions .btn.gray:disabled,
-.bulk-actions .btn.gray[disabled],
-.bulk-actions .btn.gray.disabled {
-  background: var(--gray) !important;
-  color: #fff !important;
-  border: 1px solid var(--gray) !important;
-}
-
-/* danger (red) */
-.bulk-actions .btn.danger,
-.bulk-actions .btn.danger:disabled,
-.bulk-actions .btn.danger[disabled],
-.bulk-actions .btn.danger.disabled {
-  background: var(--danger) !important;
-  color: #fff !important;
-  border: 1px solid var(--danger) !important;
-}
-
-/* خلّي الأيقونات تورّث اللون دايمًا */
-.bulk-actions .btn i,
-.bulk-actions .btn .fa { color: inherit !important; opacity: 1 !important; }
-
+      // حدّث الشارة داخل البطاقة
+      const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
+      if(card){
+        const chip = card.querySelector('.js-chip');
+        const map  = {
+          pending:'قيد الإدخال',
+          processing:'قيد المعالجة',
+          shipping:'إلى قيد التوصيل',
+          delivered:'تم التسليم',
+          failed:'فشل/لم يتم'
+        };
+        chip.textContent = map[status] || status;
+        chip.className = `status-chip chip-lg js-chip status-${status}`;
+      }
+    }catch(e){
+      alert('تعذر تحديث الحالة.');
+      console.error(e);
+    }
+  }
+</script>
