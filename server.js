@@ -1,4 +1,4 @@
-// server.js — طلبات متعددة المنتجات + إدارة طلبات وبنود بالجملة (نسخة مُصحّحة نهائية)
+// server.js — Abrar Manager (FINAL, Cloudinary-ready)
 // ===================================================
 import express from "express";
 import path from "path";
@@ -13,6 +13,10 @@ import dayjsBase from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import tz from "dayjs/plugin/timezone.js";
 import dotenv from "dotenv";
+
+// <<< Cloudinary >>>
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 
 dotenv.config();
 
@@ -59,7 +63,6 @@ async function query(sql, params = []) {
 
 // إنشاء/ترقية الجداول
 async function initDb() {
-  // products
   await query(`
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
@@ -75,7 +78,6 @@ async function initDb() {
     );
   `);
 
-  // sales (بنود البيع)
   await query(`
     CREATE TABLE IF NOT EXISTS sales (
       id SERIAL PRIMARY KEY,
@@ -95,7 +97,6 @@ async function initDb() {
     );
   `);
 
-  // orders (طلب يجمع عدّة بنود)
   await query(`
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -108,7 +109,6 @@ async function initDb() {
     );
   `);
 
-  // returns_queue
   await query(`
     CREATE TABLE IF NOT EXISTS returns_queue (
       id SERIAL PRIMARY KEY,
@@ -124,7 +124,6 @@ async function initDb() {
     );
   `);
 
-  // product_images (معرض صور)
   await query(`
     CREATE TABLE IF NOT EXISTS product_images (
       id SERIAL PRIMARY KEY,
@@ -138,19 +137,45 @@ async function initDb() {
 }
 await initDb();
 
-// ================== رفع صور ==================
-const uploadsDir = path.join(__dirname, "public", "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+// ================== رفع صور: Cloudinary أولاً ثم ملفّات محليّة كـ fallback ==================
+const useCloudinary =
+  !!process.env.CLOUDINARY_CLOUD_NAME &&
+  !!process.env.CLOUDINARY_API_KEY &&
+  !!process.env.CLOUDINARY_API_SECRET;
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = (file.originalname || "").split(".").pop() || "jpg";
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
-  },
-});
+let storage;
+if (useCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
+  storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: process.env.CLOUDINARY_FOLDER || "abrar-store/uploads",
+      allowed_formats: ["jpg", "jpeg", "png", "webp"],
+      transformation: [{ width: 600, height: 600, crop: "fill", gravity: "auto" }],
+    },
+  });
+} else {
+  const uploadsDir = path.join(__dirname, "public", "uploads");
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+  storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const ext = (file.originalname || "").split(".").pop() || "jpg";
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`);
+    },
+  });
+}
 const fileFilter = (_req, file, cb) =>
-  file?.mimetype?.startsWith("image/") ? cb(null, true) : cb(new Error("يُسمح برفع الصور فقط"), false);
+  file?.mimetype?.startsWith("image/")
+    ? cb(null, true)
+    : cb(new Error("يُسمح برفع الصور فقط"), false);
+
 const upload = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // ================== EJS & Middlewares ==================
@@ -219,11 +244,9 @@ app.post("/logout", (req, res) => req.session.destroy(() => res.redirect("/login
 app.get("/healthz", (_req, res) => res.send("OK"));
 
 // ================== Helpers ==================
-// الربح الصحيح بدون طرح الشحن: (qty*sale) − (qty*cost)
 const profitOf = (s) =>
   Number(s.sale_price) * Number(s.quantity) - Number(s.cost_price) * Number(s.quantity);
 
-// إنشاء/استخدام طلب مفتوح لنفس الزبون في نفس اليوم
 async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
   const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
   const q = await query(
@@ -292,7 +315,6 @@ app.get("/", async (_req, res, next) => {
       `)
     ).rows;
 
-    // >>> totals (فقط تمّ التسليم) لاستخدامه في index.ejs
     const totals = (
       await query(
         `SELECT
@@ -334,7 +356,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/public/uploads/${main.filename}`;
+      if (main) image_path = main.path || `/public/uploads/${main.filename}`;
 
       const ins = await query(
         `
@@ -347,7 +369,8 @@ app.post("/products", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [productId, `/public/uploads/${f.filename}`]);
+        const url = f.path || `/public/uploads/${f.filename}`;
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [productId, url]);
       }
 
       res.redirect("/products");
@@ -373,7 +396,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = `/public/uploads/${main.filename}`;
+      if (main) image_path = main.path || `/public/uploads/${main.filename}`;
 
       await query(
         `
@@ -395,7 +418,8 @@ app.post("/products/:id/update", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [id, `/public/uploads/${f.filename}`]);
+        const url = f.path || `/public/uploads/${f.filename}`;
+        await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [id, url]);
       }
 
       res.redirect("/products");
@@ -434,7 +458,6 @@ app.get("/sales", async (req, res, next) => {
       )
     ).rows;
 
-    // طلبات مفتوحة/قيد المعالجة/قيد التوصيل (آخر 30)
     const orders = (
       await query(`
         SELECT
@@ -451,7 +474,6 @@ app.get("/sales", async (req, res, next) => {
       `)
     ).rows;
 
-    // بنود كل طلب
     let openOrders = [];
     if (orders.length) {
       const ids = orders.map((o) => o.id);
@@ -774,17 +796,14 @@ app.post("/sales/bulk-return", async (req, res) => {
 
 // -------- Orders (الطلبات متعددة البنود) --------
 app.get("/orders", async (req, res) => {
-  // فلاتر الواجهة (حاليًا ندعم فلتر الحالة فقط)
   const filters = {
-    status: String(req.query.status || "all").toLowerCase(), // all|pending|processing|shipping|delivered|failed
+    status: String(req.query.status || "all").toLowerCase(),
   };
 
-  // نبني شرط الحالة (اختياري)
   const ALLOWED = ["pending", "processing", "shipping", "delivered", "failed"];
   const where = ALLOWED.includes(filters.status) ? "WHERE o.status = $1" : "";
   const params = ALLOWED.includes(filters.status) ? [filters.status] : [];
 
-  // نجلب الطلبات + الإيراد/الربح المحسوب
   const orders = (
     await query(
       `
@@ -803,7 +822,6 @@ app.get("/orders", async (req, res) => {
     )
   ).rows;
 
-  // (اختياري) ملخّص البنود لكل طلب لو الواجهة تحتاجه
   let itemsByOrder = {};
   if (orders.length) {
     const ids = orders.map((o) => o.id);
@@ -823,10 +841,8 @@ app.get("/orders", async (req, res) => {
     for (const it of items) (itemsByOrder[it.order_id] ||= []).push(it);
   }
 
-  // مهم: نمرّر filters للواجهة عشان ما يصير ReferenceError
   res.render("orders", { orders, itemsByOrder, dayjs, filters });
 });
-
 
 // أكشنات جماعية على الطلبات
 app.post("/orders/bulk-status", async (req, res) => {
@@ -1125,8 +1141,7 @@ app.post("/returns/:id/delete", async (req, res) => {
 app.get("/reports", async (req, res) => {
   const { range = "daily", year, month, day } = req.query;
 
-  let rows = [],
-    title = "";
+  let rows = [], title = "";
   if (range === "monthly") {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1177,9 +1192,7 @@ app.get("/reports", async (req, res) => {
 // ========= معالج أخطاء عام =========
 app.use((err, req, res, next) => {
   console.error(err);
-  res
-    .status(500)
-    .send(`<pre>Server error:\n${err?.message || err}\n\n${err?.stack || ""}</pre>`);
+  res.status(500).send(`<pre>Server error:\n${err?.message || err}\n\n${err?.stack || ""}</pre>`);
 });
 
 // ================== بدء التشغيل ==================
