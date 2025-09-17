@@ -890,6 +890,17 @@ app.post("/orders/bulk-return", async (req, res) => {
   res.redirect("/orders");
 });
 
+// حذف طلبات (جماعي)
+app.post("/orders/bulk-delete", async (req, res) => {
+  const raw = req.body.ids || [];
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
+  if (!ids.length) return res.redirect("/orders");
+
+  await query(`DELETE FROM sales  WHERE order_id = ANY($1::int[])`, [ids]);
+  await query(`DELETE FROM orders WHERE id       = ANY($1::int[])`, [ids]);
+  res.redirect("/orders");
+});
+
 // نموذج طلب جديد
 app.get("/orders/new", async (_req, res) => {
   const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
@@ -1093,6 +1104,14 @@ app.post("/orders/:id/status", async (req, res) => {
     );
   }
   res.redirect(`/orders/${id}`);
+});
+
+// حذف طلب مفرد
+app.post("/orders/:id/delete", async (req, res) => {
+  const id = Number(req.params.id);
+  await query(`DELETE FROM sales  WHERE order_id=$1`, [id]);
+  await query(`DELETE FROM orders WHERE id=$1`,       [id]);
+  res.redirect("/orders");
 });
 
 // حذف بند من الطلب
