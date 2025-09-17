@@ -160,15 +160,26 @@ input[type="checkbox"],input[type="radio"]{
 .badge-lg{ font-size:1.08rem; padding:8px 14px }
 .chip-lg{ font-size:1.06rem!important; padding:8px 14px!important }
 
+/* شارات الحالة — ألوان ثابتة دائمًا */
 .status-chip{
   display:inline-flex; align-items:center; gap:8px;
   padding:7px 12px; border-radius:999px; font-weight:900; font-size:1rem;
   border:1px solid var(--border); user-select:none; background:#fff; color:#374151;
 }
-.status-pending{   background:#fff7e6; border-color:#fcd34d; color:#92400e }
-.status-shipping{  background:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.status-delivered{ background:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.status-failed{    background:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
+.status-pending{    background:#fff7e6; border-color:#fcd34d; color:#92400e } /* قيد الإدخال */
+.status-processing{ background:#ffe9d6; border-color:#fdba74; color:#7a3a00 } /* قيد المعالجة */
+.status-shipping{   background:#eef6ff; border-color:#93c5fd; color:#1e3a8a } /* قيد التوصيل */
+.status-delivered{  background:#ecfdf5; border-color:#6ee7b7; color:#065f46 } /* تم التسليم */
+.status-failed{     background:#fef2f2; border-color:#fca5a5; color:#7f1d1d } /* فشل/لم يتم */
+
+/* تثبيت الألوان حتى عند التعطيل أو داخل عناصر معطّلة */
+.status-chip[disabled],
+.status-chip:disabled,
+.is-disabled .status-chip,
+[aria-disabled="true"] .status-chip{
+  opacity:1 !important; filter:none !important;
+  background:inherit !important; color:inherit !important; border-color:inherit !important;
+}
 
 /* ===== Bulk toolbar ===== */
 .bulk-bar{
@@ -211,11 +222,18 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
   background-position:left 12px center; background-size:18px 18px;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>");
 }
-.select-status.pending{   background-color:#fffbea; border-color:#fcd34d; color:#92400e }
-.select-status.shipping{  background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.select-status.delivered{ background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.select-status.failed{    background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
+.select-status.pending{    background-color:#fffbea; border-color:#fcd34d; color:#92400e }
+.select-status.processing{ background-color:#ffe9d6; border-color:#fdba74; color:#7a3a00 }
+.select-status.shipping{   background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
+.select-status.delivered{  background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
+.select-status.failed{     background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
 .select-status:hover{ filter:brightness(.98) }
+
+/* إبقاء ألوان select عند التعطيل */
+.select-status[disabled],
+.select-status:disabled{
+  opacity:1 !important; filter:none !important;
+}
 
 /* ===== Order KPIs ===== */
 .order-kpis{ display:flex; gap:18px; flex-wrap:wrap; font-size:1.06rem; color:#374151 }

@@ -24,7 +24,7 @@
     <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات <span class="muted">(<%= (orders||[]).length %>)</span></h2>
 
     <form method="get" action="/orders" class="row" style="gap:8px">
-      <select name="status" onchange="this.form.submit()">
+      <select name="status" class="select-status <%= st %>" onchange="this.form.submit()">
         <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
         <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
         <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
@@ -54,7 +54,7 @@
       <div class="bulk-actions">
         <input type="hidden" name="apply_to_items" value="on">
 
-        <!-- تبقى ملوّنة مهما كانت الحالة; يتم تفعيل/تعطيل عبر JS حسب عدد المحدد -->
+        <!-- تبقى ملوّنة مهما كانت الحالة -->
         <button class="btn danger"   data-bulk  formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
         <button class="btn success"  data-bulk  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
         <button class="btn gray"     data-bulk  formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
@@ -137,14 +137,12 @@
         <!-- أزرار الحالة السريعة + إدارة الطلب + مؤشرات -->
         <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div class="row order-quick" style="gap:8px">
-            <!-- تعديلات سريعة بدون دخول -->
             <button type="button" class="btn warn"    onclick="quickStatus(<%= o.id %>,'pending')"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
             <button type="button" class="btn info"    onclick="quickStatus(<%= o.id %>,'processing')" title="قيد المعالجة"><i class="fa fa-gears"></i></button>
             <button type="button" class="btn gray"    onclick="quickStatus(<%= o.id %>,'shipping')"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
             <button type="button" class="btn success" onclick="quickStatus(<%= o.id %>,'delivered')"  title="تم التسليم"><i class="fa fa-check"></i></button>
             <button type="button" class="btn danger"  onclick="quickStatus(<%= o.id %>,'failed')"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
 
-            <!-- حذف طلب -->
             <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')">
               <input type="hidden" name="ids" value="<%= o.id %>">
               <button class="btn danger" title="حذف"><i class="fa fa-trash"></i></button>
@@ -172,7 +170,6 @@
 </div>
 
 <script>
-  // تحديد الكل + تفعيل/تعطيل أزرار الشريط + عداد
   (function(){
     const all  = document.getElementById('selectAll');
     const rows = [...document.querySelectorAll('.rowCheck')];
@@ -182,7 +179,6 @@
     function refresh(){
       const selected = rows.filter(r=>r.checked).length;
       cnt.textContent = selected;
-      // فعّل الأزرار إذا في أي اختيار، وإلا عطّلها (لكن تظل ملوّنة بفضل الـCSS)
       const disabled = selected === 0;
       bulkBtns.forEach(b => b.disabled = disabled);
     }
@@ -197,7 +193,6 @@
     refresh();
   })();
 
-  // تعديل حالة الطلب من الخارج بدون الدخول عليه
   async function quickStatus(orderId, status){
     try{
       const body = new URLSearchParams({
@@ -212,7 +207,6 @@
       });
       if(!res.ok) throw new Error('HTTP '+res.status);
 
-      // تحديث الشارة على البطاقة مباشرة
       const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
       if(card){
         const chip = card.querySelector('.js-chip');
