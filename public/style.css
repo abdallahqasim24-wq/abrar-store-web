@@ -249,3 +249,33 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
   .btn{ width:100%; text-align:center }
   .thumb{ width:80px; height:80px }
 }
+
+
+/* ==== Force colored states even when disabled ==== */
+.btn[disabled], .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+
+/* variants */
+button.btn.info:disabled,      .btn.info[disabled]      { background:var(--primary) !important;  color:#fff !important }
+button.btn.success:disabled,   .btn.success[disabled]   { background:var(--success) !important;  color:#fff !important }
+button.btn.warn:disabled,      .btn.warn[disabled]      { background:var(--warning) !important;  color:#1f2937 !important }
+button.btn.gray:disabled,      .btn.gray[disabled]      { background:var(--gray) !important;     color:#fff !important }
+button.btn.danger:disabled,    .btn.danger[disabled]    { background:var(--danger) !important;   color:#fff !important }
+
+/* bulk toolbar */
+.bulk-actions .btn:disabled,
+.bulk-actions .btn[disabled]{
+  opacity:1 !important; filter:none !important; box-shadow:none !important;
+}
+
+/* per-order quick buttons */
+.order-quick .btn:disabled,
+.order-quick .btn[disabled]{
+  opacity:1 !important; filter:none !important; box-shadow:0 2px 8px rgba(0,0,0,.08) !important;
+}
+
+/* status chips always colored */
+.status-chip[disabled], .status-chip:disabled{ 
+  opacity:1 !important; filter:none !important; 
+  background:inherit !important; color:inherit !important; border-color:inherit !important;
+}
+

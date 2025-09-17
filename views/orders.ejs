@@ -1,6 +1,19 @@
 <!-- views/orders.ejs -->
 <link rel="stylesheet" href="<%= faLink %>">
 
+<style>
+  /* ضمان بقاء الألوان على الأزرار حتى عند التعطيل */
+  .bulk-actions .btn:disabled,
+  .bulk-actions .btn[disabled],
+  .order-quick .btn:disabled,
+  .order-quick .btn[disabled]{ opacity:1!important; filter:none!important }
+  .btn.info:disabled,.btn.info[disabled]{background:#2563eb!important;color:#fff!important}
+  .btn.success:disabled,.btn.success[disabled]{background:#16a34a!important;color:#fff!important}
+  .btn.warn:disabled,.btn.warn[disabled]{background:#f59e0b!important;color:#1f2937!important}
+  .btn.gray:disabled,.btn.gray[disabled]{background:#6b7280!important;color:#fff!important}
+  .btn.danger:disabled,.btn.danger[disabled]{background:#ef4444!important;color:#fff!important}
+</style>
+
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -53,8 +66,6 @@
 
       <div class="bulk-actions">
         <input type="hidden" name="apply_to_items" value="on">
-
-        <!-- تبقى ملوّنة مهما كانت الحالة -->
         <button class="btn danger"   data-bulk  formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
         <button class="btn success"  data-bulk  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
         <button class="btn gray"     data-bulk  formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
@@ -85,37 +96,30 @@
       %>
 
       <div class="card order-card" data-oid="<%= o.id %>">
-        <!-- رأس البطاقة -->
         <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
           <div class="row" style="gap:12px;align-items:center">
             <input class="rowCheck" type="checkbox" name="ids" value="<%= o.id %>">
-
             <span class="status-chip chip-lg status-<%= effStatus %> js-chip">
               <%= statusLabel(effStatus) %>
             </span>
-
             <strong>#<%= o.id %></strong>
           </div>
-
           <div class="muted-sm">
             <i class="fa fa-clock"></i>
             <%= dayjs(o.created_at).tz(TZ_NAME).format('YYYY-MM-DD HH:mm') %>
           </div>
         </div>
 
-        <!-- بيانات مختصرة -->
         <div class="row muted-sm" style="gap:14px; margin-top:8px; flex-wrap:wrap">
           <span><i class="fa fa-user"></i> <%= o.customer_name  || 'بدون اسم' %></span>
           <span><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
           <span><i class="fa fa-location-dot"></i> <%= o.customer_city  || '—' %></span>
         </div>
 
-        <!-- معاينة سريعة للمنتجات -->
         <div class="row" style="gap:10px; margin:12px 0; align-items:center; flex-wrap:wrap">
           <% if (!its.length) { %>
             <div class="muted">لا يوجد بنود بعد.</div>
           <% } %>
-
           <% shown.forEach(it => { %>
             <div class="row" title="<%- it.product_name %>"
                  style="gap:10px; padding:6px 8px; border:1px solid var(--border); border-radius:12px; background:#fff">
@@ -128,13 +132,11 @@
               </div>
             </div>
           <% }) %>
-
           <% if (more > 0) { %>
             <span class="status-chip">+<%= more %> أخرى</span>
           <% } %>
         </div>
 
-        <!-- أزرار الحالة السريعة + إدارة الطلب + مؤشرات -->
         <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div class="row order-quick" style="gap:8px">
             <button type="button" class="btn warn"    onclick="quickStatus(<%= o.id %>,'pending')"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
@@ -142,7 +144,6 @@
             <button type="button" class="btn gray"    onclick="quickStatus(<%= o.id %>,'shipping')"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
             <button type="button" class="btn success" onclick="quickStatus(<%= o.id %>,'delivered')"  title="تم التسليم"><i class="fa fa-check"></i></button>
             <button type="button" class="btn danger"  onclick="quickStatus(<%= o.id %>,'failed')"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
-
             <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')">
               <input type="hidden" name="ids" value="<%= o.id %>">
               <button class="btn danger" title="حذف"><i class="fa fa-trash"></i></button>
@@ -175,14 +176,12 @@
     const rows = [...document.querySelectorAll('.rowCheck')];
     const cnt  = document.getElementById('selCount');
     const bulkBtns = [...document.querySelectorAll('.bulk-actions .btn[data-bulk]')];
-
     function refresh(){
       const selected = rows.filter(r=>r.checked).length;
       cnt.textContent = selected;
       const disabled = selected === 0;
       bulkBtns.forEach(b => b.disabled = disabled);
     }
-
     if (all){
       all.addEventListener('change', ()=>{
         rows.forEach(r => { r.checked = all.checked; });
@@ -195,28 +194,13 @@
 
   async function quickStatus(orderId, status){
     try{
-      const body = new URLSearchParams({
-        ids: String(orderId),
-        status: String(status),
-        apply_to_items: 'on'
-      });
-      const res = await fetch('/orders/bulk-status', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
-        body
-      });
+      const body = new URLSearchParams({ ids:String(orderId), status:String(status), apply_to_items:'on' });
+      const res = await fetch('/orders/bulk-status',{ method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body });
       if(!res.ok) throw new Error('HTTP '+res.status);
-
       const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
       if(card){
         const chip = card.querySelector('.js-chip');
-        const map  = {
-          pending:'قيد الإدخال',
-          processing:'قيد المعالجة',
-          shipping:'قيد التوصيل',
-          delivered:'تم التسليم',
-          failed:'فشل/لم يتم'
-        };
+        const map  = { pending:'قيد الإدخال', processing:'قيد المعالجة', shipping:'قيد التوصيل', delivered:'تم التسليم', failed:'فشل/لم يتم' };
         chip.textContent = map[status] || status;
         chip.className = `status-chip chip-lg js-chip status-${status}`;
       }
