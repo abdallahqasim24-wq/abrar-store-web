@@ -126,10 +126,9 @@ input[type="checkbox"],input[type="radio"]{
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* إبقاء اللون عند التعطيل */
-.btn[disabled], .btn:disabled{
-  opacity:1 !important; filter:none !important; cursor:not-allowed;
-}
+/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
+.btn[disabled],
+.btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
 .btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
 .btn.success[disabled],.btn.success:disabled{  background:var(--success) !important; color:#fff !important }
 .btn.warn[disabled],   .btn.warn:disabled{     background:var(--warning) !important; color:#1f2937 !important }
@@ -152,7 +151,7 @@ input[type="checkbox"],input[type="radio"]{
 .btn.manage{ background:#0ea5e9; color:#fff }
 .btn.manage:hover{ filter:brightness(1.05) }
 
-/* زر فتح الطلب */
+/* زر فتح الطلب (اختياري) */
 .btn.open-order{ background:#36495b; color:#fff }
 .btn.open-order:hover{ filter:brightness(1.05) }
 
@@ -161,22 +160,15 @@ input[type="checkbox"],input[type="radio"]{
 .badge-lg{ font-size:1.08rem; padding:8px 14px }
 .chip-lg{ font-size:1.06rem!important; padding:8px 14px!important }
 
-/* شارات الحالة */
 .status-chip{
   display:inline-flex; align-items:center; gap:8px;
   padding:7px 12px; border-radius:999px; font-weight:900; font-size:1rem;
-  border:1px solid var(--border); user-select:none;
+  border:1px solid var(--border); user-select:none; background:#fff; color:#374151;
 }
-.status-pending{    background:#fff7e6; border-color:#fcd34d; color:#92400e }
-.status-processing{ background:#ffe9d6; border-color:#fdba74; color:#7a3a00 }
-.status-shipping{   background:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.status-delivered{  background:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.status-failed{     background:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
-
-.status-chip[disabled], .status-chip:disabled{
-  opacity:1 !important; filter:none !important;
-  background:inherit !important; color:inherit !important; border-color:inherit !important;
-}
+.status-pending{   background:#fff7e6; border-color:#fcd34d; color:#92400e }
+.status-shipping{  background:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
+.status-delivered{ background:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
+.status-failed{    background:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
 
 /* ===== Bulk toolbar ===== */
 .bulk-bar{
@@ -191,14 +183,14 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
 .bulk-actions .btn i{ pointer-events:none }
 
-.bulk-actions .btn[disabled], .bulk-actions .btn:disabled{
-  opacity:1 !important; filter:none !important; cursor:not-allowed;
-}
+/* الألوان تبقى حتى لو Disabled */
+.bulk-actions .btn[disabled],
+.bulk-actions .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
 .bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled{    background:var(--primary) !important;  color:#fff !important }
-.bulk-actions .btn.success[disabled], .bulk-actions .btn.success:disabled{  background:var(--success) !important;  color:#fff !important }
-.bulk-actions .btn.warn[disabled],    .bulk-actions .btn.warn:disabled{     background:var(--warning) !important;  color:#1f2937 !important }
-.bulk-actions .btn.gray[disabled],    .bulk-actions .btn.gray:disabled{     background:var(--gray) !important;     color:#fff !important }
-.bulk-actions .btn.danger[disabled],  .bulk-actions .btn.danger:disabled{   background:var(--danger) !important;   color:#fff !important }
+.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled{  background:var(--success) !important;  color:#fff !important }
+.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled{     background:var(--warning) !important;  color:#1f2937 !important }
+.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled{     background:var(--gray) !important;     color:#fff !important }
+.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled{   background:var(--danger) !important;   color:#fff !important }
 
 /* ===== Selects ===== */
 select{
@@ -211,6 +203,7 @@ select{
 }
 select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.15) }
 
+/* Select حالة ملوّن */
 .select-status{
   appearance:none; -webkit-appearance:none; -moz-appearance:none;
   font-weight:800; cursor:pointer;
@@ -218,15 +211,11 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
   background-position:left 12px center; background-size:18px 18px;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='black'><path d='M7 10l5 5 5-5'/></svg>");
 }
-.select-status.pending{    background-color:#fffbea; border-color:#fcd34d; color:#92400e }
-.select-status.processing{ background-color:#ffe9d6; border-color:#fdba74; color:#7a3a00 }
-.select-status.shipping{   background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
-.select-status.delivered{  background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
-.select-status.failed{     background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
-
-.select-status[disabled], .select-status:disabled{
-  opacity:1 !important; filter:none !important;
-}
+.select-status.pending{   background-color:#fffbea; border-color:#fcd34d; color:#92400e }
+.select-status.shipping{  background-color:#eef6ff; border-color:#93c5fd; color:#1e3a8a }
+.select-status.delivered{ background-color:#ecfdf5; border-color:#6ee7b7; color:#065f46 }
+.select-status.failed{    background-color:#fef2f2; border-color:#fca5a5; color:#7f1d1d }
+.select-status:hover{ filter:brightness(.98) }
 
 /* ===== Order KPIs ===== */
 .order-kpis{ display:flex; gap:18px; flex-wrap:wrap; font-size:1.06rem; color:#374151 }

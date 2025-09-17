@@ -9,7 +9,7 @@
   .btn-off{background:#f59e0b;color:#111;border-color:#d97706}
   .btn-ghost{background:#fff}
   .disabled{opacity:.55;pointer-events:none}
-  .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
+  .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
   @media(max-width:900px){.cards{grid-template-columns:1fr}}
   .kpi{padding:20px;border:1px solid var(--border);border-radius:16px;background:#fff}
   .muted{color:#6b7280}
@@ -80,12 +80,6 @@
       <div class="muted">الإيراد</div>
       <div style="font-size:28px;font-weight:800">
         ₪<%= (rows||[]).reduce((a,s)=>a+Number(s.sale_price)*Number(s.quantity),0).toFixed(2) %>
-      </div>
-    </div>
-    <div class="kpi">
-      <div class="muted">التكاليف</div>
-      <div style="font-size:28px;font-weight:800">
-        ₪<%= (rows||[]).reduce((a,s)=>a + (Number(s.cost_price)*Number(s.quantity)) + Number(s.shipping_cost||0),0).toFixed(2) %>
       </div>
     </div>
     <div class="kpi">

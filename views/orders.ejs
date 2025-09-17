@@ -1,19 +1,6 @@
 <!-- views/orders.ejs -->
 <link rel="stylesheet" href="<%= faLink %>">
 
-<style>
-  /* ضمان بقاء الألوان على الأزرار حتى عند التعطيل */
-  .bulk-actions .btn:disabled,
-  .bulk-actions .btn[disabled],
-  .order-quick .btn:disabled,
-  .order-quick .btn[disabled]{ opacity:1!important; filter:none!important }
-  .btn.info:disabled,.btn.info[disabled]{background:#2563eb!important;color:#fff!important}
-  .btn.success:disabled,.btn.success[disabled]{background:#16a34a!important;color:#fff!important}
-  .btn.warn:disabled,.btn.warn[disabled]{background:#f59e0b!important;color:#1f2937!important}
-  .btn.gray:disabled,.btn.gray[disabled]{background:#6b7280!important;color:#fff!important}
-  .btn.danger:disabled,.btn.danger[disabled]{background:#ef4444!important;color:#fff!important}
-</style>
-
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -37,7 +24,7 @@
     <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات <span class="muted">(<%= (orders||[]).length %>)</span></h2>
 
     <form method="get" action="/orders" class="row" style="gap:8px">
-      <select name="status" class="select-status <%= st %>" onchange="this.form.submit()">
+      <select name="status" onchange="this.form.submit()">
         <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
         <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
         <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
@@ -66,6 +53,8 @@
 
       <div class="bulk-actions">
         <input type="hidden" name="apply_to_items" value="on">
+
+        <!-- تبقى ملوّنة مهما كانت الحالة; يتم تفعيل/تعطيل عبر JS حسب عدد المحدد -->
         <button class="btn danger"   data-bulk  formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
         <button class="btn success"  data-bulk  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
         <button class="btn gray"     data-bulk  formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
@@ -96,30 +85,37 @@
       %>
 
       <div class="card order-card" data-oid="<%= o.id %>">
+        <!-- رأس البطاقة -->
         <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
           <div class="row" style="gap:12px;align-items:center">
             <input class="rowCheck" type="checkbox" name="ids" value="<%= o.id %>">
+
             <span class="status-chip chip-lg status-<%= effStatus %> js-chip">
               <%= statusLabel(effStatus) %>
             </span>
+
             <strong>#<%= o.id %></strong>
           </div>
+
           <div class="muted-sm">
             <i class="fa fa-clock"></i>
             <%= dayjs(o.created_at).tz(TZ_NAME).format('YYYY-MM-DD HH:mm') %>
           </div>
         </div>
 
+        <!-- بيانات مختصرة -->
         <div class="row muted-sm" style="gap:14px; margin-top:8px; flex-wrap:wrap">
           <span><i class="fa fa-user"></i> <%= o.customer_name  || 'بدون اسم' %></span>
           <span><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
           <span><i class="fa fa-location-dot"></i> <%= o.customer_city  || '—' %></span>
         </div>
 
+        <!-- معاينة سريعة للمنتجات -->
         <div class="row" style="gap:10px; margin:12px 0; align-items:center; flex-wrap:wrap">
           <% if (!its.length) { %>
             <div class="muted">لا يوجد بنود بعد.</div>
           <% } %>
+
           <% shown.forEach(it => { %>
             <div class="row" title="<%- it.product_name %>"
                  style="gap:10px; padding:6px 8px; border:1px solid var(--border); border-radius:12px; background:#fff">
@@ -132,18 +128,23 @@
               </div>
             </div>
           <% }) %>
+
           <% if (more > 0) { %>
             <span class="status-chip">+<%= more %> أخرى</span>
           <% } %>
         </div>
 
+        <!-- أزرار الحالة السريعة + إدارة الطلب + مؤشرات -->
         <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div class="row order-quick" style="gap:8px">
+            <!-- تعديلات سريعة بدون دخول -->
             <button type="button" class="btn warn"    onclick="quickStatus(<%= o.id %>,'pending')"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
             <button type="button" class="btn info"    onclick="quickStatus(<%= o.id %>,'processing')" title="قيد المعالجة"><i class="fa fa-gears"></i></button>
             <button type="button" class="btn gray"    onclick="quickStatus(<%= o.id %>,'shipping')"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
             <button type="button" class="btn success" onclick="quickStatus(<%= o.id %>,'delivered')"  title="تم التسليم"><i class="fa fa-check"></i></button>
             <button type="button" class="btn danger"  onclick="quickStatus(<%= o.id %>,'failed')"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
+
+            <!-- حذف طلب -->
             <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')">
               <input type="hidden" name="ids" value="<%= o.id %>">
               <button class="btn danger" title="حذف"><i class="fa fa-trash"></i></button>
@@ -171,53 +172,39 @@
 </div>
 
 <script>
-  // تفعيل أزرار الشريط حسب عدد المحدد فعليًا + معالجة النمو
+  // تحديد الكل + تفعيل/تعطيل أزرار الشريط + عداد
   (function(){
-    const selAll   = document.getElementById('selectAll');
-    const bulkForm = document.getElementById('bulkForm');
-    const cnt      = document.getElementById('selCount');
-    const bulkBtns = Array.from(document.querySelectorAll('.bulk-actions .btn[data-bulk]'));
+    const all  = document.getElementById('selectAll');
+    const rows = [...document.querySelectorAll('.rowCheck')];
+    const cnt  = document.getElementById('selCount');
+    const bulkBtns = [...document.querySelectorAll('.bulk-actions .btn[data-bulk]')];
 
-    function rowChecks(){ return Array.from(bulkForm.querySelectorAll('.rowCheck')); }
-    function selectedCount(){ return bulkForm.querySelectorAll('.rowCheck:checked').length; }
-
-    function applyState(){
-      const n = selectedCount();
-      if (cnt) cnt.textContent = n;
-      const disable = n === 0;
-      bulkBtns.forEach(b => b.disabled = disable);
-      if (selAll){
-        const rows = rowChecks();
-        selAll.indeterminate = n>0 && n<rows.length;
-        selAll.checked = n>0 && n===rows.length;
-      }
+    function refresh(){
+      const selected = rows.filter(r=>r.checked).length;
+      cnt.textContent = selected;
+      // فعّل الأزرار إذا في أي اختيار، وإلا عطّلها (لكن تظل ملوّنة بفضل الـCSS)
+      const disabled = selected === 0;
+      bulkBtns.forEach(b => b.disabled = disabled);
     }
 
-    if (selAll){
-      selAll.addEventListener('change', ()=>{
-        rowChecks().forEach(cb => { cb.checked = selAll.checked; });
-        applyState();
+    if (all){
+      all.addEventListener('change', ()=>{
+        rows.forEach(r => { r.checked = all.checked; });
+        refresh();
       });
     }
-
-    document.addEventListener('change', (e)=>{
-      if (e.target && e.target.classList && e.target.classList.contains('rowCheck')){
-        applyState();
-      }
-    });
-
-    const list = document.querySelector('.cards');
-    if (list){
-      new MutationObserver(()=>applyState()).observe(list,{childList:true,subtree:true});
-    }
-
-    applyState();
+    rows.forEach(r => r.addEventListener('change', refresh));
+    refresh();
   })();
 
-  // تعديل حالة الطلب السريع
+  // تعديل حالة الطلب من الخارج بدون الدخول عليه
   async function quickStatus(orderId, status){
     try{
-      const body = new URLSearchParams({ ids:String(orderId), status:String(status), apply_to_items:'on' });
+      const body = new URLSearchParams({
+        ids: String(orderId),
+        status: String(status),
+        apply_to_items: 'on'
+      });
       const res = await fetch('/orders/bulk-status', {
         method:'POST',
         headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
@@ -225,18 +212,19 @@
       });
       if(!res.ok) throw new Error('HTTP '+res.status);
 
+      // تحديث الشارة على البطاقة مباشرة
       const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
       if(card){
         const chip = card.querySelector('.js-chip');
-        const map  = { pending:'قيد الإدخال', processing:'قيد المعالجة', shipping:'قيد التوصيل', delivered:'تم التسليم', failed:'فشل/لم يتم' };
+        const map  = {
+          pending:'قيد الإدخال',
+          processing:'قيد المعالجة',
+          shipping:'قيد التوصيل',
+          delivered:'تم التسليم',
+          failed:'فشل/لم يتم'
+        };
         chip.textContent = map[status] || status;
         chip.className = `status-chip chip-lg js-chip status-${status}`;
-      }
-
-      // إعادة حساب حالة الشريط بعد أي تغيير
-      const trigger = document.querySelector('.rowCheck');
-      if(trigger){
-        trigger.dispatchEvent(new Event('change'));
       }
     }catch(e){
       alert('تعذر تحديث الحالة.');
