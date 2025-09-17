@@ -171,38 +171,72 @@
 </div>
 
 <script>
+  // تفعيل أزرار الشريط حسب عدد المحدد فعليًا + معالجة النمو
   (function(){
-    const all  = document.getElementById('selectAll');
-    const rows = [...document.querySelectorAll('.rowCheck')];
-    const cnt  = document.getElementById('selCount');
-    const bulkBtns = [...document.querySelectorAll('.bulk-actions .btn[data-bulk]')];
-    function refresh(){
-      const selected = rows.filter(r=>r.checked).length;
-      cnt.textContent = selected;
-      const disabled = selected === 0;
-      bulkBtns.forEach(b => b.disabled = disabled);
+    const selAll   = document.getElementById('selectAll');
+    const bulkForm = document.getElementById('bulkForm');
+    const cnt      = document.getElementById('selCount');
+    const bulkBtns = Array.from(document.querySelectorAll('.bulk-actions .btn[data-bulk]'));
+
+    function rowChecks(){ return Array.from(bulkForm.querySelectorAll('.rowCheck')); }
+    function selectedCount(){ return bulkForm.querySelectorAll('.rowCheck:checked').length; }
+
+    function applyState(){
+      const n = selectedCount();
+      if (cnt) cnt.textContent = n;
+      const disable = n === 0;
+      bulkBtns.forEach(b => b.disabled = disable);
+      if (selAll){
+        const rows = rowChecks();
+        selAll.indeterminate = n>0 && n<rows.length;
+        selAll.checked = n>0 && n===rows.length;
+      }
     }
-    if (all){
-      all.addEventListener('change', ()=>{
-        rows.forEach(r => { r.checked = all.checked; });
-        refresh();
+
+    if (selAll){
+      selAll.addEventListener('change', ()=>{
+        rowChecks().forEach(cb => { cb.checked = selAll.checked; });
+        applyState();
       });
     }
-    rows.forEach(r => r.addEventListener('change', refresh));
-    refresh();
+
+    document.addEventListener('change', (e)=>{
+      if (e.target && e.target.classList && e.target.classList.contains('rowCheck')){
+        applyState();
+      }
+    });
+
+    const list = document.querySelector('.cards');
+    if (list){
+      new MutationObserver(()=>applyState()).observe(list,{childList:true,subtree:true});
+    }
+
+    applyState();
   })();
 
+  // تعديل حالة الطلب السريع
   async function quickStatus(orderId, status){
     try{
       const body = new URLSearchParams({ ids:String(orderId), status:String(status), apply_to_items:'on' });
-      const res = await fetch('/orders/bulk-status',{ method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body });
+      const res = await fetch('/orders/bulk-status', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+        body
+      });
       if(!res.ok) throw new Error('HTTP '+res.status);
+
       const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
       if(card){
         const chip = card.querySelector('.js-chip');
         const map  = { pending:'قيد الإدخال', processing:'قيد المعالجة', shipping:'قيد التوصيل', delivered:'تم التسليم', failed:'فشل/لم يتم' };
         chip.textContent = map[status] || status;
         chip.className = `status-chip chip-lg js-chip status-${status}`;
+      }
+
+      // إعادة حساب حالة الشريط بعد أي تغيير
+      const trigger = document.querySelector('.rowCheck');
+      if(trigger){
+        trigger.dispatchEvent(new Event('change'));
       }
     }catch(e){
       alert('تعذر تحديث الحالة.');
