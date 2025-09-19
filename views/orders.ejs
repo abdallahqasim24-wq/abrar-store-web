@@ -1,4 +1,4 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (نهائي) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (نهائي + أزرار مرتبة + صور المنتجات) -->
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -133,7 +133,8 @@
        data-date="<%= whenTS %>"
        data-dateiso="<%= whenISO %>"
        data-revenue="<%= revenue.toFixed(2) %>"
-       data-profit="<%= profit.toFixed(2) %>">
+       data-profit="<%= profit.toFixed(2) %>"
+       data-items="<%= its.length %>">
 
     <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
       <label class="row" style="gap:10px;align-items:center;cursor:pointer">
@@ -162,10 +163,10 @@
       <% } else { %>
         <div class="row" style="gap:10px;flex-wrap:wrap">
           <% shown.forEach(x => { %>
-            <div class="badge">
-              <i class="fa fa-cube"></i>
-              <span><%= x.product_name %></span>
-              <span class="muted-sm">× <%= x.quantity %></span>
+            <div class="item-chip">
+              <img class="mini-thumb" src="<%= x.product_image||'' %>" alt="">
+              <span class="qty">&times;<%= x.quantity %></span>
+              <span class="name"><%= x.product_name %></span>
             </div>
           <% }) %>
           <% if (more>0) { %><div class="badge muted">+<%= more %> أخرى</div><% } %>
@@ -173,19 +174,26 @@
       <% } %>
     </div>
 
-    <div class="row order-quick" style="gap:8px;margin-top:14px">
-      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
-      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
-      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button></form>
-      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button></form>
-      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  type="submit" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button></form>
+    <!-- أفعال سريعة + إدارة (إدارة يسار لوحدها) -->
+    <div class="row" style="gap:10px;margin-top:14px;align-items:center">
+      <div class="order-quick row" style="gap:8px">
+        <!-- حذف -->
+        <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
+          <input type="hidden" name="ids" value="<%= o.id %>">
+          <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
+        </form>
 
-      <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
+        <!-- حالات -->
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  type="submit" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
+      </div>
 
-      <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
-        <input type="hidden" name="ids" value="<%= o.id %>">
-        <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
-      </form>
+      <a class="btn manage btn-lg right" href="/orders/<%= o.id %>" style="min-width:120px;justify-content:center">
+        <i class="fa fa-pen-to-square"></i> إدارة
+      </a>
     </div>
   </div>
 
@@ -223,7 +231,6 @@
   }
   function toggleBulk(enabled){
     $$('.bulk-actions [data-bulk], #bulkDelete, #bulkReturn').forEach(b=>setDisabled(b, !enabled));
-    // تحديد الكل دائماً شغّال
     setDisabled(selectAll, false);
     setDisabled(copyPhones, !enabled);
     setDisabled(exportCsv, !enabled);
@@ -328,7 +335,7 @@
       const name=(c.dataset.name||'').replace(/,/g,' ');
       const phone=(c.dataset.phone||'').replace(/,/g,' ');
       const city=(c.dataset.city||'').replace(/,/g,' ');
-      const items=c.querySelectorAll('.badge i.fa-cube').length;
+      const items=Number(c.dataset.items||0);
       const rev=Number(c.dataset.revenue||0).toFixed(2);
       const prf=Number(c.dataset.profit||0).toFixed(2);
       lines.push([id,st,dt,`"${name}"`,`"${phone}"`,`"${city}"`,items,rev,prf].join(','));

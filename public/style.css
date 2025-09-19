@@ -141,7 +141,7 @@ input[type="checkbox"],input[type="radio"]{
 /* ===== Quick actions on orders ===== */
 .order-quick{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
 .order-quick .btn{
-  width:56px; height:56px; padding:0; border-radius:16px;
+  width:46px; height:46px; padding:0; border-radius:14px;
   box-shadow:0 2px 8px rgba(0,0,0,.08)
 }
 .order-quick .btn{ border:0 !important }
@@ -150,7 +150,7 @@ input[type="checkbox"],input[type="radio"]{
 .order-quick .btn.warn{     background:var(--warning) !important;  color:#1f2937 !important }
 .order-quick .btn.gray{     background:var(--gray) !important;     color:#fff !important }
 .order-quick .btn.danger{   background:var(--danger) !important;   color:#fff !important }
-.order-quick .btn i{ color:inherit !important; font-size:20px; line-height:1 }
+.order-quick .btn i{ color:inherit !important; font-size:18px; line-height:1 }
 
 /* زر إدارة الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
@@ -164,6 +164,18 @@ input[type="checkbox"],input[type="radio"]{
 .badge{ display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-weight:800; font-size:.95rem; border:1px solid var(--border); background:#fff; color:#374151 }
 .badge-lg{ font-size:1.08rem; padding:8px 14px }
 .chip-lg{ font-size:1.06rem!important; padding:8px 14px!important }
+
+/* عناصر الطلب المصغّرة مع صور */
+.item-chip{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:5px 10px; border-radius:999px; border:1px solid var(--border);
+  background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.04)
+}
+.mini-thumb{
+  width:28px; height:28px; border-radius:8px; object-fit:cover; border:1px solid var(--border)
+}
+.item-chip .qty{ font-weight:900; color:#111 }
+.item-chip .name{ max-width:220px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
 
 .status-chip{
   display:inline-flex; align-items:center; gap:8px;
