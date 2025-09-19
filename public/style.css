@@ -377,3 +377,23 @@
   filter();
 })();
 </script>
+
+/* ===== HARD OVERRIDE: keep button colors even when disabled ===== */
+.btn.info, .btn.info:disabled, .btn.info[disabled], .btn.info[aria-disabled="true"]{
+  background:var(--primary)!important; color:#fff!important; opacity:1!important; filter:none!important;
+}
+.btn.success, .btn.success:disabled, .btn.success[disabled], .btn.success[aria-disabled="true"]{
+  background:var(--success)!important; color:#fff!important; opacity:1!important; filter:none!important;
+}
+.btn.warn, .btn.warn:disabled, .btn.warn[disabled], .btn.warn[aria-disabled="true"]{
+  background:var(--warning)!important; color:#1f2937!important; opacity:1!important; filter:none!important;
+}
+.btn.gray, .btn.gray:disabled, .btn.gray[disabled], .btn.gray[aria-disabled="true"]{
+  background:var(--gray)!important; color:#fff!important; opacity:1!important; filter:none!important;
+}
+.btn.danger, .btn.danger:disabled, .btn.danger[disabled], .btn.danger[aria-disabled="true"]{
+  background:var(--danger)!important; color:#fff!important; opacity:1!important; filter:none!important;
+}
+/* امنع أي قاعدة عامة ترمّد الأزرار المعطّلة */
+.btn:disabled, .bulk-actions .btn:disabled { opacity:1!important; filter:none!important; }
+
