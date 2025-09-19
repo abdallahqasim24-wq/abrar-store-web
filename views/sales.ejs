@@ -1,5 +1,40 @@
-<!-- views/sales.ejs — استبدال كامل (أزلنا قسم "آخر البنود المُسلّمة") -->
+<!-- views/sales.ejs — كامل وجاهز -->
 <link rel="stylesheet" href="<%= faLink %>">
+
+<style>
+  .table-scroll{overflow:auto;border:1px solid var(--border);border-radius:12px}
+  table{width:100%;border-collapse:collapse;background:#fff}
+  thead th{background:#feeef5}
+  th,td{padding:10px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
+  .muted-sm{color:#6b7280;font-size:.9rem}
+  .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;border:1px solid var(--border)}
+  .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:10px 14px;color:#fff;cursor:pointer}
+  .btn.add{background:#2563eb}.btn.save{background:#16a34a}.btn.danger{background:#ef4444}
+  .btn.edit{background:#f9a825;color:#111}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .right{margin-inline-start:auto}
+  .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:800px){.form-grid{grid-template-columns:1fr}}
+  input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+  .status-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.88rem;border:1px solid var(--border)}
+  .status-pending{background:#fff7e6}.status-shipping{background:#fff3cd}
+  .status-delivered{background:#e6ffed}.status-failed{background:#ffe6e6}
+  /* Modal (picker) */
+  .modal{display:none;position:fixed;inset:0;z-index:60}
+  .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+  .modal-card{position:relative;margin:auto;top:5vh;width:min(1100px,95vw);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:14px}
+  .mhead{display:flex;align-items:center;gap:10px;padding:4px 2px 10px 2px;border-bottom:1px solid #f1f5f9;margin-bottom:10px}
+  .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .pcard{position:relative;background:#fff;border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+  .pcard.soldout{opacity:.55;filter:grayscale(1)}
+  .pcard .ribbon{position:absolute;inset:8px auto auto 8px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:999px;font-weight:800;font-size:.8rem}
+  .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
+  .pcard .name{font-weight:800}
+  .tag{display:inline-block;font-size:.82rem;padding:4px 8px;border-radius:999px;background:#f8fafc;border:1px solid var(--border)}
+  .mclose{border:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer}
+  .choose-btn{white-space:nowrap}
+</style>
 
 <div class="container page">
   <% if (flash) { %>
@@ -21,15 +56,26 @@
     </div>
   <% } %>
 
-  <h2 style="margin:0 0 10px"><i class="fa fa-cart-shopping"></i> إضافة عملية بيع (عدّة منتجات)</h2>
+  <h2 style="margin:0 0 10px"><i class="fa fa-cart-shopping"></i> إضافة طلب جديد (عدّة منتجات)</h2>
 
-  <!-- نموذج البيع -->
+  <!-- نموذج الطلب متعدد البنود -->
   <form id="multiSaleForm" action="/sales/multi" method="post" class="card">
     <div class="form-grid">
       <input name="customer_name"  placeholder="اسم الزبون">
       <input name="customer_phone" placeholder="الهاتف">
       <input name="customer_city"  placeholder="المدينة">
       <input name="order_note"     placeholder="ملاحظة عامة للطلب" style="grid-column:1 / -1">
+    </div>
+
+    <!-- إضافات: رقم طلب يدوي + حساب/رابط إنستغرام -->
+    <div class="form-grid" style="margin-top:10px">
+      <div>
+        <input name="order_id" type="number" min="1" placeholder="رقم الطلب (اختياري)">
+        <div class="muted-sm">اتركه فارغًا لإنشاء رقم تلقائي.</div>
+      </div>
+      <div>
+        <input name="customer_instagram" placeholder="حساب إنستغرام / رابط (اختياري)">
+      </div>
     </div>
 
     <div class="row" style="margin:14px 0 10px">
@@ -65,7 +111,7 @@
     </div>
   </form>
 
-  <!-- الطلبات المفتوحة فقط -->
+  <!-- الطلبات المفتوحة -->
   <hr>
   <h2><i class="fa fa-list"></i> الطلبات المفتوحة</h2>
   <div class="cards">
@@ -92,7 +138,7 @@
                   <tr>
                     <td style="text-align:right">
                       <div class="row">
-                        <img class="thumb" style="width:56px;height:56px" src="<%= it.product_image||'' %>">
+                        <img class="thumb" src="<%= it.product_image||'' %>">
                         <div><%= it.product_name %></div>
                       </div>
                     </td>
@@ -121,7 +167,7 @@
   </div>
 </div>
 
-<!-- مودال اختيار من الشبكة (لكل سطر) -->
+<!-- مودال اختيار من الشبكة -->
 <div class="modal" id="picker" aria-hidden="true">
   <div class="modal-bg"></div>
   <div class="modal-card">
@@ -134,24 +180,6 @@
         <label class="row muted-sm" style="gap:6px"><input type="checkbox" id="hideOut"> إخفاء النافد</label>
       </div>
     </div>
-
-    <style>
-      .pcard{position:relative}
-      .pcard.soldout{opacity:.55;filter:grayscale(1)}
-      .pcard .ribbon{position:absolute;inset:8px auto auto 8px;background:#ef4444;color:#fff;padding:2px 8px;border-radius:999px;font-weight:800;font-size:.8rem}
-      .pcard .pickBtn[disabled]{opacity:.6;cursor:not-allowed}
-      .modal{display:none;position:fixed;inset:0;z-index:60}
-      .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
-      .modal-card{position:relative;margin:auto;top:5vh;width:min(1100px,95vw);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:14px}
-      .mhead{display:flex;align-items:center;gap:10px;padding:4px 2px 10px 2px;border-bottom:1px solid #f1f5f9;margin-bottom:10px}
-      .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-      .pcard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
-      .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
-      .pcard .name{font-weight:800}
-      .tag{display:inline-block;font-size:.82rem;padding:4px 8px;border-radius:999px;background:#f8fafc;border:1px solid var(--border)}
-      .mclose{border:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;cursor:pointer}
-      .choose-btn{white-space:nowrap}
-    </style>
 
     <div class="mgrid" id="pickGrid">
       <% (products||[]).forEach(p => { 
@@ -200,8 +228,8 @@
   const pickerCloseBtn = document.getElementById('pickerClose');
 
   let activeRow = null;
-  function num(v){ return Number(v||0) || 0 }
-  function fmt(n){ return (Number(n)||0).toFixed(2) }
+  const num = v => Number(v||0) || 0;
+  const fmt = n => (Number(n)||0).toFixed(2);
 
   function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''} = {}) {
     const has = Boolean(pid && name);
@@ -211,7 +239,7 @@
         <td class="right">
           <input type="hidden" name="product_id[]" value="${pid}">
           <div class="row" style="justify-content:flex-end;gap:8px">
-            ${has && img ? `<img src="${img}" class="thumb" style="width:56px;height:56px">` : ''}
+            ${has && img ? `<img src="${img}" class="thumb">` : ''}
             <span class="${has ? '' : 'muted-sm'}">${has ? name : '[اختر من الشبكة]'}</span>
             <button class="btn add choose-btn" type="button" data-act="choose"><i class="fa fa-grid-2"></i> اختيار من الشبكة</button>
           </div>
@@ -223,6 +251,7 @@
         <td><input name="item_note[]" placeholder="ملاحظة" value="${note}"></td>
       </tr>`;
   }
+
   function addRow(data={}){ cartBody.insertAdjacentHTML('beforeend', rowTemplate(data)); recalc(); }
   function recalc(){
     let rev=0, prof=0;
@@ -285,11 +314,12 @@
     const cell=activeRow.querySelector('td:nth-child(2) .row');
     if(cell){
       const existing=cell.querySelector('img.thumb');
-      if(img){ if(existing) existing.src=img; else cell.insertAdjacentHTML('afterbegin', `<img src="${img}" class="thumb" style="width:56px;height:56px">`); }
+      if(img){ if(existing) existing.src=img; else cell.insertAdjacentHTML('afterbegin', `<img src="${img}" class="thumb">`); }
       const nameSpan=cell.querySelector('span'); if(nameSpan){ nameSpan.textContent=name; nameSpan.classList.remove('muted-sm'); }
     }
     recalc(); hidePicker();
   });
 
+  // صف ابتدائي
   addRow({});
 </script>
