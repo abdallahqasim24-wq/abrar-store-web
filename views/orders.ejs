@@ -1,7 +1,8 @@
-<!-- views/orders.ejs -->
+<!-- views/orders.ejs — صفحة "كل الطلبات" (نسخة مرتّبة ونهائية) -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <%
+  // حماية إذا filters ما وصل من السيرفر
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
   const so = _filters.sort   || 'newest';
@@ -19,9 +20,11 @@
 %>
 
 <div class="container page">
-  <!-- العنوان + فلاتر -->
+
+  <!-- العنوان + الفلاتر -->
   <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-    <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات <span class="muted">(<%= (orders||[]).length %>)</span></h2>
+    <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
+      <span class="muted">(<%= (orders||[]).length %>)</span></h2>
 
     <form method="get" action="/orders" class="row" style="gap:8px">
       <select name="status" onchange="this.form.submit()">
@@ -43,28 +46,28 @@
 
   <!-- شريط الأوامر الجماعية -->
   <form id="bulkForm" method="post">
+    <input type="hidden" name="ids" id="bulkIds">
+
     <div class="bulk-bar" style="margin:12px 0">
-      <label>
+      <label class="row" style="gap:8px;align-items:center;cursor:pointer">
         <input id="selectAll" type="checkbox">
         <span class="bulk-title">تحديد الكل</span>
       </label>
 
       <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-      <div class="bulk-actions">
+      <div class="bulk-actions" style="display:flex;gap:8px;flex-wrap:wrap">
         <input type="hidden" name="apply_to_items" value="on">
-
-        <!-- تبقى ملوّنة مهما كانت الحالة; يتم تفعيل/تعطيل عبر JS حسب عدد المحدد -->
-        <button class="btn danger"   data-bulk  formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
-        <button class="btn success"  data-bulk  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-        <button class="btn gray"     data-bulk  formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-        <button class="btn info"     data-bulk  formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-        <button class="btn warn"     data-bulk  formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+        <button data-bulk class="btn warn"     formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+        <button data-bulk class="btn info"     formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+        <button data-bulk class="btn gray"     formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+        <button data-bulk class="btn success"  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+        <button data-bulk class="btn danger"   formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
       </div>
 
       <span class="right"></span>
 
-      <button class="btn danger" formaction="/orders/bulk-delete" type="submit"
+      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit"
               onclick="return confirm('حذف الطلبات المحددة نهائيًا؟')">
         <i class="fa fa-trash"></i> حذف المحدّد
       </button>
@@ -76,9 +79,11 @@
         const its   = (itemsByOrder && itemsByOrder[o.id]) || [];
         const shown = its.slice(0, 4);
         const more  = Math.max(0, its.length - shown.length);
+
         const allDelivered = its.length && its.every(x=>x.delivery_status==='delivered');
         const allFailed    = its.length && its.every(x=>x.delivery_status==='failed');
         const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
+
         const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
         const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
         const profit   = its.reduce((a,x)=> a + (Number(x.sale_price)*Number(x.quantity) - Number(x.cost_price)*Number(x.quantity)), 0);
@@ -86,149 +91,138 @@
 
       <div class="card order-card" data-oid="<%= o.id %>">
         <!-- رأس البطاقة -->
-        <div class="row" style="justify-content:space-between;align-items:center;gap:12px">
-          <div class="row" style="gap:12px;align-items:center">
-            <input class="rowCheck" type="checkbox" name="ids" value="<%= o.id %>">
-
-            <span class="status-chip chip-lg status-<%= effStatus %> js-chip">
-              <%= statusLabel(effStatus) %>
+        <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+          <label class="row" style="gap:10px;align-items:center;cursor:pointer">
+            <input class="sel" type="checkbox" data-oid="<%= o.id %>">
+            <span class="status-chip status-<%= effStatus %>">
+              <i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %>
             </span>
-
-            <strong>#<%= o.id %></strong>
-          </div>
-
-          <div class="muted-sm">
-            <i class="fa fa-clock"></i>
-            <%= dayjs(o.created_at).tz(TZ_NAME).format('YYYY-MM-DD HH:mm') %>
-          </div>
-        </div>
-
-        <!-- بيانات مختصرة -->
-        <div class="row muted-sm" style="gap:14px; margin-top:8px; flex-wrap:wrap">
-          <span><i class="fa fa-user"></i> <%= o.customer_name  || 'بدون اسم' %></span>
-          <span><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
-          <span><i class="fa fa-location-dot"></i> <%= o.customer_city  || '—' %></span>
-        </div>
-
-        <!-- معاينة سريعة للمنتجات -->
-        <div class="row" style="gap:10px; margin:12px 0; align-items:center; flex-wrap:wrap">
-          <% if (!its.length) { %>
-            <div class="muted">لا يوجد بنود بعد.</div>
-          <% } %>
-
-          <% shown.forEach(it => { %>
-            <div class="row" title="<%- it.product_name %>"
-                 style="gap:10px; padding:6px 8px; border:1px solid var(--border); border-radius:12px; background:#fff">
-              <img src="<%= it.product_image || 'https://via.placeholder.com/80?text=No+Img' %>"
-                   style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid var(--border)"
-                   onerror="this.onerror=null;this.src='https://via.placeholder.com/80?text=No+Img';">
-              <div class="right" style="max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">
-                <div style="font-weight:700"><%- it.product_name %></div>
-                <div class="muted-sm">× <%= it.quantity %></div>
-              </div>
-            </div>
-          <% }) %>
-
-          <% if (more > 0) { %>
-            <span class="status-chip">+<%= more %> أخرى</span>
-          <% } %>
-        </div>
-
-        <!-- أزرار الحالة السريعة + إدارة الطلب + مؤشرات -->
-        <div class="row" style="justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-          <div class="row order-quick" style="gap:8px">
-            <!-- تعديلات سريعة بدون دخول -->
-            <button type="button" class="btn warn"    onclick="quickStatus(<%= o.id %>,'pending')"    title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
-            <button type="button" class="btn info"    onclick="quickStatus(<%= o.id %>,'processing')" title="قيد المعالجة"><i class="fa fa-gears"></i></button>
-            <button type="button" class="btn gray"    onclick="quickStatus(<%= o.id %>,'shipping')"   title="قيد التوصيل"><i class="fa fa-truck"></i></button>
-            <button type="button" class="btn success" onclick="quickStatus(<%= o.id %>,'delivered')"  title="تم التسليم"><i class="fa fa-check"></i></button>
-            <button type="button" class="btn danger"  onclick="quickStatus(<%= o.id %>,'failed')"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
-
-            <!-- حذف طلب -->
-            <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب؟')">
-              <input type="hidden" name="ids" value="<%= o.id %>">
-              <button class="btn danger" title="حذف"><i class="fa fa-trash"></i></button>
-            </form>
-          </div>
-
-          <a class="btn manage btn-lg" href="/orders/<%= o.id %>">
-            <i class="fa fa-wrench"></i> إدارة الطلب
-          </a>
+          </label>
 
           <div class="order-kpis">
-            <span>بنود: <strong><%= totalQty %></strong></span>
-            <span>الإيراد: <strong>₪<%= revenue.toFixed(2) %></strong></span>
-            <span>الربح: <strong>₪<%= profit.toFixed(2) %></strong></span>
+            <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> بنود</span>
+            <span><i class="fa fa-coins"></i> الإيراد: <strong><%= revenue.toFixed(2) %></strong></span>
+            <span><i class="fa fa-sack-dollar"></i> الربح: <strong><%= profit.toFixed(2) %></strong></span>
           </div>
         </div>
+
+        <!-- معلومات العميل -->
+        <div class="row" style="gap:14px;align-items:center;margin-top:6px">
+          <span class="muted-sm"><i class="fa fa-clock"></i>
+            <%= dayjs(o.created_at).tz(TZ_NAME||'Asia/Hebron').format('YYYY-MM-DD HH:mm') %></span>
+          <span class="muted-sm"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
+          <span class="muted-sm"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
+          <span class="muted-sm"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
+        </div>
+
+        <!-- معاينة البنود -->
+        <div style="margin-top:12px">
+          <% if (!its.length) { %>
+            <div class="muted">لا يوجد بنود بعد.</div>
+          <% } else { %>
+            <div class="row" style="gap:10px;flex-wrap:wrap">
+              <% shown.forEach(x => { %>
+                <div class="badge">
+                  <i class="fa fa-cube"></i>
+                  <span><%= x.product_name %></span>
+                  <span class="muted-sm">× <%= x.quantity %></span>
+                </div>
+              <% }) %>
+              <% if (more>0) { %>
+                <div class="badge muted">+<%= more %> أخرى</div>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- أزرار سريعة -->
+        <div class="row order-quick" style="gap:8px;align-items:center;margin-top:14px">
+          <form method="post" action="/orders/<%= o.id %>/status">
+            <input type="hidden" name="apply_to_items" value="on">
+            <input type="hidden" name="status" value="pending">
+            <button class="btn warn" type="submit" title="إلى قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
+          </form>
+
+          <form method="post" action="/orders/<%= o.id %>/status">
+            <input type="hidden" name="apply_to_items" value="on">
+            <input type="hidden" name="status" value="processing">
+            <button class="btn info" type="submit" title="إلى قيد المعالجة"><i class="fa fa-gears"></i></button>
+          </form>
+
+          <form method="post" action="/orders/<%= o.id %>/status">
+            <input type="hidden" name="apply_to_items" value="on">
+            <input type="hidden" name="status" value="shipping">
+            <button class="btn gray" type="submit" title="إلى قيد التوصيل"><i class="fa fa-truck"></i></button>
+          </form>
+
+          <form method="post" action="/orders/<%= o.id %>/status">
+            <input type="hidden" name="apply_to_items" value="on">
+            <input type="hidden" name="status" value="delivered">
+            <button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button>
+          </form>
+
+          <form method="post" action="/orders/<%= o.id %>/status">
+            <input type="hidden" name="apply_to_items" value="on">
+            <input type="hidden" name="status" value="failed">
+            <button class="btn danger" type="submit" title="فشل التسليم"><i class="fa fa-xmark"></i></button>
+          </form>
+
+          <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
+        </div>
       </div>
+
       <% }) %>
     </div>
   </form>
-
-  <% if (!(orders||[]).length) { %>
-    <div class="card"><div class="muted">لا يوجد طلبات.</div></div>
-  <% } %>
 </div>
 
+<!-- سكريبت بسيط لإدارة التحديد الجماعي -->
 <script>
-  // تحديد الكل + تفعيل/تعطيل أزرار الشريط + عداد
   (function(){
-    const all  = document.getElementById('selectAll');
-    const rows = [...document.querySelectorAll('.rowCheck')];
-    const cnt  = document.getElementById('selCount');
-    const bulkBtns = [...document.querySelectorAll('.bulk-actions .btn[data-bulk]')];
+    const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
+    const selected = new Set();
+    const selCount = document.getElementById('selCount');
+    const bulkIds  = document.getElementById('bulkIds');
+    const selectAll = document.getElementById('selectAll');
 
-    function refresh(){
-      const selected = rows.filter(r=>r.checked).length;
-      cnt.textContent = selected;
-      // فعّل الأزرار إذا في أي اختيار، وإلا عطّلها (لكن تظل ملوّنة بفضل الـCSS)
-      const disabled = selected === 0;
-      bulkBtns.forEach(b => b.disabled = disabled);
+    function sync(){
+      selCount.textContent = selected.size;
+      bulkIds.value = Array.from(selected).join(',');
+      // مزامنة حالة selectAll
+      const boxes = $$('.sel');
+      selectAll.checked = (boxes.length>0 && boxes.every(b=>b.checked));
     }
 
-    if (all){
-      all.addEventListener('change', ()=>{
-        rows.forEach(r => { r.checked = all.checked; });
-        refresh();
+    $$('.sel').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const id = cb.getAttribute('data-oid');
+        cb.checked ? selected.add(id) : selected.delete(id);
+        sync();
+      });
+    });
+
+    if (selectAll){
+      selectAll.addEventListener('change', ()=>{
+        const on = selectAll.checked;
+        $$('.sel').forEach(cb=>{
+          cb.checked = on;
+          const id = cb.getAttribute('data-oid');
+          on ? selected.add(id) : selected.delete(id);
+        });
+        sync();
       });
     }
-    rows.forEach(r => r.addEventListener('change', refresh));
-    refresh();
-  })();
 
-  // تعديل حالة الطلب من الخارج بدون الدخول عليه
-  async function quickStatus(orderId, status){
-    try{
-      const body = new URLSearchParams({
-        ids: String(orderId),
-        status: String(status),
-        apply_to_items: 'on'
-      });
-      const res = await fetch('/orders/bulk-status', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
-        body
-      });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-
-      // تحديث الشارة على البطاقة مباشرة
-      const card = document.querySelector(`.order-card[data-oid="${orderId}"]`);
-      if(card){
-        const chip = card.querySelector('.js-chip');
-        const map  = {
-          pending:'قيد الإدخال',
-          processing:'قيد المعالجة',
-          shipping:'قيد التوصيل',
-          delivered:'تم التسليم',
-          failed:'فشل/لم يتم'
-        };
-        chip.textContent = map[status] || status;
-        chip.className = `status-chip chip-lg js-chip status-${status}`;
+    // عند الضغط على أي زر جماعي، امنع الإرسال إذا لا يوجد محدد
+    document.getElementById('bulkForm')?.addEventListener('click', (e)=>{
+      const btn = e.target.closest('[data-bulk]');
+      if (!btn) return;
+      if (selected.size===0){
+        e.preventDefault();
+        alert('اختر طلبًا واحدًا على الأقل.');
       }
-    }catch(e){
-      alert('تعذر تحديث الحالة.');
-      console.error(e);
-    }
-  }
+    });
+
+    sync();
+  })();
 </script>
