@@ -187,7 +187,10 @@ app.set("layout", "layout");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.use("/public", express.static(path.join(__dirname, "public")));
+// نخدم الملفات الثابتة من الجذر و /public (الاثنان شغّالين)
+const publicDir = path.join(__dirname, "public");
+app.use(express.static(publicDir));
+app.use("/public", express.static(publicDir));
 
 app.use((req, res, next) => {
   res.locals.faLink = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";

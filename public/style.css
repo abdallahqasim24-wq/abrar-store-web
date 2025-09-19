@@ -74,26 +74,9 @@ input[type="checkbox"],input[type="radio"]{
 }
 .nav{ display:flex; align-items:center; gap:12px; padding:10px var(--container-pad) }
 .brand{ font-weight:900; color:#fff }
-
-/* تبويبات الهيدر (اختياري) */
-.btab{
-  background:rgba(255,255,255,.55); color:#111; padding:8px 12px;
-  border-radius:999px; border:1px solid rgba(255,255,255,.7); text-decoration:none
-}
-.btab:hover,.btab.active{ background:#fff }
-.logout-btn{
-  all:unset; display:inline-flex; align-items:center; gap:8px; cursor:pointer;
-  background:rgba(255,255,255,.55); border:1px solid rgba(255,255,255,.7); border-radius:999px; padding:8px 12px
-}
-.logout-btn:hover{ background:#fff }
-
-/* روابط قديمة */
-.links{ display:flex; gap:8px; margin-inline-start:12px }
-.links a{
-  background:rgba(255,255,255,.55); color:#111; padding:8px 12px;
-  border-radius:999px; border:1px solid rgba(255,255,255,.7); text-decoration:none
-}
-.links a.active{ background:#fff }
+.btab{ background:rgba(255,255,255,.55); color:#111; padding:8px 12px;
+  border-radius:999px; border:1px solid rgba(255,255,255,.7); text-decoration:none }
+.btab.active{ background:#fff }
 
 /* ===== Cards / Grid ===== */
 .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px }
@@ -140,19 +123,16 @@ input[type="checkbox"],input[type="radio"]{
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class و aria و .is-disabled) */
+/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
 .btn[disabled],
-.btn:disabled,
-.btn.is-disabled,
-.btn[aria-disabled="true"]{
-  opacity:1 !important; filter:none !important; cursor:not-allowed; pointer-events:none;
-}
-.btn.info[disabled],   .btn.info:disabled,   .btn.info.is-disabled,   .btn.info[aria-disabled="true"]{    background:var(--primary) !important;  color:#fff !important }
-.btn.success[disabled],.btn.success:disabled,.btn.success.is-disabled,.btn.success[aria-disabled="true"]{  background:var(--success) !important;  color:#fff !important }
-.btn.warn[disabled],   .btn.warn:disabled,   .btn.warn.is-disabled,   .btn.warn[aria-disabled="true"]{     background:var(--warning) !important;  color:#1f2937 !important }
-.btn.gray[disabled],   .btn.gray:disabled,   .btn.gray.is-disabled,   .btn.gray[aria-disabled="true"]{     background:var(--gray) !important;     color:#fff !important }
-.btn.danger[disabled], .btn.danger:disabled, .btn.danger.is-disabled, .btn.danger[aria-disabled="true"]{   background:var(--danger) !important;   color:#fff !important }
-.btn[disabled] i,.btn:disabled i,.btn.is-disabled i,.btn[aria-disabled="true"] i{ color:inherit !important; opacity:1 !important }
+.btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+.btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
+.btn.success[disabled],.btn.success:disabled{  background:var(--success) !important; color:#fff !important }
+.btn.warn[disabled],   .btn.warn:disabled{     background:var(--warning) !important; color:#1f2937 !important }
+.btn.gray[disabled],   .btn.gray:disabled{     background:var(--gray) !important;    color:#fff !important }
+.btn.danger[disabled], .btn.danger:disabled{   background:var(--danger) !important;  color:#fff !important }
+.btn[disabled] i,.btn[disabled] .fa,
+.btn:disabled i,.btn:disabled .fa{ color:inherit !important; opacity:1 !important }
 
 /* حجم كبير */
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
@@ -206,18 +186,14 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
 .bulk-actions .btn i{ pointer-events:none }
 
-/* الألوان تبقى حتى لو Disabled (تشمل aria و is-disabled) */
+/* الألوان تبقى حتى لو Disabled */
 .bulk-actions .btn[disabled],
 .bulk-actions .btn:disabled,
 .bulk-actions .btn.is-disabled,
 .bulk-actions .btn[aria-disabled="true"]{
-  opacity:1 !important; filter:none !important; cursor:not-allowed
+  opacity:1 !important; filter:none !important; cursor:not-allowed !important;
+  visibility:visible !important; display:inline-flex !important;
 }
-.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled,    .bulk-actions .btn.info.is-disabled,    .bulk-actions .btn.info[aria-disabled="true"]{    background:var(--primary) !important;  color:#fff !important }
-.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled,  .bulk-actions .btn.success.is-disabled,  .bulk-actions .btn.success[aria-disabled="true"]{  background:var(--success) !important;  color:#fff !important }
-.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled,     .bulk-actions .btn.warn.is-disabled,     .bulk-actions .btn.warn[aria-disabled="true"]{     background:var(--warning) !important;  color:#1f2937 !important }
-.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled,     .bulk-actions .btn.gray.is-disabled,     .bulk-actions .btn.gray[aria-disabled="true"]{     background:var(--gray) !important;     color:#fff !important }
-.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled,   .bulk-actions .btn.danger.is-disabled,   .bulk-actions .btn.danger[aria-disabled="true"]{   background:var(--danger) !important;   color:#fff !important }
 
 /* ===== Selects ===== */
 select{
@@ -250,6 +226,29 @@ select:focus{ border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.
 
 /* ===== Helpers ===== */
 .order-meta{ font-size:1rem; color:#6b7280 }
+
+/* ===== Empty state ===== */
+.empty-state{
+  background:#fff; border:1px solid var(--border); border-radius:18px;
+  padding:32px; text-align:center; box-shadow:var(--shadow)
+}
+.empty-state h3{ margin:0 0 8px; font-size:1.4rem }
+.empty-state p{ margin:0 0 16px; color:var(--muted) }
+.empty-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap }
+
+/* ===== Topbar logout ===== */
+.logout-btn{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--danger); color:#fff; border:none; border-radius:999px;
+  padding:8px 14px; font-weight:800; cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,.15); transition:.18s;
+}
+.logout-btn i{
+  background:#fff; color:var(--danger);
+  width:22px; height:22px; border-radius:50%;
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px;
+}
+.logout-btn:hover{filter:brightness(.95)}
 
 /* ===== Responsive ===== */
 @media (max-width:900px){

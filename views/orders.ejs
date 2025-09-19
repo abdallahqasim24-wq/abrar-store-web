@@ -1,6 +1,4 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (FINAL, fixed disabled colors + select-all) -->
-<link rel="stylesheet" href="<%= faLink %>">
-
+<!-- views/orders.ejs — صفحة كل الطلبات (نهائي) -->
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -19,226 +17,179 @@
   }
 %>
 
-<style>
-  .empty-state{
-    background:#fff; border:1px solid var(--border); border-radius:18px;
-    padding:32px; text-align:center; box-shadow:var(--shadow)
-  }
-  .empty-state h3{ margin:0 0 8px; font-size:1.4rem }
-  .empty-state p{ margin:0 0 16px; color:var(--muted) }
-  .empty-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap }
+<div class="row" style="gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:8px">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
+      <span class="muted">(<%= ORD.length %>)</span></h2>
 
-  /* ===== HARD OVERRIDE: keep button colors even when disabled ===== */
-  .btn.info, .btn.info:disabled, .btn.info[disabled], .btn.info[aria-disabled="true"]{
-    background:var(--primary)!important; color:#fff!important; opacity:1!important; filter:none!important;
-  }
-  .btn.success, .btn.success:disabled, .btn.success[disabled], .btn.success[aria-disabled="true"]{
-    background:var(--success)!important; color:#fff!important; opacity:1!important; filter:none!important;
-  }
-  .btn.warn, .btn.warn:disabled, .btn.warn[disabled], .btn.warn[aria-disabled="true"]{
-    background:var(--warning)!important; color:#1f2937!important; opacity:1!important; filter:none!important;
-  }
-  .btn.gray, .btn.gray:disabled, .btn.gray[disabled], .btn.gray[aria-disabled="true"]{
-    background:var(--gray)!important; color:#fff!important; opacity:1!important; filter:none!important;
-  }
-  .btn.danger, .btn.danger:disabled, .btn.danger[disabled], .btn.danger[aria-disabled="true"]{
-    background:var(--danger)!important; color:#fff!important; opacity:1!important; filter:none!important;
-  }
-  /* امنع أي قاعدة عامة ترمّد/تخفي الأزرار المعطّلة في الشريط الجماعي */
-  .bulk-actions .btn[disabled],
-  .bulk-actions .btn.is-disabled,
-  .bulk-actions .btn[aria-disabled="true"]{
-    visibility:visible!important; display:inline-flex!important;
-    opacity:1!important; filter:none!important; pointer-events:auto!important;
-  }
-
-  /* أزرار الحالة السريعة داخل البطاقة (تثبيت الألوان) */
-  .order-quick .btn{ border:0!important }
-  .order-quick .btn.info{    background:var(--primary)!important; color:#fff!important }
-  .order-quick .btn.success{  background:var(--success)!important; color:#fff!important }
-  .order-quick .btn.warn{     background:var(--warning)!important; color:#1f2937!important }
-  .order-quick .btn.gray{     background:var(--gray)!important;    color:#fff!important }
-  .order-quick .btn.danger{   background:var(--danger)!important;  color:#fff!important }
-  .order-quick .btn i{ color:inherit!important }
-</style>
-
-<div class="container page" style="max-width:1400px">
-
-  <!-- الهيدر -->
-  <div class="row" style="gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:8px">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
-        <span class="muted">(<%= ORD.length %>)</span></h2>
-
-      <div id="sumBar" class="badge-lg" style="display:none;background:#fff">
-        <i class="fa fa-chart-line"></i>
-        <span id="sumText"></span>
-      </div>
-    </div>
-
-    <!-- أدوات التحكم -->
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <input id="q" type="search" placeholder="بحث: رقم/اسم/هاتف/مدينة…" style="min-width:240px">
-
-      <select id="fStatus" title="حالة الطلب">
-        <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
-        <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
-        <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
-        <option value="shipping"   <%= st==='shipping'?'selected':'' %>   >قيد التوصيل</option>
-        <option value="delivered"  <%= st==='delivered'?'selected':'' %>  >تم التسليم</option>
-        <option value="failed"     <%= st==='failed'?'selected':'' %>     >فشل/لم يتم</option>
-      </select>
-
-      <select id="sortBy" title="ترتيب">
-        <option value="date_desc">الأحدث أولاً</option>
-        <option value="date_asc">الأقدم أولاً</option>
-        <option value="rev_desc">الإيراد الأعلى</option>
-        <option value="rev_asc">الإيراد الأقل</option>
-        <option value="prf_desc">الربح الأعلى</option>
-        <option value="prf_asc">الربح الأقل</option>
-      </select>
-
-      <input id="dFrom" type="date" title="من تاريخ">
-      <input id="dTo"   type="date" title="إلى تاريخ">
-
-      <button id="clearFilters" class="btn gray" type="button"><i class="fa fa-rotate-left"></i> تصفير</button>
-
-      <button id="exportCsv" class="btn info" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
-      <button id="copyPhones" class="btn success" type="button"><i class="fa fa-copy"></i> نسخ أرقام الهواتف</button>
+    <div id="sumBar" class="badge-lg" style="display:none;background:#fff">
+      <i class="fa fa-chart-line"></i>
+      <span id="sumText"></span>
     </div>
   </div>
 
-  <!-- شريط الأوامر الجماعية -->
-  <form id="bulkForm" method="post" style="margin:10px 0">
-    <input type="hidden" name="ids" id="bulkIds">
-    <div class="bulk-bar" id="bulkBar">
-      <label class="row" style="gap:8px;align-items:center;cursor:pointer">
-        <input id="selectAll" type="checkbox">
-        <span class="bulk-title">تحديد الكل</span>
+  <!-- أدوات التحكم -->
+  <div class="row" style="gap:8px;flex-wrap:wrap">
+    <input id="q" type="search" placeholder="بحث: رقم/اسم/هاتف/مدينة…" style="min-width:240px">
+
+    <select id="fStatus" title="حالة الطلب">
+      <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
+      <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
+      <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
+      <option value="shipping"   <%= st==='shipping'?'selected':'' %>   >قيد التوصيل</option>
+      <option value="delivered"  <%= st==='delivered'?'selected':'' %>  >تم التسليم</option>
+      <option value="failed"     <%= st==='failed'?'selected':'' %>     >فشل/لم يتم</option>
+    </select>
+
+    <select id="sortBy" title="ترتيب">
+      <option value="date_desc">الأحدث أولاً</option>
+      <option value="date_asc">الأقدم أولاً</option>
+      <option value="rev_desc">الإيراد الأعلى</option>
+      <option value="rev_asc">الإيراد الأقل</option>
+      <option value="prf_desc">الربح الأعلى</option>
+      <option value="prf_asc">الربح الأقل</option>
+    </select>
+
+    <input id="dFrom" type="date" title="من تاريخ">
+    <input id="dTo"   type="date" title="إلى تاريخ">
+
+    <button id="clearFilters" class="btn gray" type="button"><i class="fa fa-rotate-left"></i> تصفير</button>
+
+    <button id="exportCsv" class="btn info" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
+    <button id="copyPhones" class="btn success" type="button"><i class="fa fa-copy"></i> نسخ أرقام الهواتف</button>
+  </div>
+</div>
+
+<!-- شريط الأوامر الجماعية -->
+<form id="bulkForm" method="post" style="margin:10px 0">
+  <input type="hidden" name="ids" id="bulkIds">
+  <div class="bulk-bar" id="bulkBar">
+    <label class="row" style="gap:8px;align-items:center;cursor:pointer">
+      <input id="selectAll" type="checkbox">
+      <span class="bulk-title">تحديد الكل</span>
+    </label>
+    <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
+
+    <div class="bulk-actions">
+      <label class="row muted-sm" style="gap:6px;align-items:center">
+        <input id="applyItems" type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
       </label>
-      <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-      <div class="bulk-actions">
-        <label class="row muted-sm" style="gap:6px;align-items:center">
-          <input id="applyItems" type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
-        </label>
-
-        <button data-bulk class="btn warn"     formaction="/orders/bulk-status"   name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
-        <button data-bulk class="btn info"     formaction="/orders/bulk-status"   name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-        <button data-bulk class="btn gray"     formaction="/orders/bulk-status"   name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-        <button data-bulk class="btn success"  formaction="/orders/bulk-status"   name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-        <button data-bulk class="btn danger"   formaction="/orders/bulk-status"   name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
-      </div>
-
-      <span class="right"></span>
-
-      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit" id="bulkDelete">
-        <i class="fa fa-trash"></i> حذف المحدّد
-      </button>
-
-      <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit" id="bulkReturn">
-        <i class="fa fa-undo"></i> إرجاع البنود
-      </button>
-    </div>
-  </form>
-
-  <% if (!ORD.length) { %>
-    <!-- حالة فارغة -->
-    <div class="empty-state">
-      <h3><i class="fa fa-box-open"></i> لا توجد طلبات حتى الآن</h3>
-      <p>ابدأ بإنشاء طلب جديد أو إدخال مبيعات متعددة من صفحة المبيعات.</p>
-      <div class="empty-actions">
-        <a class="btn info" href="/orders/new"><i class="fa fa-plus"></i> إنشاء طلب</a>
-        <a class="btn open-order" href="/sales"><i class="fa fa-cash-register"></i> صفحة المبيعات</a>
-      </div>
-    </div>
-  <% } %>
-
-  <!-- الشبكة -->
-  <div id="grid" class="cards">
-    <% ORD.forEach(o => {
-        const its   = Array.isArray(MAP[o.id]) ? MAP[o.id] : [];
-        const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
-        const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
-        const profit   = its.reduce((a,x)=>a + (Number(x.sale_price||0)*Number(x.quantity||0) - Number(x.cost_price||0)*Number(x.quantity||0)), 0);
-
-        const allDelivered = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='delivered');
-        const allFailed    = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='failed');
-        const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
-
-        const whenISO = dayjs(o.created_at).tz(tz).format('YYYY-MM-DD');
-        const whenTS  = +dayjs(o.created_at).tz(tz);
-        const shown   = its.slice(0, 4);
-        const more    = Math.max(0, its.length - shown.length);
-    %>
-
-    <div class="card order" 
-         data-id="<%= o.id %>"
-         data-status="<%= effStatus %>"
-         data-name="<%- (o.customer_name||'').toLowerCase() %>"
-         data-phone="<%- (o.customer_phone||'').toLowerCase() %>"
-         data-city="<%- (o.customer_city||'').toLowerCase() %>"
-         data-date="<%= whenTS %>"
-         data-dateiso="<%= whenISO %>"
-         data-revenue="<%= revenue.toFixed(2) %>"
-         data-profit="<%= profit.toFixed(2) %>">
-
-      <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-        <label class="row" style="gap:10px;align-items:center;cursor:pointer">
-          <input class="sel" type="checkbox" data-oid="<%= o.id %>">
-          <span class="status-chip status-<%= effStatus %>"><i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %></span>
-        </label>
-
-        <div class="order-kpis">
-          <span><i class="fa fa-clock"></i> <strong><%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></strong></span>
-          <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> عناصر</span>
-          <span><i class="fa fa-coins"></i> <strong><%= revenue.toFixed(2) %></strong></span>
-          <span><i class="fa fa-sack-dollar"></i> <strong><%= profit.toFixed(2) %></strong></span>
-        </div>
-      </div>
-
-      <div class="row" style="gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap">
-        <span class="badge"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
-        <span class="badge"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
-        <span class="badge"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
-        <% if (o.note) { %><span class="badge" title="ملاحظة"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
-      </div>
-
-      <div style="margin-top:12px">
-        <% if (!its.length) { %>
-          <div class="muted">لا يوجد بنود بعد.</div>
-        <% } else { %>
-          <div class="row" style="gap:10px;flex-wrap:wrap">
-            <% shown.forEach(x => { %>
-              <div class="badge">
-                <i class="fa fa-cube"></i>
-                <span><%= x.product_name %></span>
-                <span class="muted-sm">× <%= x.quantity %></span>
-              </div>
-            <% }) %>
-            <% if (more>0) { %><div class="badge muted">+<%= more %> أخرى</div><% } %>
-          </div>
-        <% } %>
-      </div>
-
-      <div class="row order-quick" style="gap:8px;margin-top:14px">
-        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
-        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
-        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button></form>
-        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button></form>
-        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  type="submit" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button></form>
-
-        <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
-
-        <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
-          <input type="hidden" name="ids" value="<%= o.id %>">
-          <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
-        </form>
-      </div>
+      <button data-bulk class="btn warn"     formaction="/orders/bulk-status"   name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+      <button data-bulk class="btn info"     formaction="/orders/bulk-status"   name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+      <button data-bulk class="btn gray"     formaction="/orders/bulk-status"   name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+      <button data-bulk class="btn success"  formaction="/orders/bulk-status"   name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+      <button data-bulk class="btn danger"   formaction="/orders/bulk-status"   name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
     </div>
 
-    <% }) %>
+    <span class="right"></span>
+
+    <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit" id="bulkDelete">
+      <i class="fa fa-trash"></i> حذف المحدّد
+    </button>
+
+    <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit" id="bulkReturn">
+      <i class="fa fa-undo"></i> إرجاع البنود
+    </button>
   </div>
+</form>
+
+<% if (!ORD.length) { %>
+  <!-- حالة فارغة -->
+  <div class="empty-state">
+    <h3><i class="fa fa-box-open"></i> لا توجد طلبات حتى الآن</h3>
+    <p>ابدأ بإنشاء طلب جديد أو إدخال مبيعات متعددة من صفحة المبيعات.</p>
+    <div class="empty-actions">
+      <a class="btn info" href="/orders/new"><i class="fa fa-plus"></i> إنشاء طلب</a>
+      <a class="btn open-order" href="/sales"><i class="fa fa-cash-register"></i> صفحة المبيعات</a>
+    </div>
+  </div>
+<% } %>
+
+<!-- الشبكة -->
+<div id="grid" class="cards">
+  <% ORD.forEach(o => {
+      const its   = Array.isArray(MAP[o.id]) ? MAP[o.id] : [];
+      const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
+      const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
+      const profit   = its.reduce((a,x)=>a + (Number(x.sale_price||0)*Number(x.quantity||0) - Number(x.cost_price||0)*Number(x.quantity||0)), 0);
+
+      const allDelivered = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='delivered');
+      const allFailed    = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='failed');
+      const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
+
+      const whenISO = dayjs(o.created_at).tz(tz).format('YYYY-MM-DD');
+      const whenTS  = +dayjs(o.created_at).tz(tz);
+      const shown   = its.slice(0, 4);
+      const more    = Math.max(0, its.length - shown.length);
+  %>
+
+  <div class="card order" 
+       data-id="<%= o.id %>"
+       data-status="<%= effStatus %>"
+       data-name="<%- (o.customer_name||'').toLowerCase() %>"
+       data-phone="<%- (o.customer_phone||'').toLowerCase() %>"
+       data-city="<%- (o.customer_city||'').toLowerCase() %>"
+       data-date="<%= whenTS %>"
+       data-dateiso="<%= whenISO %>"
+       data-revenue="<%= revenue.toFixed(2) %>"
+       data-profit="<%= profit.toFixed(2) %>">
+
+    <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+      <label class="row" style="gap:10px;align-items:center;cursor:pointer">
+        <input class="sel" type="checkbox" data-oid="<%= o.id %>">
+        <span class="status-chip status-<%= effStatus %>"><i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %></span>
+      </label>
+
+      <div class="order-kpis">
+        <span><i class="fa fa-clock"></i> <strong><%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></strong></span>
+        <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> عناصر</span>
+        <span><i class="fa fa-coins"></i> <strong><%= revenue.toFixed(2) %></strong></span>
+        <span><i class="fa fa-sack-dollar"></i> <strong><%= profit.toFixed(2) %></strong></span>
+      </div>
+    </div>
+
+    <div class="row" style="gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap">
+      <span class="badge"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
+      <span class="badge"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
+      <span class="badge"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
+      <% if (o.note) { %><span class="badge" title="ملاحظة"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
+    </div>
+
+    <div style="margin-top:12px">
+      <% if (!its.length) { %>
+        <div class="muted">لا يوجد بنود بعد.</div>
+      <% } else { %>
+        <div class="row" style="gap:10px;flex-wrap:wrap">
+          <% shown.forEach(x => { %>
+            <div class="badge">
+              <i class="fa fa-cube"></i>
+              <span><%= x.product_name %></span>
+              <span class="muted-sm">× <%= x.quantity %></span>
+            </div>
+          <% }) %>
+          <% if (more>0) { %><div class="badge muted">+<%= more %> أخرى</div><% } %>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="row order-quick" style="gap:8px;margin-top:14px">
+      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
+      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
+      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button></form>
+      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button></form>
+      <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  type="submit" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button></form>
+
+      <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
+
+      <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
+        <input type="hidden" name="ids" value="<%= o.id %>">
+        <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
+      </form>
+    </div>
+  </div>
+
+  <% }) %>
 </div>
 
 <script>
@@ -258,7 +209,6 @@
   const bulkIds=document.getElementById('bulkIds');
   const applyItems=document.getElementById('applyItems');
   const bulkForm=document.getElementById('bulkForm');
-  const bulkBar=document.getElementById('bulkBar');
 
   const selected=new Set();
   const grid=document.getElementById('grid');
@@ -272,8 +222,8 @@
     el.setAttribute('aria-disabled', on?'true':'false');
   }
   function toggleBulk(enabled){
-    $$('#bulkBar [data-bulk]').forEach(b=>setDisabled(b, !enabled));
-    /* إبقاء تحديد الكل شغّال دائماً */
+    $$('.bulk-actions [data-bulk], #bulkDelete, #bulkReturn').forEach(b=>setDisabled(b, !enabled));
+    // تحديد الكل دائماً شغّال
     setDisabled(selectAll, false);
     setDisabled(copyPhones, !enabled);
     setDisabled(exportCsv, !enabled);
@@ -340,7 +290,7 @@
   [q,fStatus,sortBy,dFrom,dTo].forEach(el=>el.addEventListener('input', filter));
   clearFilters.addEventListener('click', ()=>{ q.value=''; fStatus.value='all'; sortBy.value='date_desc'; dFrom.value=''; dTo.value=''; filter(); });
 
-  $$('#grid').addEventListener('change', (e)=>{
+  grid.addEventListener('change', (e)=>{
     const cb=e.target.closest('.sel'); if(!cb) return;
     const id=cb.dataset.oid;
     (cb.checked?selected.add(id):selected.delete(id));
