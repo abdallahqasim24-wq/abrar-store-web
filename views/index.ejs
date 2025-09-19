@@ -1,37 +1,127 @@
-<!-- views/index.ejs — استبدال كامل (بدون قسم "آخر البنود المُسلّمة") -->
 <link rel="stylesheet" href="<%= faLink %>">
 
-<div class="container page">
-  <h2><i class="fa fa-gauge"></i> لوحة التحكم</h2>
+<div class="row" style="justify-content:flex-end; gap:10px; margin-bottom:14px">
+  <a class="btn secondary" href="/products"><i class="fa fa-box"></i> المنتجات</a>
+  <a class="btn secondary" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
+  <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
+</div>
 
-  <div class="cards" style="margin-top:10px">
-    <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div>
-          <div class="muted-sm">إجمالي الإيرادات (تم التسليم)</div>
-          <div style="font-size:1.6rem;font-weight:800">₪<%= Number(totals?.revenue||0).toFixed(2) %></div>
-        </div>
-        <i class="fa fa-sack-dollar" style="font-size:28px;opacity:.6"></i>
-      </div>
-    </div>
+<div class="cards" style="margin-bottom:14px">
+  <div class="card">
+    <h3><i class="fa fa-sack-dollar"></i> إجمالي الإيرادات (تم التسليم)</h3>
+    <div class="kpi">₪ <%= Number(totals.revenue||0).toFixed(2) %></div>
+    <div class="muted">جميع البنود الموصّلة فقط.</div>
+  </div>
+  <div class="card">
+    <h3><i class="fa fa-chart-line"></i> إجمالي الربح (تم التسليم)</h3>
+    <div class="kpi">₪ <%= Number(totals.profit||0).toFixed(2) %></div>
+    <div class="muted">جميع البنود الموصّلة فقط.</div>
+  </div>
 
-    <div class="card">
-      <div class="row" style="justify-content:space-between;align-items:center">
-        <div>
-          <div class="muted-sm">إجمالي الربح (تم التسليم)</div>
-          <div style="font-size:1.6rem;font-weight:800">₪<%= Number(totals?.profit||0).toFixed(2) %></div>
-        </div>
-        <i class="fa fa-chart-line" style="font-size:28px;opacity:.6"></i>
-      </div>
+  <div class="card">
+    <h3><i class="fa fa-calendar-day"></i> مبيعات اليوم</h3>
+    <div class="kpi">₪ <%= Number(stats.today_revenue||0).toFixed(2) %></div>
+    <div class="muted">الربح: ₪ <%= Number(stats.today_profit||0).toFixed(2) %></div>
+  </div>
+  <div class="card">
+    <h3><i class="fa fa-calendar"></i> مبيعات هذا الشهر</h3>
+    <div class="kpi">₪ <%= Number(stats.month_revenue||0).toFixed(2) %></div>
+    <div class="muted">الربح: ₪ <%= Number(stats.month_profit||0).toFixed(2) %></div>
+  </div>
+
+  <div class="card">
+    <h3><i class="fa fa-warehouse"></i> مخزون المتجر</h3>
+    <div class="row" style="gap:18px; flex-wrap:wrap">
+      <div><strong><%= stats.products_count %></strong> منتج</div>
+      <div><strong><%= stats.total_units %></strong> وحدة</div>
+      <div>قيمة التكلفة: <strong>₪ <%= Number(stats.total_cost_value||0).toFixed(2) %></strong></div>
+      <div>قيمة البيع المحتملة: <strong>₪ <%= Number(stats.total_sale_value||0).toFixed(2) %></strong></div>
     </div>
   </div>
 
-  <div class="card" style="margin-top:14px">
-    <div class="row" style="gap:10px;flex-wrap:wrap">
-      <a class="btn add" href="/sales"><i class="fa fa-cart-shopping"></i> مبيعات</a>
-      <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> الطلبات</a>
-      <a class="btn edit" href="/products"><i class="fa fa-box"></i> المنتجات</a>
-      <a class="btn" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
+  <div class="card">
+    <h3><i class="fa fa-truck"></i> قيد التوصيل/المعالجة</h3>
+    <div class="kpi"><%= pendingItems %></div>
+    <div class="muted">عدد البنود بحالات: قيد الإدخال/المعالجة/التوصيل.</div>
+  </div>
+
+  <div class="card">
+    <h3><i class="fa fa-rotate-left"></i> قائمة الراجعة</h3>
+    <div class="kpi"><%= returnsCount %></div>
+    <div class="muted">طلبات بحاجة قرار (إرجاع للمخزون/إعادة كطلب).</div>
+  </div>
+</div>
+
+<div class="cards" style="margin-bottom:14px">
+  <div class="card">
+    <h3><i class="fa fa-sitemap"></i> حالات الطلبات</h3>
+    <div class="row" style="gap:8px; flex-wrap:wrap">
+      <% const map = {}; (ordersByStatus||[]).forEach(x=>map[x.status]=x.cnt); %>
+      <span class="status-chip status-pending">قيد الإدخال: <strong><%= map.pending||0 %></strong></span>
+      <span class="status-chip" style="background:#eef6ff;border-color:#93c5fd;color:#1e3a8a">قيد المعالجة: <strong><%= map.processing||0 %></strong></span>
+      <span class="status-chip" style="background:#fff3cd;border-color:#fcd34d;color:#92400e">قيد التوصيل: <strong><%= map.shipping||0 %></strong></span>
+      <span class="status-chip status-delivered">تم التسليم: <strong><%= map.delivered||0 %></strong></span>
+      <span class="status-chip status-failed">فشل/لم يتم: <strong><%= map.failed||0 %></strong></span>
     </div>
   </div>
+
+  <div class="card">
+    <h3><i class="fa fa-trophy"></i> أفضل 5 منتجات (آخر 30 يوم)</h3>
+    <% if (!topProducts || !topProducts.length) { %>
+      <div class="muted">لا يوجد بيانات كافية.</div>
+    <% } else { %>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>#</th><th class="right">المنتج</th><th>كمية</th><th>الإيراد</th></tr></thead>
+          <tbody>
+            <% topProducts.forEach((p,i)=>{ %>
+              <tr>
+                <td><%= i+1 %></td>
+                <td class="right"><%= p.name %></td>
+                <td><%= p.qty %></td>
+                <td>₪ <%= Number(p.revenue||0).toFixed(2) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <h3><i class="fa fa-layer-group"></i> المبيعات حسب التصنيف</h3>
+    <div class="row" style="gap:8px; flex-wrap:wrap">
+      <% (byCat||[]).forEach(c => { %>
+        <span class="badge"><%= c.label||'غير مصنّف' %> — ₪ <strong><%= Number(c.value||0).toFixed(2) %></strong></span>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3><i class="fa fa-bell"></i> تنبيهات المخزون المنخفض (≤ 5)</h3>
+  <% if (!lowStock || !lowStock.length) { %>
+    <div class="muted">لا يوجد أصناف منخفضة حالياً.</div>
+  <% } else { %>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>الصورة</th><th class="right">المنتج</th><th>المخزون</th><th>سعر البيع</th><th></th></tr></thead>
+        <tbody>
+          <% lowStock.forEach(p => { %>
+            <tr>
+              <td>
+                <% if (p.image_path) { %>
+                  <img src="<%= p.image_path %>" class="thumb js-img" alt="">
+                <% } else { %> — <% } %>
+              </td>
+              <td class="right"><%= p.name %></td>
+              <td><strong><%= p.stock %></strong></td>
+              <td>₪ <%= Number(p.sale_price||0).toFixed(2) %></td>
+              <td><a class="btn manage" href="/products"><i class="fa fa-boxes-stacked"></i> إدارة</a></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
 </div>

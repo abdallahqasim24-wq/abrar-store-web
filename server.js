@@ -275,64 +275,96 @@ async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
 // -------- Dashboard --------
 app.get("/", async (_req, res, next) => {
   try {
-    const statsQ = await query(`
+    const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
+    const ym    = dayjs().tz(TZ_NAME).format("YYYY-MM");
+    const last30= dayjs().tz(TZ_NAME).subtract(30, "day").format("YYYY-MM-DD");
+
+    // مخزون وإجماليات
+    const inv = (await query(`
       SELECT
         COUNT(*)::int AS products_count,
         COALESCE(SUM(stock),0)::int AS total_units,
         COALESCE(SUM(stock*cost_price),0)::float8 AS total_cost_value,
         COALESCE(SUM(stock*sale_price),0)::float8 AS total_sale_value
       FROM products
-    `);
+    `)).rows[0];
 
-    const today = dayjs().tz(TZ_NAME).format("YYYY-MM-DD");
-    const ym = dayjs().tz(TZ_NAME).format("YYYY-MM");
-
+    // مبيعات اليوم/الشهر (بغض النظر عن التسليم)
     const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
     const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
     const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-    const prof = (rows) => rows.reduce((a, s) => a + profitOf(s), 0);
+    const prof = (rows) => rows.reduce((a, s) => a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity), 0);
 
     const stats = {
-      ...statsQ.rows[0],
+      ...inv,
       today_revenue: rev(todayRows),
-      today_profit: prof(todayRows),
+      today_profit:  prof(todayRows),
       month_revenue: rev(monthRows),
-      month_profit: prof(monthRows),
+      month_profit:  prof(monthRows),
     };
 
-    const lowStock = (
-      await query(`
-        SELECT * FROM products
-        WHERE stock <= 5
-        ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
-        LIMIT 12
-      `)
-    ).rows;
+    // إجماليات “تم التسليم”
+    const totals = (await query(
+      `SELECT
+          COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
+          COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
+       FROM sales s
+       WHERE s.delivery_status='delivered'`
+    )).rows[0];
 
-    const byCat = (
-      await query(`
-        SELECT p.category AS label, COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
-        FROM products p LEFT JOIN sales s ON s.product_id=p.id
-        GROUP BY p.category ORDER BY value DESC
-      `)
-    ).rows;
+    // حالات الطلبات + عناصر قيد التوصيل + الراجعة
+    const ordersByStatus = (await query(
+      `SELECT status, COUNT(*)::int AS cnt FROM orders GROUP BY status`
+    )).rows; // [{status:'pending',cnt:..},..]
 
-    const totals = (
-      await query(
-        `SELECT
-            COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
-            COALESCE(SUM((s.sale_price - s.cost_price)*s.quantity),0)::float8 AS profit
+    const pendingItems = (await query(
+      `SELECT COUNT(*)::int AS cnt
+         FROM sales
+        WHERE delivery_status IN ('pending','processing','shipping')`
+    )).rows[0].cnt;
+
+    const returnsCount = (await query(
+      `SELECT COUNT(*)::int AS cnt FROM returns_queue`
+    )).rows[0].cnt;
+
+    // أصناف منخفضة المخزون
+    const lowStock = (await query(`
+      SELECT * FROM products
+      WHERE stock <= 5
+      ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
+      LIMIT 12
+    `)).rows;
+
+    // أفضل المنتجات آخر 30 يومًا
+    const topProducts = (await query(
+      `SELECT p.id, p.name,
+              COALESCE(SUM(s.quantity),0)::int AS qty,
+              COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue
          FROM sales s
-         WHERE s.delivery_status='delivered'`
-      )
-    ).rows[0];
+         JOIN products p ON p.id=s.product_id
+        WHERE DATE(s.sold_at) >= DATE($1)
+        GROUP BY p.id, p.name
+        ORDER BY revenue DESC
+        LIMIT 5`,
+      [last30]
+    )).rows;
 
-    res.render("index", { stats, byCat, lowStock, lastSales: [], totals, dayjs });
-  } catch (e) {
-    next(e);
-  }
+    // مبيعات حسب التصنيف (للشيبس)
+    const byCat = (await query(
+      `SELECT p.category AS label, COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
+         FROM products p LEFT JOIN sales s ON s.product_id=p.id
+        GROUP BY p.category ORDER BY value DESC`
+    )).rows;
+
+    res.render("index", {
+      stats, totals, lowStock, byCat,
+      ordersByStatus, pendingItems, returnsCount, topProducts,
+      dayjs
+    });
+  } catch (e) { next(e); }
 });
+
 
 // -------- Products --------
 app.get("/products", async (_req, res) => {
