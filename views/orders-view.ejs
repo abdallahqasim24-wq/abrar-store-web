@@ -1,267 +1,343 @@
-<!-- views/orders-view.ejs — إدارة طلب واحد (بناء جديد كامل) -->
+<!-- views/orders.ejs — نسخة جديدة بالكامل (تصميم جدول + صف تفاصيل) -->
 <link rel="stylesheet" href="<%= faLink %>">
-
 <%
-  const tz = (typeof TZ_NAME !== 'undefined' && TZ_NAME) ? TZ_NAME : 'Asia/Hebron';
-  const statusMap = {
-    pending:'قيد الإدخال', processing:'قيد المعالجة', shipping:'قيد التوصيل',
-    delivered:'تم التسليم', failed:'فشل/لم يتم'
-  };
-  const st = String(order.status||'pending').toLowerCase();
+  const ORD   = Array.isArray(orders) ? orders : [];
+  const MAP   = (typeof itemsByOrder==='object' && itemsByOrder) ? itemsByOrder : {};
+  const tz    = (typeof TZ_NAME!=='undefined' && TZ_NAME) ? TZ_NAME : 'Asia/Hebron';
+  const _filters = (typeof filters!=='undefined' && filters) ? filters : {};
+  const st = _filters.status || 'all';
+  function statusLabel(s){
+    switch(String(s||'').toLowerCase()){
+      case 'pending':    return 'قيد الإدخال';
+      case 'processing': return 'قيد المعالجة';
+      case 'shipping':   return 'قيد التوصيل';
+      case 'delivered':  return 'تم التسليم';
+      case 'failed':     return 'فشل/لم يتم';
+      default:           return 'غير محدد';
+    }
+  }
 %>
 
-<div class="container page" style="max-width:1200px">
+<style>
+/* تخصيصات بسيطة للجدول الجديد */
+.orders-wrap{ margin-top:10px }
+.orders-head{ display:flex; gap:10px; justify-content:space-between; align-items:flex-end; flex-wrap:wrap }
+.orders-kpis{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+#sumBar{ display:none; background:#fff }
+.table-actions{ white-space:nowrap }
+.table-actions .btn{ width:40px; height:40px; padding:0; border-radius:12px }
+.details-row td{ background:#fff; padding:14px 16px }
+.details-box{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
+.details-box .badge{ background:#fff }
+.toggle-btn{ all:unset; cursor:pointer; font-size:18px; color:#6b7280 }
+.status-chip-sm{ font-size:.92rem; padding:6px 10px }
+.orders-table th:first-child, .orders-table td:first-child{ width:44px }
+.orders-table th:last-child, .orders-table td:last-child{ width:230px }
+.badge.note{ background:#fffbea; border-color:#fcd34d; color:#92400e }
+</style>
 
+<div class="container page orders-wrap" style="max-width:1400px">
   <!-- رأس الصفحة -->
-  <div class="row" style="gap:12px;justify-content:space-between;align-items:flex-end">
-    <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
-      <h2 style="margin:0"><i class="fa fa-file-invoice"></i> طلب #<%= order.id %></h2>
-      <span class="status-chip status-<%= st %>"><i class="fa fa-circle-dot"></i> <%= statusMap[st] %></span>
-      <span class="badge"><i class="fa fa-clock"></i> <%= dayjs(order.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></span>
+  <div class="orders-head">
+    <div class="orders-kpis">
+      <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات <span class="muted">(<%= ORD.length %>)</span></h2>
+      <div id="sumBar" class="badge-lg"><i class="fa fa-chart-line"></i> <span id="sumText"></span></div>
     </div>
-
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <!-- تغيير حالة الطلب (يطبق على البنود) -->
-      <form class="row" method="post" action="/orders/<%= order.id %>/status" style="gap:8px;align-items:center">
-        <select name="status" class="select-status <%= st %>">
-          <option value="pending"    <%= st==='pending'?'selected':'' %>>قيد الإدخال</option>
-          <option value="processing" <%= st==='processing'?'selected':'' %>>قيد المعالجة</option>
-          <option value="shipping"   <%= st==='shipping'?'selected':'' %>>قيد التوصيل</option>
-          <option value="delivered"  <%= st==='delivered'?'selected':'' %>>تم التسليم</option>
-          <option value="failed"     <%= st==='failed'?'selected':'' %>>فشل/لم يتم</option>
-        </select>
-        <label class="row muted-sm" style="gap:6px;align-items:center">
-          <input type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
-        </label>
-        <button class="btn info" type="submit"><i class="fa fa-rotate"></i> تحديث الحالة</button>
-      </form>
-
-      <button id="btnPrint"  class="btn gray"    type="button"><i class="fa fa-print"></i> طباعة</button>
-      <button id="btnExport" class="btn success" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
-
-      <form method="post" action="/orders/<%= order.id %>/delete"
-            onsubmit="return confirm('حذف الطلب #<%= order.id %> مع جميع بنوده نهائياً؟')">
-        <button class="btn danger"><i class="fa fa-trash"></i> حذف الطلب</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- معلومات العميل -->
-  <div class="card" style="margin-top:14px">
-    <div class="row" style="gap:10px;flex-wrap:wrap">
-      <span class="badge"><i class="fa fa-user"></i> <%= order.customer_name || 'بدون اسم' %></span>
-      <span class="badge" id="phoneBadge" data-phone="<%- order.customer_phone||'' %>">
-        <i class="fa fa-phone"></i> <%= order.customer_phone || 'بدون رقم' %>
-      </span>
-      <span class="badge"><i class="fa fa-location-dot"></i> <%= order.customer_city || '—' %></span>
-      <% if (order.note) { %>
-        <span class="badge"><i class="fa fa-note-sticky"></i> <%= order.note %></span>
-      <% } %>
-      <button id="copyPhone" class="btn info" type="button"><i class="fa fa-copy"></i> نسخ الهاتف</button>
-
-      <span class="right"></span>
-      <div class="row" style="gap:14px">
-        <div class="kpi"><i class="fa fa-coins"></i> <b id="revKpi"><%= Number(revenue||0).toFixed(2) %></b></div>
-        <div class="kpi"><i class="fa fa-sack-dollar"></i> <b id="prfKpi"><%= Number(profit||0).toFixed(2) %></b></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- إدارة البنود -->
-  <div class="card" style="margin-top:14px">
-    <!-- شريط أعلى الجدول -->
-    <div class="row" style="justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-      <div class="row" style="gap:8px;align-items:center">
-        <label class="row" style="gap:8px;align-items:center">
-          <input id="selAll" type="checkbox"> تحديد الكل
-        </label>
-        <button id="btnBulkDelete" class="btn danger" type="button"><i class="fa fa-trash"></i> حذف المحدد</button>
-        <button id="btnBulkReturn" class="btn gray" type="button"><i class="fa fa-undo"></i> إرجاع المحدد</button>
-      </div>
-      <div class="muted-sm">عناصر: <b id="cntKpi"><%= items.length %></b></div>
-    </div>
-
-    <!-- نموذج تعديل/حذف جماعي + أسطر البنود -->
-    <form id="itemsForm" method="post" action="/orders/<%= order.id %>/items/bulk-update">
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th><input type="checkbox" id="headChk"></th>
-              <th style="min-width:220px">المنتج</th>
-              <th>الكمية</th>
-              <th>سعر البيع</th>
-              <th>سعر التكلفة</th>
-              <th>الشحن</th>
-              <th style="min-width:200px">ملاحظة</th>
-              <th>المجموع</th>
-              <th>الربح</th>
-              <th>إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="tblBody">
-          <% items.forEach((it,idx)=>{ 
-               const subtotal = Number(it.sale_price)*Number(it.quantity);
-               const iprofit  = (Number(it.sale_price)-Number(it.cost_price))*Number(it.quantity);
-          %>
-            <tr data-id="<%= it.id %>">
-              <td>
-                <input class="rowChk" type="checkbox">
-                <input type="hidden" name="item_id[]" value="<%= it.id %>">
-                <input type="hidden" name="delete_flag[]" value="">
-              </td>
-
-              <td>
-                <select name="product_id[]" style="min-width:210px">
-                  <% products.forEach(p=>{ %>
-                    <option value="<%= p.id %>" <%= p.id===it.product_id?'selected':'' %>><%= p.name %></option>
-                  <% }) %>
-                </select>
-              </td>
-
-              <td><input name="quantity[]"      type="number" min="1" step="1"   value="<%= it.quantity %>"  ></td>
-              <td><input name="sale_price[]"    type="number" min="0" step="0.01" value="<%= it.sale_price %>"></td>
-              <td><input name="cost_price[]"    type="number" min="0" step="0.01" value="<%= it.cost_price %>"></td>
-              <td><input name="shipping_cost[]" type="number" min="0" step="0.01" value="<%= it.shipping_cost||0 %>"></td>
-              <td><input name="item_note[]"     type="text"   value="<%= it.note||'' %>"></td>
-
-              <td class="subtotal"><%= subtotal.toFixed(2) %></td>
-              <td class="iprofit"><%= iprofit.toFixed(2) %></td>
-
-              <td class="row">
-                <form method="post" action="/orders/<%= order.id %>/items/<%= it.id %>/delete"
-                      onsubmit="return confirm('حذف هذا البند؟')">
-                  <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
-                </form>
-              </td>
-            </tr>
-          <% }) %>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px">
-        <button class="btn info" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- إضافة بند جديد -->
-  <div class="card" style="margin-top:14px">
-    <h3 style="margin:0 0 8px"><i class="fa fa-plus"></i> إضافة بند</h3>
-    <form class="row" method="post" action="/orders/<%= order.id %>/items" style="gap:10px;align-items:center;flex-wrap:wrap">
-      <select name="product_id" style="min-width:260px">
-        <% products.forEach(p=>{ %>
-          <option value="<%= p.id %>"><%= p.name %> — مخزون <%= p.stock %></option>
-        <% }) %>
+    <div class="row">
+      <input id="q" type="search" placeholder="بحث: رقم/اسم/هاتف/مدينة…" style="min-width:240px">
+      <select id="fStatus">
+        <option value="all"        <%= st==='all'?'selected':'' %>>كل الحالات</option>
+        <option value="pending"    <%= st==='pending'?'selected':'' %>>قيد الإدخال</option>
+        <option value="processing" <%= st==='processing'?'selected':'' %>>قيد المعالجة</option>
+        <option value="shipping"   <%= st==='shipping'?'selected':'' %>>قيد التوصيل</option>
+        <option value="delivered"  <%= st==='delivered'?'selected':'' %>>تم التسليم</option>
+        <option value="failed"     <%= st==='failed'?'selected':'' %>>فشل/لم يتم</option>
       </select>
-      <input name="quantity"      type="number" min="1" step="1"   value="1"        placeholder="الكمية">
-      <input name="sale_price"    type="number" min="0" step="0.01"                 placeholder="سعر البيع">
-      <input name="cost_price"    type="number" min="0" step="0.01"                 placeholder="سعر التكلفة">
-      <input name="shipping_cost" type="number" min="0" step="0.01" value="0"      placeholder="الشحن">
-      <input name="note"          type="text"                                        placeholder="ملاحظة (اختياري)">
-      <button class="btn success"><i class="fa fa-plus"></i> إضافة</button>
-    </form>
+      <select id="sortBy">
+        <option value="date_desc">الأحدث أولاً</option>
+        <option value="date_asc">الأقدم أولاً</option>
+        <option value="rev_desc">الإيراد الأعلى</option>
+        <option value="rev_asc">الإيراد الأقل</option>
+        <option value="prf_desc">الربح الأعلى</option>
+        <option value="prf_asc">الربح الأقل</option>
+      </select>
+      <input id="dFrom" type="date" title="من">
+      <input id="dTo" type="date" title="إلى">
+      <button id="clearFilters" class="btn gray" type="button"><i class="fa fa-rotate-left"></i> تصفير</button>
+      <button id="exportCsv" class="btn info" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
+      <button id="copyPhones" class="btn success" type="button"><i class="fa fa-copy"></i> نسخ الهواتف</button>
+    </div>
+  </div>
+
+  <!-- شريط جماعي -->
+  <form id="bulkForm" method="post" style="margin:12px 0">
+    <input type="hidden" name="ids" id="bulkIds">
+    <div class="bulk-bar">
+      <label style="cursor:pointer">
+        <input id="selectAll" type="checkbox"> <span class="bulk-title">تحديد الكل</span>
+      </label>
+      <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
+      <div class="bulk-actions">
+        <label class="row muted-sm" style="gap:6px"><input id="applyItems" type="checkbox" checked> تطبيق على البنود أيضاً</label>
+        <button data-bulk class="btn warn"    formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إدخال</button>
+        <button data-bulk class="btn info"    formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> معالجة</button>
+        <button data-bulk class="btn gray"    formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> توصيل</button>
+        <button data-bulk class="btn success" formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم</button>
+        <button data-bulk class="btn danger"  formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل</button>
+      </div>
+      <span class="right"></span>
+      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit"><i class="fa fa-trash"></i> حذف المحدد</button>
+      <button data-bulk class="btn gray"   formaction="/orders/bulk-return" type="submit"><i class="fa fa-undo"></i> إرجاع البنود</button>
+    </div>
+  </form>
+
+  <!-- جدول الطلبات -->
+  <div class="table-scroll">
+    <table class="orders-table">
+      <thead>
+        <tr>
+          <th><i class="fa fa-square-check muted"></i></th>
+          <th># الطلب / الحالة</th>
+          <th>العميل</th>
+          <th>الهاتف</th>
+          <th>المدينة</th>
+          <th>عناصر</th>
+          <th>الإيراد</th>
+          <th>الربح</th>
+          <th>الوقت</th>
+          <th>إجراءات</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+      <% ORD.forEach(o => {
+          const its = Array.isArray(MAP[o.id]) ? MAP[o.id] : [];
+          const qty = its.reduce((a,x)=>a+Number(x.quantity||0),0);
+          const revenue = its.reduce((a,x)=>a+Number(x.sale_price||0)*Number(x.quantity||0),0);
+          const profit  = its.reduce((a,x)=>a+(Number(x.sale_price||0)-Number(x.cost_price||0))*Number(x.quantity||0),0);
+          const allDelivered = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='delivered');
+          const allFailed    = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='failed');
+          const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status||'pending'));
+          const createdISO   = dayjs(o.created_at).tz(tz).format('YYYY-MM-DD');
+          const createdTS    = +dayjs(o.created_at).tz(tz);
+      %>
+        <tr class="order-row"
+            data-id="<%= o.id %>"
+            data-status="<%= effStatus %>"
+            data-name="<%- (o.customer_name||'').toLowerCase() %>"
+            data-phone="<%- (o.customer_phone||'').toLowerCase() %>"
+            data-city="<%- (o.customer_city||'').toLowerCase() %>"
+            data-date="<%= createdTS %>"
+            data-dateiso="<%= createdISO %>"
+            data-revenue="<%= revenue.toFixed(2) %>"
+            data-profit="<%= profit.toFixed(2) %>">
+          <td><input class="sel" type="checkbox" data-oid="<%= o.id %>"></td>
+          <td>
+            <button class="toggle-btn" title="عرض التفاصيل"><i class="fa fa-angle-down"></i></button>
+            <span class="status-chip status-<%= effStatus %> status-chip-sm"><i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %></span>
+          </td>
+          <td><%= o.customer_name || '—' %></td>
+          <td><%= o.customer_phone || '—' %></td>
+          <td><%= o.customer_city || '—' %></td>
+          <td><strong><%= qty %></strong></td>
+          <td><strong><%= revenue.toFixed(2) %></strong></td>
+          <td><strong><%= profit.toFixed(2) %></strong></td>
+          <td><%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></td>
+          <td class="table-actions">
+            <div class="order-quick" style="gap:6px">
+              <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    title="قيد الإدخال"  type="submit"><i class="fa fa-hourglass-start"></i></button></form>
+              <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    title="قيد المعالجة" type="submit"><i class="fa fa-gears"></i></button></form>
+              <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    title="قيد التوصيل"  type="submit"><i class="fa fa-truck"></i></button></form>
+              <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" title="تم التسليم"   type="submit"><i class="fa fa-check"></i></button></form>
+              <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  title="فشل/لم يتم"  type="submit"><i class="fa fa-xmark"></i></button></form>
+              <a class="btn manage" href="/orders/<%= o.id %>" title="إدارة"><i class="fa fa-pen-to-square"></i></a>
+              <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
+                <input type="hidden" name="ids" value="<%= o.id %>">
+                <button class="btn danger" title="حذف" type="submit"><i class="fa fa-trash"></i></button>
+              </form>
+            </div>
+          </td>
+        </tr>
+
+        <!-- تفاصيل موسّعة -->
+        <tr class="details-row" style="display:none">
+          <td></td>
+          <td colspan="9">
+            <div class="details-box">
+              <% if (its.length===0) { %>
+                <span class="muted">لا يوجد بنود بعد.</span>
+              <% } else { %>
+                <% its.forEach(x => { %>
+                  <span class="badge"><i class="fa fa-cube"></i> <%= x.product_name %> <span class="muted-sm">× <%= x.quantity %></span></span>
+                <% }) %>
+              <% } %>
+              <% if (o.note) { %><span class="badge note"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
   </div>
 </div>
 
 <script>
 (function(){
   const $$=(s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
-  const tbl=document.getElementById('tblBody');
-  const revKpi=document.getElementById('revKpi');
-  const prfKpi=document.getElementById('prfKpi');
-  const cntKpi=document.getElementById('cntKpi');
+  const q=document.getElementById('q');
+  const fStatus=document.getElementById('fStatus');
+  const sortBy=document.getElementById('sortBy');
+  const dFrom=document.getElementById('dFrom');
+  const dTo=document.getElementById('dTo');
+  const clearFilters=document.getElementById('clearFilters');
+  const exportCsv=document.getElementById('exportCsv');
+  const copyPhones=document.getElementById('copyPhones');
 
-  function recalc(){
-    let rev=0, prf=0, cnt=0;
-    $$('#tblBody tr').forEach(tr=>{
-      const q = Number(tr.querySelector('input[name="quantity[]"]').value||0);
-      const sp= Number(tr.querySelector('input[name="sale_price[]"]').value||0);
-      const cp= Number(tr.querySelector('input[name="cost_price[]"]').value||0);
-      const sub = q*sp, ip = (sp-cp)*q;
-      tr.querySelector('.subtotal').textContent=sub.toFixed(2);
-      tr.querySelector('.iprofit').textContent =ip.toFixed(2);
-      rev+=sub; prf+=ip; cnt++;
+  const selectAll=document.getElementById('selectAll');
+  const selCount=document.getElementById('selCount');
+  const bulkIds=document.getElementById('bulkIds');
+  const applyItems=document.getElementById('applyItems');
+  const bulkForm=document.getElementById('bulkForm');
+
+  const rows=$$('#ordersBody .order-row');
+  const sumBar=document.getElementById('sumBar');
+  const sumText=document.getElementById('sumText');
+  const selected=new Set();
+
+  // فتح/طي التفاصيل
+  $$('#ordersBody .toggle-btn').forEach((btn,idx)=>{
+    btn.addEventListener('click', ()=>{
+      const det = document.querySelectorAll('#ordersBody .details-row')[idx];
+      const open = det.style.display!=='none';
+      det.style.display = open ? 'none':'table-row';
+      btn.innerHTML = open ? '<i class="fa fa-angle-down"></i>' : '<i class="fa fa-angle-up"></i>';
     });
-    revKpi.textContent=rev.toFixed(2);
-    prfKpi.textContent=prf.toFixed(2);
-    cntKpi.textContent=cnt;
-  }
-  tbl.addEventListener('input', e=>{
-    if(e.target.matches('input')) recalc();
-  });
-  recalc();
-
-  // تحديد متعدد للبنود
-  const headChk=document.getElementById('headChk');
-  const selAll=document.getElementById('selAll');
-  const rowChks=$$('.rowChk');
-
-  function syncHead(){
-    headChk.checked = rowChks.length>0 && rowChks.every(c=>c.checked);
-    selAll.checked  = headChk.checked;
-  }
-  headChk.addEventListener('change', ()=>{
-    rowChks.forEach(c=>c.checked=headChk.checked);
-  });
-  selAll.addEventListener('change', ()=>{ headChk.checked=selAll.checked; headChk.dispatchEvent(new Event('change')); });
-  rowChks.forEach(c=>c.addEventListener('change', syncHead));
-
-  // حذف/إرجاع محدد
-  function applyFlag(flagName){
-    const rows = rowChks.filter(c=>c.checked).map(c=>c.closest('tr'));
-    if(!rows.length){ alert('اختر بنوداً أولاً.'); return; }
-    if(flagName==='delete'){
-      if(!confirm('حذف البنود المحددة؟')) return;
-      rows.forEach(tr=> tr.querySelector('input[name="delete_flag[]"]').value='on');
-      document.getElementById('itemsForm').submit();
-    }
-    if(flagName==='return'){
-      if(!confirm('إرسال البنود المحددة إلى قائمة المرتجعات؟')) return;
-      // نرسل كل بند على حدة لنفس راوت الإرجاع الفردي
-      rows.forEach(tr=>{
-        const id=tr.dataset.id;
-        const f=document.createElement('form');
-        f.method='post'; f.action='/sales/'+id+'/return';
-        document.body.appendChild(f); f.submit();
-      });
-    }
-  }
-  document.getElementById('btnBulkDelete').addEventListener('click', ()=>applyFlag('delete'));
-  document.getElementById('btnBulkReturn').addEventListener('click', ()=>applyFlag('return'));
-
-  // نسخ الهاتف
-  document.getElementById('copyPhone').addEventListener('click', async ()=>{
-    const p=document.getElementById('phoneBadge').dataset.phone||'';
-    if(!p){ alert('لا يوجد رقم.'); return; }
-    await navigator.clipboard.writeText(p);
-    document.getElementById('copyPhone').textContent='✔ نُسخ'; setTimeout(()=>location.reload(),700);
   });
 
-  // طباعة (يخفي الأزرار)
-  document.getElementById('btnPrint').addEventListener('click', ()=>window.print());
+  function withinRange(row){
+    const ts=Number(row.dataset.date||0);
+    const fi=dFrom.value? Date.parse(dFrom.value+'T00:00:00'):null;
+    const ti=dTo.value?   Date.parse(dTo.value+'T23:59:59'):null;
+    if (fi && ts<fi) return false;
+    if (ti && ts>ti) return false;
+    return true;
+  }
+  function matchSearch(row){
+    const s=(q.value||'').trim().toLowerCase();
+    if(!s) return true;
+    const id=String(row.dataset.id||'');
+    return id.includes(s)
+        || (row.dataset.name||'').includes(s)
+        || (row.dataset.phone||'').includes(s)
+        || (row.dataset.city||'').includes(s);
+  }
+  function matchStatus(row){
+    const st=fStatus.value; if(st==='all') return true;
+    return (row.dataset.status||'')===st;
+  }
 
-  // تصدير CSV
-  document.getElementById('btnExport').addEventListener('click', ()=>{
-    const head=['order_id','item_id','product','qty','sale','cost','ship','note','subtotal','profit'];
+  function filter(){
+    // أخفِ كل شيء
+    rows.forEach(r=>{
+      r.style.display='none';
+      const det=r.nextElementSibling; if(det && det.classList.contains('details-row')) det.style.display='none';
+    });
+
+    // المرئي بعد الفلاتر
+    let vis = rows.filter(r=>matchStatus(r)&&matchSearch(r)&&withinRange(r));
+
+    // ترتيب
+    const mode=sortBy.value;
+    vis.sort((a,b)=>{
+      if(mode==='date_desc') return Number(b.dataset.date)-Number(a.dataset.date);
+      if(mode==='date_asc')  return Number(a.dataset.date)-Number(b.dataset.date);
+      if(mode==='rev_desc')  return Number(b.dataset.revenue)-Number(a.dataset.revenue);
+      if(mode==='rev_asc')   return Number(a.dataset.revenue)-Number(b.dataset.revenue);
+      if(mode==='prf_desc')  return Number(b.dataset.profit)-Number(a.dataset.profit);
+      if(mode==='prf_asc')   return Number(a.dataset.profit)-Number(b.dataset.profit);
+      return 0;
+    });
+
+    const body=document.getElementById('ordersBody');
+    vis.forEach(r=>{ body.appendChild(r); body.appendChild(r.nextElementSibling); r.style.display=''; });
+
+    // مجاميع
+    const rev=vis.reduce((a,r)=>a+Number(r.dataset.revenue||0),0);
+    const prf=vis.reduce((a,r)=>a+Number(r.dataset.profit||0),0);
+    if(vis.length){ sumBar.style.display='inline-flex'; sumText.textContent=`العرض: ${vis.length} طلب — الإيراد ${rev.toFixed(2)} — الربح ${prf.toFixed(2)}`; }
+    else { sumBar.style.display='none'; }
+    syncSel();
+  }
+
+  // اختيار
+  $$('#ordersBody .sel').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id=cb.dataset.oid;
+      (cb.checked?selected.add(id):selected.delete(id));
+      syncSel();
+    });
+  });
+  function syncSel(){
+    selCount.textContent=selected.size;
+    bulkIds.value=[...selected].join(',');
+    const visible = rows.filter(r=>r.style.display!=='none');
+    const boxes = visible.map(r=>r.querySelector('.sel'));
+    selectAll.checked = (boxes.length>0 && boxes.every(b=>b.checked));
+  }
+  selectAll.addEventListener('change', ()=>{
+    const on=selectAll.checked;
+    const visible = rows.filter(r=>r.style.display!=='none');
+    visible.forEach(r=>{
+      const cb=r.querySelector('.sel'); cb.checked=on;
+      const id=cb.dataset.oid; on?selected.add(id):selected.delete(id);
+      const det=r.nextElementSibling; if(det && det.classList.contains('details-row')) det.style.display='none';
+    });
+    syncSel();
+  });
+
+  // منع إرسال جماعي بلا اختيار + تمرير خيار تطبيق البنود
+  bulkForm.addEventListener('click',(e)=>{
+    const btn=e.target.closest('[data-bulk]'); if(!btn) return;
+    if(selected.size===0){ e.preventDefault(); alert('اختر طلبًا واحدًا على الأقل.'); return; }
+    let h=bulkForm.querySelector('input[name="apply_to_items"]');
+    if(!h){ h=document.createElement('input'); h.type='hidden'; h.name='apply_to_items'; bulkForm.appendChild(h); }
+    h.value = applyItems.checked?'on':'off';
+  });
+
+  // تصدير CSV (المرئي أو المحدد)
+  function exportRows(list){
+    const head=['id','status','created_at','customer_name','customer_phone','customer_city','items_count','revenue','profit'];
     const lines=[head.join(',')];
-    $$('#tblBody tr').forEach(tr=>{
-      const id=tr.dataset.id;
-      const pname=tr.querySelector('select[name="product_id[]"] option:checked').text.replace(/,/g,' ');
-      const q=tr.querySelector('input[name="quantity[]"]').value;
-      const sp=tr.querySelector('input[name="sale_price[]"]').value;
-      const cp=tr.querySelector('input[name="cost_price[]"]').value;
-      const sh=tr.querySelector('input[name="shipping_cost[]"]').value;
-      const nt=tr.querySelector('input[name="item_note[]"]').value.replace(/"/g,"'").replace(/,/g,' ');
-      const sub=tr.querySelector('.subtotal').textContent;
-      const ip =tr.querySelector('.iprofit').textContent;
-      lines.push([<%= order.id %>,id,`"${pname}"`,q,sp,cp,sh,`"${nt}"`,sub,ip].join(','));
+    list.forEach(r=>{
+      const id=r.dataset.id, st=r.dataset.status, dt=r.dataset.dateiso;
+      const name=r.dataset.name.replace(/,/g,' '), phone=r.dataset.phone.replace(/,/g,' '), city=r.dataset.city.replace(/,/g,' ');
+      const items=r.nextElementSibling.querySelectorAll('.badge .fa-cube').length || 0;
+      const rev=Number(r.dataset.revenue||0).toFixed(2), prf=Number(r.dataset.profit||0).toFixed(2);
+      lines.push([id,st,dt,`"${name}"`,`"${phone}"`,`"${city}"`,items,rev,prf].join(','));
     });
     const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download='order-<%= order.id %>.csv'; a.click();
-    URL.revokeObjectURL(url);
+    const url=URL.createObjectURL(blob); const a=document.createElement('a');
+    a.href=url; a.download='orders.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+  exportCsv.addEventListener('click', ()=>{
+    const list = selected.size ? rows.filter(r=>selected.has(r.dataset.id)) : rows.filter(r=>r.style.display!=='none');
+    if(!list.length){ alert('لا يوجد بيانات للتصدير.'); return; }
+    exportRows(list);
   });
+
+  // نسخ الهواتف
+  copyPhones.addEventListener('click', async ()=>{
+    const list = selected.size ? rows.filter(r=>selected.has(r.dataset.id)) : rows.filter(r=>r.style.display!=='none');
+    const phones = [...new Set(list.map(r=>r.dataset.phone).filter(Boolean))];
+    if(!phones.length){ alert('لا يوجد أرقام.'); return; }
+    await navigator.clipboard.writeText(phones.join('\n'));
+    copyPhones.textContent='✔ تم النسخ'; setTimeout(()=>copyPhones.innerHTML='<i class="fa fa-copy"></i> نسخ الهواتف',1200);
+  });
+
+  // فلاتر
+  [q,fStatus,sortBy,dFrom,dTo].forEach(el=>el.addEventListener('input', filter));
+  clearFilters.addEventListener('click', ()=>{ q.value=''; fStatus.value='all'; sortBy.value='date_desc'; dFrom.value=''; dTo.value=''; filter(); });
+
+  // بدءي
+  filter(); syncSel();
 })();
 </script>
