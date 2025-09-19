@@ -4,7 +4,7 @@
 <%
   // أمان لو ما وصلت filters من السيرفر
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
-  const st = _filters.status || 'all'; // للأولية فقط، الباقي على الواجهة
+  const st = _filters.status || 'all';
   const tz = (typeof TZ_NAME !== 'undefined' && TZ_NAME) ? TZ_NAME : 'Asia/Hebron';
   const ORD = Array.isArray(orders) ? orders : [];
   const MAP = (typeof itemsByOrder === 'object' && itemsByOrder) ? itemsByOrder : {};
@@ -320,9 +320,9 @@
       const id=c.dataset.id;
       const st=c.dataset.status;
       const dt=c.dataset.dateiso;
-      const name=c.dataset.name.replace(/,/g,' ');
-      const phone=c.dataset.phone.replace(/,/g,' ');
-      const city=c.dataset.city.replace(/,/g,' ');
+      const name=(c.dataset.name||'').replace(/,/g,' ');
+      const phone=(c.dataset.phone||'').replace(/,/g,' ');
+      const city=(c.dataset.city||'').replace(/,/g,' ');
       const items=c.querySelectorAll('.badge i.fa-cube').length;
       const rev=Number(c.dataset.revenue||0).toFixed(2);
       const prf=Number(c.dataset.profit||0).toFixed(2);

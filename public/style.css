@@ -110,48 +110,74 @@ input[type="checkbox"],input[type="radio"]{
   box-shadow:0 2px 8px rgba(0,0,0,.12)
 }
 
-/* ===== Buttons ===== */
+/* ===== Buttons (موحَّدة + كل الحالات) ===== */
 .btn{
   padding:12px 18px; border:0; border-radius:14px;
   display:inline-flex; align-items:center; gap:10px;
-  font-weight:800; color:#fff; cursor:pointer; transition:.2s;
+  font-weight:800; color:#fff; cursor:pointer;
+  transition:transform .15s ease, filter .15s ease, box-shadow .15s ease;
+  text-decoration:none; user-select:none;
 }
-.btn:hover{ opacity:.95; transform:translateY(-1px) }
-.btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
+.btn i,.btn .fa{ color:inherit }
 
-/* اللون الأساسي لكل نوع */
+/* الألوان الأساسية */
 .btn.info{    background:var(--primary) }
 .btn.success{ background:var(--success) }
 .btn.warn{    background:var(--warning); color:#1f2937 }
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
+/* Hover/Active لكل لون (بدون بهتان) */
+.btn:not([disabled]):not(.is-disabled):hover{ transform:translateY(-1px) }
+.btn:not([disabled]):not(.is-disabled):active{ transform:translateY(0) scale(.98) }
+
+.btn.info:not([disabled]):not(.is-disabled):hover{    filter:brightness(1.05) }
+.btn.success:not([disabled]):not(.is-disabled):hover{  filter:brightness(1.05) }
+.btn.warn:not([disabled]):not(.is-disabled):hover{     filter:brightness(1.04) }
+.btn.gray:not([disabled]):not(.is-disabled):hover{     filter:brightness(1.05) }
+.btn.danger:not([disabled]):not(.is-disabled):hover{   filter:brightness(1.05) }
+
+/* Focus ring ملوّن لكل نوع */
+.btn:focus-visible{ outline:0; box-shadow:0 0 0 3px rgba(37,99,235,.18) }
+.btn.info:focus-visible{    box-shadow:0 0 0 3px rgba(37,99,235,.25) }
+.btn.success:focus-visible{  box-shadow:0 0 0 3px rgba(22,163,74,.25) }
+.btn.warn:focus-visible{     box-shadow:0 0 0 3px rgba(245,158,11,.28) }
+.btn.gray:focus-visible{     box-shadow:0 0 0 3px rgba(107,114,128,.28) }
+.btn.danger:focus-visible{   box-shadow:0 0 0 3px rgba(239,68,68,.28) }
+
+/* إبقاء اللون عند التعطيل — يدعم aria-disabled و .is-disabled */
 .btn[disabled],
-.btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
-.btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
-.btn.success[disabled],.btn.success:disabled{  background:var(--success) !important; color:#fff !important }
-.btn.warn[disabled],   .btn.warn:disabled{     background:var(--warning) !important; color:#1f2937 !important }
-.btn.gray[disabled],   .btn.gray:disabled{     background:var(--gray) !important;    color:#fff !important }
-.btn.danger[disabled], .btn.danger:disabled{   background:var(--danger) !important;  color:#fff !important }
-.btn[disabled] i,.btn[disabled] .fa,
-.btn:disabled i,.btn:disabled .fa{ color:inherit !important; opacity:1 !important }
+.btn:disabled,
+.btn[aria-disabled="true"],
+.btn.is-disabled{
+  opacity:1 !important; filter:none !important; cursor:not-allowed; pointer-events:none;
+}
+.btn.info[disabled],   .btn.info:disabled,   .btn.info[aria-disabled="true"],   .btn.info.is-disabled{    background:var(--primary) !important; color:#fff !important }
+.btn.success[disabled],.btn.success:disabled,.btn.success[aria-disabled="true"], .btn.success.is-disabled{  background:var(--success) !important; color:#fff !important }
+.btn.warn[disabled],   .btn.warn:disabled,   .btn.warn[aria-disabled="true"],   .btn.warn.is-disabled{     background:var(--warning) !important; color:#1f2937 !important }
+.btn.gray[disabled],   .btn.gray:disabled,   .btn.gray[aria-disabled="true"],   .btn.gray.is-disabled{     background:var(--gray) !important;    color:#fff !important }
+.btn.danger[disabled], .btn.danger:disabled, .btn.danger[aria-disabled="true"], .btn.danger.is-disabled{   background:var(--danger) !important;  color:#fff !important }
+.btn[disabled] i,.btn:disabled i,.btn[aria-disabled="true"] i,.btn.is-disabled i{ color:inherit !important }
 
 /* حجم كبير */
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
 
-/* أزرار الحالة السريعة داخل البطاقة */
+/* أزرار الحالة السريعة داخل البطاقة (ألوان قسرية) */
 .order-quick .btn{
   width:46px; height:46px; padding:0; border-radius:14px;
   box-shadow:0 2px 8px rgba(0,0,0,.08)
 }
-.order-quick .btn i{ font-size:18px }
+.order-quick .btn{ border:0 !important }
+.order-quick .btn.info{    background:var(--primary) !important; color:#fff !important }
+.order-quick .btn.success{  background:var(--success) !important; color:#fff !important }
+.order-quick .btn.warn{     background:var(--warning) !important; color:#1f2937 !important }
+.order-quick .btn.gray{     background:var(--gray) !important;    color:#fff !important }
+.order-quick .btn.danger{   background:var(--danger) !important;  color:#fff !important }
+.order-quick .btn i{ color:inherit !important }
 
-/* زر إدارة الطلب */
+/* زر إدارة الطلب/فتح الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
 .btn.manage:hover{ filter:brightness(1.05) }
-
-/* زر فتح الطلب (اختياري) */
 .btn.open-order{ background:#36495b; color:#fff }
 .btn.open-order:hover{ filter:brightness(1.05) }
 
@@ -183,14 +209,18 @@ input[type="checkbox"],input[type="radio"]{
 .bulk-actions .btn{ border-radius:999px; padding:11px 15px }
 .bulk-actions .btn i{ pointer-events:none }
 
-/* الألوان تبقى حتى لو Disabled */
+/* إبقاء الألوان في الشريط الجماعي حتى عند التعطيل */
 .bulk-actions .btn[disabled],
-.bulk-actions .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
-.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled{    background:var(--primary) !important;  color:#fff !important }
-.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled{  background:var(--success) !important;  color:#fff !important }
-.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled{     background:var(--warning) !important;  color:#1f2937 !important }
-.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled{     background:var(--gray) !important;     color:#fff !important }
-.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled{   background:var(--danger) !important;   color:#fff !important }
+.bulk-actions .btn:disabled,
+.bulk-actions .btn[aria-disabled="true"],
+.bulk-actions .btn.is-disabled{
+  opacity:1 !important; filter:none !important; cursor:not-allowed;
+}
+.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled,    .bulk-actions .btn.info[aria-disabled="true"],    .bulk-actions .btn.info.is-disabled{    background:var(--primary) !important;  color:#fff !important }
+.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled,  .bulk-actions .btn.success[aria-disabled="true"],  .bulk-actions .btn.success.is-disabled{  background:var(--success) !important;  color:#fff !important }
+.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled,     .bulk-actions .btn.warn[aria-disabled="true"],     .bulk-actions .btn.warn.is-disabled{     background:var(--warning) !important;  color:#1f2937 !important }
+.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled,     .bulk-actions .btn.gray[aria-disabled="true"],     .bulk-actions .btn.gray.is-disabled{     background:var(--gray) !important;     color:#fff !important }
+.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled,   .bulk-actions .btn.danger[aria-disabled="true"],   .bulk-actions .btn.danger.is-disabled{   background:var(--danger) !important;   color:#fff !important }
 
 /* ===== Selects ===== */
 select{
