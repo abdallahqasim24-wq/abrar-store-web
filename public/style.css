@@ -110,11 +110,12 @@ input[type="checkbox"],input[type="radio"]{
 /* ===== Buttons ===== */
 .btn{
   padding:12px 18px; border:0; border-radius:14px;
-  display:inline-flex; align-items:center; gap:10px;
-  font-weight:800; color:#fff; cursor:pointer; transition:.2s;
+  display:inline-flex; align-items:center; justify-content:center; gap:10px;
+  font-weight:800; color:#fff; cursor:pointer; transition:.2s; line-height:1;
 }
 .btn:hover{ opacity:.95; transform:translateY(-1px) }
 .btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
+.btn i{ line-height:1 }
 
 /* اللون الأساسي لكل نوع */
 .btn.info{    background:var(--primary) }
@@ -123,7 +124,7 @@ input[type="checkbox"],input[type="radio"]{
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
+/* إبقاء اللون عند التعطيل */
 .btn[disabled],
 .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
 .btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
@@ -137,9 +138,10 @@ input[type="checkbox"],input[type="radio"]{
 /* حجم كبير */
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
 
-/* أزرار الحالة السريعة داخل البطاقة */
+/* ===== Quick actions on orders ===== */
+.order-quick{ display:flex; gap:10px; flex-wrap:wrap; align-items:center }
 .order-quick .btn{
-  width:46px; height:46px; padding:0; border-radius:14px;
+  width:56px; height:56px; padding:0; border-radius:16px;
   box-shadow:0 2px 8px rgba(0,0,0,.08)
 }
 .order-quick .btn{ border:0 !important }
@@ -148,7 +150,7 @@ input[type="checkbox"],input[type="radio"]{
 .order-quick .btn.warn{     background:var(--warning) !important;  color:#1f2937 !important }
 .order-quick .btn.gray{     background:var(--gray) !important;     color:#fff !important }
 .order-quick .btn.danger{   background:var(--danger) !important;   color:#fff !important }
-.order-quick .btn i{ color:inherit !important }
+.order-quick .btn i{ color:inherit !important; font-size:20px; line-height:1 }
 
 /* زر إدارة الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
