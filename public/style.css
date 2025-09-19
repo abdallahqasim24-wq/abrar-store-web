@@ -114,12 +114,10 @@ input[type="checkbox"],input[type="radio"]{
 .btn{
   padding:12px 18px; border:0; border-radius:14px;
   display:inline-flex; align-items:center; gap:10px;
-  font-weight:800; color:#fff; cursor:pointer; transition:transform .15s ease, filter .15s ease;
+  font-weight:800; color:#fff; cursor:pointer; transition:.2s;
 }
-.btn:hover{ transform:translateY(-1px) }
-.btn:active{ transform:translateY(0) scale(.98) }
+.btn:hover{ opacity:.95; transform:translateY(-1px) }
 .btn:focus-visible{ outline:3px solid rgba(37,99,235,.25); outline-offset:2px }
-.btn i,.btn .fa{ color:inherit }
 
 /* اللون الأساسي لكل نوع */
 .btn.info{    background:var(--primary) }
@@ -128,19 +126,16 @@ input[type="checkbox"],input[type="radio"]{
 .btn.gray{    background:var(--gray) }
 .btn.danger{  background:var(--danger) }
 
-/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class وحالات ARIA) */
+/* إبقاء اللون عند التعطيل (يغطي attribute و pseudo-class) */
 .btn[disabled],
-.btn:disabled,
-.btn[aria-disabled="true"],
-.btn.is-disabled{
-  opacity:1 !important; filter:none !important; cursor:not-allowed;
-}
-.btn.info[disabled],    .btn.info:disabled,    .btn.info[aria-disabled="true"],    .btn.info.is-disabled{    background:var(--primary) !important;  color:#fff !important }
-.btn.success[disabled], .btn.success:disabled, .btn.success[aria-disabled="true"], .btn.success.is-disabled{  background:var(--success) !important;  color:#fff !important }
-.btn.warn[disabled],    .btn.warn:disabled,    .btn.warn[aria-disabled="true"],    .btn.warn.is-disabled{     background:var(--warning) !important;  color:#1f2937 !important }
-.btn.gray[disabled],    .btn.gray:disabled,    .btn.gray[aria-disabled="true"],    .btn.gray.is-disabled{     background:var(--gray) !important;     color:#fff !important }
-.btn.danger[disabled],  .btn.danger:disabled,  .btn.danger[aria-disabled="true"],  .btn.danger.is-disabled{   background:var(--danger) !important;   color:#fff !important }
-.btn[disabled] i,.btn:disabled i,.btn[aria-disabled="true"] i,.btn.is-disabled i{ color:inherit !important }
+.btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+.btn.info[disabled],   .btn.info:disabled{    background:var(--primary) !important; color:#fff !important }
+.btn.success[disabled],.btn.success:disabled{  background:var(--success) !important; color:#fff !important }
+.btn.warn[disabled],   .btn.warn:disabled{     background:var(--warning) !important; color:#1f2937 !important }
+.btn.gray[disabled],   .btn.gray:disabled{     background:var(--gray) !important;    color:#fff !important }
+.btn.danger[disabled], .btn.danger:disabled{   background:var(--danger) !important;  color:#fff !important }
+.btn[disabled] i,.btn[disabled] .fa,
+.btn:disabled i,.btn:disabled .fa{ color:inherit !important; opacity:1 !important }
 
 /* حجم كبير */
 .btn-lg{ font-size:1.06rem; padding:13px 20px; border-radius:16px }
@@ -150,7 +145,13 @@ input[type="checkbox"],input[type="radio"]{
   width:46px; height:46px; padding:0; border-radius:14px;
   box-shadow:0 2px 8px rgba(0,0,0,.08)
 }
-.order-quick .btn i{ font-size:18px }
+.order-quick .btn{ border:0 !important }
+.order-quick .btn.info{    background:var(--primary) !important;  color:#fff !important }
+.order-quick .btn.success{  background:var(--success) !important;  color:#fff !important }
+.order-quick .btn.warn{     background:var(--warning) !important;  color:#1f2937 !important }
+.order-quick .btn.gray{     background:var(--gray) !important;     color:#fff !important }
+.order-quick .btn.danger{   background:var(--danger) !important;   color:#fff !important }
+.order-quick .btn i{ color:inherit !important }
 
 /* زر إدارة الطلب */
 .btn.manage{ background:#0ea5e9; color:#fff }
@@ -190,16 +191,12 @@ input[type="checkbox"],input[type="radio"]{
 
 /* الألوان تبقى حتى لو Disabled */
 .bulk-actions .btn[disabled],
-.bulk-actions .btn:disabled,
-.bulk-actions .btn[aria-disabled="true"],
-.bulk-actions .btn.is-disabled{
-  opacity:1 !important; filter:none !important; cursor:not-allowed;
-}
-.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled,    .bulk-actions .btn.info[aria-disabled="true"],    .bulk-actions .btn.info.is-disabled{    background:var(--primary) !important;  color:#fff !important }
-.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled,  .bulk-actions .btn.success[aria-disabled="true"],  .bulk-actions .btn.success.is-disabled{  background:var(--success) !important;  color:#fff !important }
-.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled,     .bulk-actions .btn.warn[aria-disabled="true"],     .bulk-actions .btn.warn.is-disabled{     background:var(--warning) !important;  color:#1f2937 !important }
-.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled,     .bulk-actions .btn.gray[aria-disabled="true"],     .bulk-actions .btn.gray.is-disabled{     background:var(--gray) !important;     color:#fff !important }
-.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled,   .bulk-actions .btn.danger[aria-disabled="true"],   .bulk-actions .btn.danger.is-disabled{   background:var(--danger) !important;   color:#fff !important }
+.bulk-actions .btn:disabled{ opacity:1 !important; filter:none !important; cursor:not-allowed }
+.bulk-actions .btn.info[disabled],    .bulk-actions .btn.info:disabled{    background:var(--primary) !important;  color:#fff !important }
+.bulk-actions .btn.success[disabled],  .bulk-actions .btn.success:disabled{  background:var(--success) !important;  color:#fff !important }
+.bulk-actions .btn.warn[disabled],     .bulk-actions .btn.warn:disabled{     background:var(--warning) !important;  color:#1f2937 !important }
+.bulk-actions .btn.gray[disabled],     .bulk-actions .btn.gray:disabled{     background:var(--gray) !important;     color:#fff !important }
+.bulk-actions .btn.danger[disabled],   .bulk-actions .btn.danger:disabled{   background:var(--danger) !important;   color:#fff !important }
 
 /* ===== Selects ===== */
 select{
