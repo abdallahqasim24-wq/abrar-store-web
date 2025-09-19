@@ -1,12 +1,13 @@
-<!-- views/orders.ejs — صفحة "كل الطلبات" (نسخة مرتّبة ونهائية) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (بناء جديد كامل) -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <%
-  // حماية إذا filters ما وصل من السيرفر
+  // أمان لو ما وصلت filters من السيرفر
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
-  const st = _filters.status || 'all';
-  const so = _filters.sort   || 'newest';
-
+  const st = _filters.status || 'all'; // للأولية فقط، الباقي على الواجهة
+  const tz = (typeof TZ_NAME !== 'undefined' && TZ_NAME) ? TZ_NAME : 'Asia/Hebron';
+  const ORD = Array.isArray(orders) ? orders : [];
+  const MAP = (typeof itemsByOrder === 'object' && itemsByOrder) ? itemsByOrder : {};
   function statusLabel(s){
     switch(String(s||'').toLowerCase()){
       case 'pending':    return 'قيد الإدخال';
@@ -14,20 +15,31 @@
       case 'shipping':   return 'قيد التوصيل';
       case 'delivered':  return 'تم التسليم';
       case 'failed':     return 'فشل/لم يتم';
-      default:           return s || '—';
+      default:           return 'غير محدد';
     }
   }
 %>
 
-<div class="container page">
+<div class="container page" style="max-width:1400px">
 
-  <!-- العنوان + الفلاتر -->
-  <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-    <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
-      <span class="muted">(<%= (orders||[]).length %>)</span></h2>
+  <!-- الهيدر -->
+  <div class="row" style="gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:8px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
+        <span class="muted">(<%= ORD.length %>)</span></h2>
 
-    <form method="get" action="/orders" class="row" style="gap:8px">
-      <select name="status" onchange="this.form.submit()">
+      <!-- شارة إجمالية ديناميكية بعد التصفية -->
+      <div id="sumBar" class="badge-lg" style="display:none;background:#fff">
+        <i class="fa fa-chart-line"></i>
+        <span id="sumText"></span>
+      </div>
+    </div>
+
+    <!-- أدوات التحكم -->
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <input id="q" type="search" placeholder="بحث: رقم/اسم/هاتف/مدينة…" style="min-width:240px">
+
+      <select id="fStatus" title="حالة الطلب">
         <option value="all"        <%= st==='all'?'selected':'' %>       >كل الحالات</option>
         <option value="pending"    <%= st==='pending'?'selected':'' %>    >قيد الإدخال</option>
         <option value="processing" <%= st==='processing'?'selected':'' %> >قيد المعالجة</option>
@@ -36,193 +48,310 @@
         <option value="failed"     <%= st==='failed'?'selected':'' %>     >فشل/لم يتم</option>
       </select>
 
-      <select name="sort" onchange="this.form.submit()">
-        <option value="newest" <%= so==='newest'?'selected':'' %> >الأحدث أولاً</option>
-        <option value="oldest" <%= so==='oldest'?'selected':'' %> >الأقدم أولاً</option>
+      <select id="sortBy" title="ترتيب">
+        <option value="date_desc">الأحدث أولاً</option>
+        <option value="date_asc">الأقدم أولاً</option>
+        <option value="rev_desc">الإيراد الأعلى</option>
+        <option value="rev_asc">الإيراد الأقل</option>
+        <option value="prf_desc">الربح الأعلى</option>
+        <option value="prf_asc">الربح الأقل</option>
       </select>
-      <noscript><button class="btn info">تطبيق</button></noscript>
-    </form>
+
+      <input id="dFrom" type="date" title="من تاريخ">
+      <input id="dTo"   type="date" title="إلى تاريخ">
+
+      <button id="clearFilters" class="btn gray" type="button"><i class="fa fa-rotate-left"></i> تصفير</button>
+
+      <button id="exportCsv" class="btn info" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
+      <button id="copyPhones" class="btn success" type="button"><i class="fa fa-copy"></i> نسخ أرقام الهواتف</button>
+    </div>
   </div>
 
   <!-- شريط الأوامر الجماعية -->
-  <form id="bulkForm" method="post">
+  <form id="bulkForm" method="post" style="margin:10px 0">
     <input type="hidden" name="ids" id="bulkIds">
-
-    <div class="bulk-bar" style="margin:12px 0">
+    <div class="bulk-bar">
       <label class="row" style="gap:8px;align-items:center;cursor:pointer">
         <input id="selectAll" type="checkbox">
         <span class="bulk-title">تحديد الكل</span>
       </label>
-
       <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-      <div class="bulk-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <input type="hidden" name="apply_to_items" value="on">
-        <button data-bulk class="btn warn"     formaction="/orders/bulk-status" name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
-        <button data-bulk class="btn info"     formaction="/orders/bulk-status" name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-        <button data-bulk class="btn gray"     formaction="/orders/bulk-status" name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-        <button data-bulk class="btn success"  formaction="/orders/bulk-status" name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-        <button data-bulk class="btn danger"   formaction="/orders/bulk-status" name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
+      <div class="bulk-actions">
+        <label class="row muted-sm" style="gap:6px;align-items:center">
+          <input id="applyItems" type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
+        </label>
+
+        <button data-bulk class="btn warn"     formaction="/orders/bulk-status"   name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
+        <button data-bulk class="btn info"     formaction="/orders/bulk-status"   name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
+        <button data-bulk class="btn gray"     formaction="/orders/bulk-status"   name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
+        <button data-bulk class="btn success"  formaction="/orders/bulk-status"   name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
+        <button data-bulk class="btn danger"   formaction="/orders/bulk-status"   name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
       </div>
 
       <span class="right"></span>
 
       <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit"
-              onclick="return confirm('حذف الطلبات المحددة نهائيًا؟')">
+              onclick="return confirm('حذف الطلبات المحددة نهائيًا؟ سيتم حذف بنودها أيضاً.')">
         <i class="fa fa-trash"></i> حذف المحدّد
       </button>
+
+      <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit"
+              onclick="return confirm('إرسال بنود الطلبات المحددة إلى قائمة المرتجعات؟')">
+        <i class="fa fa-undo"></i> إرجاع البنود
+      </button>
     </div>
+  </form>
 
-    <!-- بطاقات الطلبات -->
-    <div class="cards">
-      <% (orders||[]).forEach(o => {
-        const its   = (itemsByOrder && itemsByOrder[o.id]) || [];
-        const shown = its.slice(0, 4);
-        const more  = Math.max(0, its.length - shown.length);
-
-        const allDelivered = its.length && its.every(x=>x.delivery_status==='delivered');
-        const allFailed    = its.length && its.every(x=>x.delivery_status==='failed');
-        const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
-
+  <!-- الشبكة -->
+  <div id="grid" class="cards">
+    <% ORD.forEach(o => {
+        const its   = Array.isArray(MAP[o.id]) ? MAP[o.id] : [];
         const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
         const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
-        const profit   = its.reduce((a,x)=> a + (Number(x.sale_price)*Number(x.quantity) - Number(x.cost_price)*Number(x.quantity)), 0);
-      %>
+        const profit   = its.reduce((a,x)=>a + (Number(x.sale_price||0)*Number(x.quantity||0) - Number(x.cost_price||0)*Number(x.quantity||0)), 0);
 
-      <div class="card order-card" data-oid="<%= o.id %>">
-        <!-- رأس البطاقة -->
-        <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
-          <label class="row" style="gap:10px;align-items:center;cursor:pointer">
-            <input class="sel" type="checkbox" data-oid="<%= o.id %>">
-            <span class="status-chip status-<%= effStatus %>">
-              <i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %>
-            </span>
-          </label>
+        const allDelivered = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='delivered');
+        const allFailed    = its.length && its.every(x=>String(x.delivery_status).toLowerCase()==='failed');
+        const effStatus    = allFailed ? 'failed' : (allDelivered ? 'delivered' : (o.status || 'pending'));
 
-          <div class="order-kpis">
-            <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> بنود</span>
-            <span><i class="fa fa-coins"></i> الإيراد: <strong><%= revenue.toFixed(2) %></strong></span>
-            <span><i class="fa fa-sack-dollar"></i> الربح: <strong><%= profit.toFixed(2) %></strong></span>
-          </div>
-        </div>
+        const whenISO = dayjs(o.created_at).tz(tz).format('YYYY-MM-DD');
+        const whenTS  = +dayjs(o.created_at).tz(tz);
+        const shown   = its.slice(0, 4);
+        const more    = Math.max(0, its.length - shown.length);
+    %>
 
-        <!-- معلومات العميل -->
-        <div class="row" style="gap:14px;align-items:center;margin-top:6px">
-          <span class="muted-sm"><i class="fa fa-clock"></i>
-            <%= dayjs(o.created_at).tz(TZ_NAME||'Asia/Hebron').format('YYYY-MM-DD HH:mm') %></span>
-          <span class="muted-sm"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
-          <span class="muted-sm"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
-          <span class="muted-sm"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
-        </div>
+    <div class="card order" 
+         data-id="<%= o.id %>"
+         data-status="<%= effStatus %>"
+         data-name="<%- (o.customer_name||'').toLowerCase() %>"
+         data-phone="<%- (o.customer_phone||'').toLowerCase() %>"
+         data-city="<%- (o.customer_city||'').toLowerCase() %>"
+         data-date="<%= whenTS %>"
+         data-dateiso="<%= whenISO %>"
+         data-revenue="<%= revenue.toFixed(2) %>"
+         data-profit="<%= profit.toFixed(2) %>">
 
-        <!-- معاينة البنود -->
-        <div style="margin-top:12px">
-          <% if (!its.length) { %>
-            <div class="muted">لا يوجد بنود بعد.</div>
-          <% } else { %>
-            <div class="row" style="gap:10px;flex-wrap:wrap">
-              <% shown.forEach(x => { %>
-                <div class="badge">
-                  <i class="fa fa-cube"></i>
-                  <span><%= x.product_name %></span>
-                  <span class="muted-sm">× <%= x.quantity %></span>
-                </div>
-              <% }) %>
-              <% if (more>0) { %>
-                <div class="badge muted">+<%= more %> أخرى</div>
-              <% } %>
-            </div>
-          <% } %>
-        </div>
+      <!-- رأس -->
+      <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
+        <label class="row" style="gap:10px;align-items:center;cursor:pointer">
+          <input class="sel" type="checkbox" data-oid="<%= o.id %>">
+          <span class="status-chip status-<%= effStatus %>"><i class="fa fa-hashtag"></i> #<%= o.id %> — <%= statusLabel(effStatus) %></span>
+        </label>
 
-        <!-- أزرار سريعة -->
-        <div class="row order-quick" style="gap:8px;align-items:center;margin-top:14px">
-          <form method="post" action="/orders/<%= o.id %>/status">
-            <input type="hidden" name="apply_to_items" value="on">
-            <input type="hidden" name="status" value="pending">
-            <button class="btn warn" type="submit" title="إلى قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
-          </form>
-
-          <form method="post" action="/orders/<%= o.id %>/status">
-            <input type="hidden" name="apply_to_items" value="on">
-            <input type="hidden" name="status" value="processing">
-            <button class="btn info" type="submit" title="إلى قيد المعالجة"><i class="fa fa-gears"></i></button>
-          </form>
-
-          <form method="post" action="/orders/<%= o.id %>/status">
-            <input type="hidden" name="apply_to_items" value="on">
-            <input type="hidden" name="status" value="shipping">
-            <button class="btn gray" type="submit" title="إلى قيد التوصيل"><i class="fa fa-truck"></i></button>
-          </form>
-
-          <form method="post" action="/orders/<%= o.id %>/status">
-            <input type="hidden" name="apply_to_items" value="on">
-            <input type="hidden" name="status" value="delivered">
-            <button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button>
-          </form>
-
-          <form method="post" action="/orders/<%= o.id %>/status">
-            <input type="hidden" name="apply_to_items" value="on">
-            <input type="hidden" name="status" value="failed">
-            <button class="btn danger" type="submit" title="فشل التسليم"><i class="fa fa-xmark"></i></button>
-          </form>
-
-          <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
+        <div class="order-kpis">
+          <span><i class="fa fa-clock"></i> <strong><%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></strong></span>
+          <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> عناصر</span>
+          <span><i class="fa fa-coins"></i> <strong><%= revenue.toFixed(2) %></strong></span>
+          <span><i class="fa fa-sack-dollar"></i> <strong><%= profit.toFixed(2) %></strong></span>
         </div>
       </div>
 
-      <% }) %>
+      <!-- عميل -->
+      <div class="row" style="gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap">
+        <span class="badge"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
+        <span class="badge"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
+        <span class="badge"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
+        <% if (o.note) { %><span class="badge" title="ملاحظة"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
+      </div>
+
+      <!-- البنود -->
+      <div style="margin-top:12px">
+        <% if (!its.length) { %>
+          <div class="muted">لا يوجد بنود بعد.</div>
+        <% } else { %>
+          <div class="row" style="gap:10px;flex-wrap:wrap">
+            <% shown.forEach(x => { %>
+              <div class="badge">
+                <i class="fa fa-cube"></i>
+                <span><%= x.product_name %></span>
+                <span class="muted-sm">× <%= x.quantity %></span>
+              </div>
+            <% }) %>
+            <% if (more>0) { %><div class="badge muted">+<%= more %> أخرى</div><% } %>
+          </div>
+        <% } %>
+      </div>
+
+      <!-- أزرار -->
+      <div class="row order-quick" style="gap:8px;margin-top:14px">
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="shipping"><button class="btn gray"    type="submit" title="قيد التوصيل"><i class="fa fa-truck"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="delivered"><button class="btn success" type="submit" title="تم التسليم"><i class="fa fa-check"></i></button></form>
+        <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="failed"><button class="btn danger"  type="submit" title="فشل/لم يتم"><i class="fa fa-xmark"></i></button></form>
+
+        <a class="btn manage" href="/orders/<%= o.id %>"><i class="fa fa-pen-to-square"></i> إدارة</a>
+
+        <form method="post" action="/orders/bulk-delete" onsubmit="return confirm('حذف الطلب #<%= o.id %> مع جميع بنوده؟')">
+          <input type="hidden" name="ids" value="<%= o.id %>">
+          <button class="btn danger" type="submit" title="حذف"><i class="fa fa-trash"></i></button>
+        </form>
+      </div>
     </div>
-  </form>
+
+    <% }) %>
+  </div>
 </div>
 
-<!-- سكريبت بسيط لإدارة التحديد الجماعي -->
 <script>
-  (function(){
-    const $$ = (s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
-    const selected = new Set();
-    const selCount = document.getElementById('selCount');
-    const bulkIds  = document.getElementById('bulkIds');
-    const selectAll = document.getElementById('selectAll');
+(function(){
+  const $$=(s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
+  const q=document.getElementById('q');
+  const fStatus=document.getElementById('fStatus');
+  const sortBy=document.getElementById('sortBy');
+  const dFrom=document.getElementById('dFrom');
+  const dTo=document.getElementById('dTo');
+  const clearFilters=document.getElementById('clearFilters');
+  const exportCsv=document.getElementById('exportCsv');
+  const copyPhones=document.getElementById('copyPhones');
 
-    function sync(){
-      selCount.textContent = selected.size;
-      bulkIds.value = Array.from(selected).join(',');
-      // مزامنة حالة selectAll
-      const boxes = $$('.sel');
-      selectAll.checked = (boxes.length>0 && boxes.every(b=>b.checked));
-    }
+  const selectAll=document.getElementById('selectAll');
+  const selCount=document.getElementById('selCount');
+  const bulkIds=document.getElementById('bulkIds');
+  const applyItems=document.getElementById('applyItems');
+  const bulkForm=document.getElementById('bulkForm');
 
-    $$('.sel').forEach(cb=>{
-      cb.addEventListener('change', ()=>{
-        const id = cb.getAttribute('data-oid');
-        cb.checked ? selected.add(id) : selected.delete(id);
-        sync();
-      });
+  const selected=new Set();
+  const cards=$$('#grid .order');
+  const sumBar=document.getElementById('sumBar');
+  const sumText=document.getElementById('sumText');
+
+  function withinRange(card){
+    const ts=Number(card.dataset.date||0);
+    const fi=dFrom.value? Date.parse(dFrom.value+'T00:00:00'):null;
+    const ti=dTo.value?   Date.parse(dTo.value+'T23:59:59'):null;
+    if (fi && ts<fi) return false;
+    if (ti && ts>ti) return false;
+    return true;
+  }
+  function matchSearch(card){
+    const s=(q.value||'').trim().toLowerCase();
+    if(!s) return true;
+    const id=String(card.dataset.id||'');
+    return id.includes(s)
+        || (card.dataset.name||'').includes(s)
+        || (card.dataset.phone||'').includes(s)
+        || (card.dataset.city||'').includes(s);
+  }
+  function matchStatus(card){
+    const st=fStatus.value;
+    if(st==='all') return true;
+    return (card.dataset.status||'')===st;
+  }
+  function filter(){
+    let vis=cards;
+    vis.forEach(c=>c.style.display='none');
+    vis=cards.filter(c=>matchStatus(c) && matchSearch(c) && withinRange(c));
+    // ترتيب
+    const mode=sortBy.value;
+    vis.sort((a,b)=>{
+      if(mode==='date_desc') return Number(b.dataset.date)-Number(a.dataset.date);
+      if(mode==='date_asc')  return Number(a.dataset.date)-Number(b.dataset.date);
+      if(mode==='rev_desc')  return Number(b.dataset.revenue)-Number(a.dataset.revenue);
+      if(mode==='rev_asc')   return Number(a.dataset.revenue)-Number(b.dataset.revenue);
+      if(mode==='prf_desc')  return Number(b.dataset.profit)-Number(a.dataset.profit);
+      if(mode==='prf_asc')   return Number(a.dataset.profit)-Number(b.dataset.profit);
+      return 0;
     });
+    const grid=document.getElementById('grid');
+    vis.forEach(c=>grid.appendChild(c));
+    vis.forEach(c=>c.style.display='');
 
-    if (selectAll){
-      selectAll.addEventListener('change', ()=>{
-        const on = selectAll.checked;
-        $$('.sel').forEach(cb=>{
-          cb.checked = on;
-          const id = cb.getAttribute('data-oid');
-          on ? selected.add(id) : selected.delete(id);
-        });
-        sync();
-      });
-    }
+    // مجاميع
+    const cnt=vis.length;
+    const rev=vis.reduce((a,c)=>a+Number(c.dataset.revenue||0),0);
+    const prf=vis.reduce((a,c)=>a+Number(c.dataset.profit||0),0);
+    if(cnt>0){ sumBar.style.display='inline-flex'; sumText.textContent=`العرض: ${cnt} طلب — الإيراد ${rev.toFixed(2)} — الربح ${prf.toFixed(2)}`; }
+    else { sumBar.style.display='none'; }
+  }
+  function syncSel(){
+    selCount.textContent=selected.size;
+    bulkIds.value=[...selected].join(',');
+    // مزامنة تحديد الكل بالنسبة للظاهر فقط
+    const visible=$$('#grid .order').filter(c=>c.style.display!=='none');
+    const visibleBoxes=visible.map(c=>c.querySelector('.sel'));
+    selectAll.checked = (visibleBoxes.length>0 && visibleBoxes.every(b=>b.checked));
+  }
 
-    // عند الضغط على أي زر جماعي، امنع الإرسال إذا لا يوجد محدد
-    document.getElementById('bulkForm')?.addEventListener('click', (e)=>{
-      const btn = e.target.closest('[data-bulk]');
-      if (!btn) return;
-      if (selected.size===0){
-        e.preventDefault();
-        alert('اختر طلبًا واحدًا على الأقل.');
-      }
+  // أحداث التصفية
+  [q,fStatus,sortBy,dFrom,dTo].forEach(el=>el.addEventListener('input', filter));
+  clearFilters.addEventListener('click', ()=>{ q.value=''; fStatus.value='all'; sortBy.value='date_desc'; dFrom.value=''; dTo.value=''; filter(); });
+
+  // اختيار
+  $$('.sel').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id=cb.dataset.oid;
+      (cb.checked?selected.add(id):selected.delete(id));
+      syncSel();
     });
+  });
+  selectAll.addEventListener('change', ()=>{
+    const on=selectAll.checked;
+    const visible=$$('#grid .order').filter(c=>c.style.display!=='none');
+    visible.forEach(c=>{
+      const cb=c.querySelector('.sel');
+      cb.checked=on;
+      const id=cb.dataset.oid;
+      on?selected.add(id):selected.delete(id);
+    });
+    syncSel();
+  });
 
-    sync();
-  })();
+  // منع إرسال جماعي بلا اختيار
+  bulkForm.addEventListener('click', (e)=>{
+    const btn=e.target.closest('[data-bulk]');
+    if(!btn) return;
+    if(selected.size===0){ e.preventDefault(); alert('اختر طلبًا واحدًا على الأقل.'); return; }
+    // ضم خيار تطبيق البنود
+    if(!bulkForm.querySelector('input[name="apply_to_items"]')){
+      const h=document.createElement('input'); h.type='hidden'; h.name='apply_to_items'; h.value=applyItems.checked?'on':'off';
+      bulkForm.appendChild(h);
+    } else {
+      bulkForm.querySelector('input[name="apply_to_items"]').value=applyItems.checked?'on':'off';
+    }
+  });
+
+  // CSV (المعروض فقط أو المحدد إن وُجد)
+  function exportRows(list){
+    const head=['id','status','created_at','customer_name','customer_phone','customer_city','items_count','revenue','profit'];
+    const lines=[head.join(',')];
+    list.forEach(c=>{
+      const id=c.dataset.id;
+      const st=c.dataset.status;
+      const dt=c.dataset.dateiso;
+      const name=c.dataset.name.replace(/,/g,' ');
+      const phone=c.dataset.phone.replace(/,/g,' ');
+      const city=c.dataset.city.replace(/,/g,' ');
+      const items=c.querySelectorAll('.badge i.fa-cube').length;
+      const rev=Number(c.dataset.revenue||0).toFixed(2);
+      const prf=Number(c.dataset.profit||0).toFixed(2);
+      lines.push([id,st,dt,`"${name}"`,`"${phone}"`,`"${city}"`,items,rev,prf].join(','));
+    });
+    const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='orders.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+  exportCsv.addEventListener('click', ()=>{
+    const list = selected.size ? $$('#grid .order').filter(c=>selected.has(c.dataset.id)) 
+                               : $$('#grid .order').filter(c=>c.style.display!=='none');
+    if(list.length===0){ alert('لا يوجد بيانات للتصدير.'); return; }
+    exportRows(list);
+  });
+
+  // نسخ الهواتف
+  copyPhones.addEventListener('click', async ()=>{
+    const list = selected.size ? $$('#grid .order').filter(c=>selected.has(c.dataset.id)) 
+                               : $$('#grid .order').filter(c=>c.style.display!=='none');
+    const phones = [...new Set(list.map(c=>c.dataset.phone).filter(Boolean))];
+    if(!phones.length){ alert('لا يوجد أرقام.'); return; }
+    await navigator.clipboard.writeText(phones.join('\n'));
+    copyPhones.textContent='✔ تم النسخ'; setTimeout(()=>copyPhones.innerHTML='<i class="fa fa-copy"></i> نسخ أرقام الهواتف',1200);
+  });
+
+  // بدءي
+  filter(); syncSel();
+})();
 </script>
