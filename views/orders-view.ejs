@@ -1,4 +1,7 @@
-<!-- views/orders-view.ejs (FINAL, fixed 'orders' -> 'order') -->
+<!-- views/orders-view.ejs (FINAL)
+     - حذف البنود يعمل بصندوق اختيار delete_ids[]
+     - إضافة بند عبر شبكة المنتجات + تعبئة سعر البيع/الكلفة تلقائياً
+-->
 <%
   const o   = typeof order === 'object' && order ? order : {};
   const its = Array.isArray(items) ? items : [];
@@ -17,6 +20,7 @@
 %>
 
 <div class="container page" style="max-width:1200px">
+  <!-- شريط علوي -->
   <div class="row" style="justify-content:space-between;align-items:flex-end;margin-bottom:10px">
     <div class="row" style="gap:10px;align-items:center">
       <h2 style="margin:0">
@@ -33,7 +37,7 @@
     </div>
 
     <div class="row">
-      <a class="btn secondary" href="/orders"><i class="fa fa-arrow-right"></i> رجوع</a>
+      <a class="btn gray" href="/orders"><i class="fa fa-arrow-right"></i> رجوع</a>
       <form method="post" action="/orders/<%= o.id %>/delete" onsubmit="return confirm('حذف الطلب وبنوده؟')">
         <button class="btn danger" type="submit"><i class="fa fa-trash"></i> حذف الطلب</button>
       </form>
@@ -50,7 +54,7 @@
     </div>
   </div>
 
-  <!-- تغيـير حالة الطلب -->
+  <!-- تغيـير حالة الطلب (تطبق على البنود أيضاً) -->
   <div class="card" style="margin-bottom:14px">
     <form class="row" method="post" action="/orders/<%= o.id %>/status" style="gap:8px;align-items:center">
       <input type="hidden" name="apply_to_items" value="on">
@@ -64,7 +68,7 @@
     </form>
   </div>
 
-  <!-- الملخص -->
+  <!-- ملخص -->
   <%
     const totalQty = its.reduce((a,x)=>a + Number(x.quantity||0), 0);
     const revenue  = its.reduce((a,x)=>a + Number(x.sale_price||0) * Number(x.quantity||0), 0);
@@ -78,10 +82,10 @@
     </div>
   </div>
 
-  <!-- البنود -->
+  <!-- البنود (تحديث + حذف) -->
   <div class="card" style="margin-bottom:14px">
     <h3>بنود الطلب</h3>
-    <form method="post" action="/orders/<%= o.id %>/items/bulk-update">
+    <form id="editItemsForm" method="post" action="/orders/<%= o.id %>/items/bulk-update">
       <div class="table-scroll">
         <table>
           <thead>
@@ -98,13 +102,16 @@
             </tr>
           </thead>
           <tbody>
-            <% its.forEach((s,idx)=>{ %>
+            <% its.forEach((s)=>{ %>
               <tr>
-                <td><%= s.id %><input type="hidden" name="item_id[]" value="<%= s.id %>"></td>
+                <td>
+                  <%= s.id %>
+                  <input type="hidden" name="item_id[]" value="<%= s.id %>">
+                </td>
                 <td>
                   <select name="product_id[]" required>
                     <% products.forEach(p=>{ %>
-                      <option value="<%= p.id %>" <%= p.id===s.product_id?'selected':'' %>><%= p.name %></option>
+                      <option value="<%= p.id %>" data-sale="<%= Number(p.sale_price||0).toFixed(2) %>" data-cost="<%= Number(p.cost_price||0).toFixed(2) %>" <%= p.id===s.product_id?'selected':'' %>><%= p.name %></option>
                     <% }) %>
                   </select>
                 </td>
@@ -114,11 +121,11 @@
                 <td><input type="number" name="shipping_cost[]" step="0.01" value="<%= Number(s.shipping_cost||0).toFixed(2) %>"></td>
                 <td><input type="text" name="item_note[]" value="<%- s.note||'' %>"></td>
                 <td>
-                  <span class="status-chip status-<%= s.delivery_status %>">
-                    <%= statusLabel(s.delivery_status) %>
-                  </span>
+                  <span class="status-chip status-<%= s.delivery_status %>"><%= statusLabel(s.delivery_status) %></span>
                 </td>
-                <td><input type="checkbox" name="delete_flag[]"></td>
+                <td style="text-align:center">
+                  <input type="checkbox" name="delete_ids[]" value="<%= s.id %>">
+                </td>
               </tr>
             <% }) %>
           </tbody>
@@ -126,7 +133,7 @@
       </div>
 
       <div class="row" style="margin-top:10px">
-        <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات</button>
+        <button class="btn success" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات / حذف المحدد</button>
       </div>
     </form>
   </div>
@@ -134,34 +141,40 @@
   <!-- إضافة بند -->
   <div class="card">
     <h3>إضافة بند</h3>
-    <form class="form-grid" method="post" action="/orders/<%= o.id %>/items">
+    <form id="addForm" class="form-grid" method="post" action="/orders/<%= o.id %>/items">
       <div>
         <label>المنتج</label>
-        <select name="product_id" required>
-          <% products.forEach(p=>{ %>
-            <option value="<%= p.id %>"><%= p.name %></option>
-          <% }) %>
-        </select>
+        <div class="row" style="gap:8px">
+          <select id="addProduct" name="product_id" required style="min-width:220px">
+            <% products.forEach(p=>{ %>
+              <option value="<%= p.id %>"
+                      data-sale="<%= Number(p.sale_price||0).toFixed(2) %>"
+                      data-cost="<%= Number(p.cost_price||0).toFixed(2) %>"><%= p.name %></option>
+            <% }) %>
+          </select>
+          <button id="openPicker" class="btn info" type="button"><i class="fa fa-grid-2"></i> اختر من الشبكة</button>
+        </div>
       </div>
+
       <div>
         <label>الكمية</label>
-        <input type="number" name="quantity" min="1" step="1" value="1">
+        <input id="addQty" type="number" name="quantity" min="1" step="1" value="1">
       </div>
       <div>
         <label>سعر البيع</label>
-        <input type="number" name="sale_price" step="0.01">
+        <input id="addSale" type="number" name="sale_price" step="0.01">
       </div>
       <div>
         <label>سعر الكلفة</label>
-        <input type="number" name="cost_price" step="0.01">
+        <input id="addCost" type="number" name="cost_price" step="0.01">
       </div>
       <div>
         <label>كلفة الشحن</label>
-        <input type="number" name="shipping_cost" step="0.01" value="0">
+        <input id="addShip" type="number" name="shipping_cost" step="0.01" value="0">
       </div>
       <div>
         <label>ملاحظة</label>
-        <input type="text" name="note">
+        <input id="addNote" type="text" name="note">
       </div>
       <div class="right" style="align-self:end">
         <button class="btn add" type="submit"><i class="fa fa-plus"></i> إضافة</button>
@@ -169,3 +182,85 @@
     </form>
   </div>
 </div>
+
+<!-- مودال شبكة المنتجات -->
+<div id="pickModal" class="modal">
+  <div class="modal-bg" id="pickClose"></div>
+  <div class="modal-card">
+    <button id="pickX" class="mclose" type="button"><i class="fa fa-xmark"></i></button>
+    <div class="mhead">
+      <i class="fa fa-grid-2"></i>
+      <strong>اختر منتجًا</strong>
+      <input id="pickSearch" type="search" placeholder="بحث اسم/ماركة/صنف…" class="right" style="max-width:360px">
+    </div>
+    <div id="pickGrid" class="mgrid">
+      <% products.forEach(p=>{ %>
+        <button class="pcard" type="button"
+                data-id="<%= p.id %>"
+                data-name="<%- (p.name||'').toLowerCase() %>"
+                data-sale="<%= Number(p.sale_price||0).toFixed(2) %>"
+                data-cost="<%= Number(p.cost_price||0).toFixed(2) %>">
+          <img src="<%= p.image_path || '/public/placeholder.png' %>" alt="">
+          <div class="name"><%= p.name %></div>
+          <div style="text-align:center" class="muted-sm">
+            بيع: <strong><%= Number(p.sale_price||0).toFixed(2) %></strong> •
+            كلفة: <strong><%= Number(p.cost_price||0).toFixed(2) %></strong>
+          </div>
+        </button>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ===== تعبئة تلقائية لأسعار الإضافة =====
+  const addProduct = document.getElementById('addProduct');
+  const addSale = document.getElementById('addSale');
+  const addCost = document.getElementById('addCost');
+
+  function fillAddPricesFromSelect(){
+    const opt = addProduct.options[addProduct.selectedIndex];
+    if(!opt) return;
+    addSale.value = opt.dataset.sale || '';
+    addCost.value = opt.dataset.cost || '';
+  }
+  addProduct.addEventListener('change', fillAddPricesFromSelect);
+  fillAddPricesFromSelect();
+
+  // ===== مودال شبكة المنتجات =====
+  const modal = document.getElementById('pickModal');
+  const pickSearch = document.getElementById('pickSearch');
+  const pickGrid = document.getElementById('pickGrid');
+  const openBtn = document.getElementById('openPicker');
+  const closeEls = [document.getElementById('pickClose'), document.getElementById('pickX')];
+
+  function openModal(){ modal.style.display='block'; }
+  function closeModal(){ modal.style.display='none'; }
+  openBtn.addEventListener('click', openModal);
+  closeEls.forEach(el=>el.addEventListener('click', closeModal));
+  window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+  // اختيار بطاقة منتج
+  pickGrid.addEventListener('click', (e)=>{
+    const card = e.target.closest('.pcard'); if(!card) return;
+    const id = card.dataset.id;
+    const sale = card.dataset.sale || '';
+    const cost = card.dataset.cost || '';
+    // اضبط الـ select
+    addProduct.value = id;
+    fillAddPricesFromSelect();
+    // غلق
+    closeModal();
+  });
+
+  // بحث داخل الشبكة
+  pickSearch.addEventListener('input', ()=>{
+    const q=(pickSearch.value||'').trim().toLowerCase();
+    Array.from(pickGrid.children).forEach(btn=>{
+      const ok = !q || (btn.dataset.name||'').includes(q);
+      btn.style.display = ok ? '' : 'none';
+    });
+  });
+})();
+</script>

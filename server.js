@@ -1037,59 +1037,67 @@ app.post("/orders/:id/items", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// تحديث/حذف عدة بنود دفعة واحدة
+// تحديث/حذف عدة بنود دفعة واحدة (delete_ids[] آمن)
 app.post("/orders/:id/items/bulk-update", async (req, res) => {
   const id = Number(req.params.id);
-  const { item_id = [], product_id = [], quantity = [], sale_price = [], cost_price = [], shipping_cost = [], item_note = [], delete_flag = [] } = req.body;
+  const {
+    item_id = [],
+    product_id = [],
+    quantity = [],
+    sale_price = [],
+    cost_price = [],
+    shipping_cost = [],
+    item_note = [],
+    delete_ids = []
+  } = req.body;
 
-  const n = Math.max([].concat(item_id).length, [].concat(product_id).length, [].concat(quantity).length);
+  const A = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 
-  for (let i = 0; i < n; i++) {
-    const sid = Number([].concat(item_id)[i] || 0);
-    const pid = Number([].concat(product_id)[i] || 0);
-    const del = String([].concat(delete_flag)[i] || "").toLowerCase() === "on";
+  const IDS  = A(item_id).map(Number).filter(Boolean);
+  const PID  = A(product_id);
+  const QTY  = A(quantity);
+  const SP   = A(sale_price);
+  const CP   = A(cost_price);
+  const SH   = A(shipping_cost);
+  const NOTE = A(item_note);
+  const DEL  = new Set(A(delete_ids).map(Number).filter(Boolean));
 
-    if (sid && del) {
-      await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [sid, id]);
-      continue;
-    }
-
-    if (sid && pid) {
-      await query(
-        `UPDATE sales SET product_id=$1, quantity=$2, sale_price=$3, cost_price=$4, shipping_cost=$5, note=$6
-         WHERE id=$7 AND order_id=$8`,
-        [
-          pid,
-          Math.max(1, Number([].concat(quantity)[i] || 1)),
-          Number([].concat(sale_price)[i] || 0),
-          Number([].concat(cost_price)[i] || 0),
-          Number([].concat(shipping_cost)[i] || 0),
-          String([].concat(item_note)[i] || ""),
-          sid,
-          id,
-        ]
-      );
-      continue;
-    }
-
-    if (!sid && pid) {
-      await query(
-        `INSERT INTO sales (order_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, delivery_status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,'pending')`,
-        [
-          id,
-          pid,
-          Math.max(1, Number([].concat(quantity)[i] || 1)),
-          Number([].concat(sale_price)[i] || 0),
-          Number([].concat(cost_price)[i] || 0),
-          Number([].concat(shipping_cost)[i] || 0),
-          String([].concat(item_note)[i] || ""),
-        ]
-      );
-    }
+  // حذف أوّلاً
+  if (DEL.size) {
+    await query(
+      `DELETE FROM sales WHERE order_id=$1 AND id = ANY($2::int[])`,
+      [id, [...DEL]]
+    );
   }
 
-  res.redirect(`/orders/${id}`);
+  // تحديث الباقي
+  for (let i = 0; i < IDS.length; i++) {
+    const sid = Number(IDS[i]);
+    if (!sid || DEL.has(sid)) continue;
+
+    await query(
+      `UPDATE sales
+         SET product_id=$1,
+             quantity=$2,
+             sale_price=$3,
+             cost_price=$4,
+             shipping_cost=$5,
+             note=$6
+       WHERE id=$7 AND order_id=$8`,
+      [
+        Number(PID[i] || 0),
+        Math.max(1, Number(QTY[i] || 1)),
+        Number(SP[i] || 0),
+        Number(CP[i] || 0),
+        Number(SH[i] || 0),
+        String(NOTE[i] || ""),
+        sid,
+        id,
+      ]
+    );
+  }
+
+  return res.redirect(`/orders/${id}`);
 });
 
 // تغيير حالة الطلب ككل
