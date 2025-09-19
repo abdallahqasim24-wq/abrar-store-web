@@ -88,15 +88,19 @@
     <% } %>
   </div>
 
-  <div class="card">
-    <h3><i class="fa fa-layer-group"></i> المبيعات حسب التصنيف</h3>
-    <div class="row" style="gap:8px; flex-wrap:wrap">
-      <% (byCat||[]).forEach(c => { %>
-        <span class="badge"><%= c.label||'غير مصنّف' %> — ₪ <strong><%= Number(c.value||0).toFixed(2) %></strong></span>
-      <% }) %>
-    </div>
+ <div class="card">
+  <h3><i class="fa fa-warehouse"></i> مخزون المتجر</h3>
+  <div class="row" style="gap:18px; flex-wrap:wrap">
+    <div><strong><%= stats.products_count %></strong> منتج</div>
+    <div><strong><%= stats.total_units %></strong> وحدة</div>
+    <div>قيمة التكلفة: <strong>₪ <%= Number(stats.total_cost_value||0).toFixed(2) %></strong></div>
+    <div>قيمة البيع المحتملة: <strong>₪ <%= Number(stats.total_sale_value||0).toFixed(2) %></strong></div>
+    <div style="width:100%;height:1px;background:#f3e0ea;margin:6px 0"></div>
+    <div><i class="fa fa-sack-dollar"></i> إجمالي الإيرادات بالمخزون: <strong>₪ <%= Number(stats.inv_potential_revenue||0).toFixed(2) %></strong></div>
+    <div><i class="fa fa-chart-line"></i> إجمالي الربح بالمخزون: <strong>₪ <%= Number(stats.inv_potential_profit||0).toFixed(2) %></strong></div>
   </div>
 </div>
+
 
 <div class="card">
   <h3><i class="fa fa-bell"></i> تنبيهات المخزون المنخفض (≤ 5)</h3>

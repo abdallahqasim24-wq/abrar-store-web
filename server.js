@@ -279,7 +279,6 @@ app.get("/", async (_req, res, next) => {
     const ym    = dayjs().tz(TZ_NAME).format("YYYY-MM");
     const last30= dayjs().tz(TZ_NAME).subtract(30, "day").format("YYYY-MM-DD");
 
-    // مخزون وإجماليات
     const inv = (await query(`
       SELECT
         COUNT(*)::int AS products_count,
@@ -289,12 +288,11 @@ app.get("/", async (_req, res, next) => {
       FROM products
     `)).rows[0];
 
-    // مبيعات اليوم/الشهر (بغض النظر عن التسليم)
     const todayRows = (await query(`SELECT * FROM sales WHERE DATE(sold_at)=DATE($1)`, [today])).rows;
     const monthRows = (await query(`SELECT * FROM sales WHERE TO_CHAR(sold_at,'YYYY-MM')=$1`, [ym])).rows;
 
-    const rev = (rows) => rows.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
-    const prof = (rows) => rows.reduce((a, s) => a + (Number(s.sale_price) - Number(s.cost_price)) * Number(s.quantity), 0);
+    const rev  = (rows) => rows.reduce((a,s)=>a + Number(s.sale_price)*Number(s.quantity), 0);
+    const prof = (rows) => rows.reduce((a,s)=>a + (Number(s.sale_price)-Number(s.cost_price))*Number(s.quantity), 0);
 
     const stats = {
       ...inv,
@@ -302,9 +300,12 @@ app.get("/", async (_req, res, next) => {
       today_profit:  prof(todayRows),
       month_revenue: rev(monthRows),
       month_profit:  prof(monthRows),
+
+      // ↓↓↓ جديد: أرقام المخزون
+      inv_potential_revenue: Number(inv.total_sale_value || 0),
+      inv_potential_profit:  Number(inv.total_sale_value || 0) - Number(inv.total_cost_value || 0),
     };
 
-    // إجماليات “تم التسليم”
     const totals = (await query(
       `SELECT
           COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS revenue,
@@ -313,10 +314,9 @@ app.get("/", async (_req, res, next) => {
        WHERE s.delivery_status='delivered'`
     )).rows[0];
 
-    // حالات الطلبات + عناصر قيد التوصيل + الراجعة
     const ordersByStatus = (await query(
       `SELECT status, COUNT(*)::int AS cnt FROM orders GROUP BY status`
-    )).rows; // [{status:'pending',cnt:..},..]
+    )).rows;
 
     const pendingItems = (await query(
       `SELECT COUNT(*)::int AS cnt
@@ -324,11 +324,8 @@ app.get("/", async (_req, res, next) => {
         WHERE delivery_status IN ('pending','processing','shipping')`
     )).rows[0].cnt;
 
-    const returnsCount = (await query(
-      `SELECT COUNT(*)::int AS cnt FROM returns_queue`
-    )).rows[0].cnt;
+    const returnsCount = (await query(`SELECT COUNT(*)::int AS cnt FROM returns_queue`)).rows[0].cnt;
 
-    // أصناف منخفضة المخزون
     const lowStock = (await query(`
       SELECT * FROM products
       WHERE stock <= 5
@@ -336,7 +333,6 @@ app.get("/", async (_req, res, next) => {
       LIMIT 12
     `)).rows;
 
-    // أفضل المنتجات آخر 30 يومًا
     const topProducts = (await query(
       `SELECT p.id, p.name,
               COALESCE(SUM(s.quantity),0)::int AS qty,
@@ -350,7 +346,6 @@ app.get("/", async (_req, res, next) => {
       [last30]
     )).rows;
 
-    // مبيعات حسب التصنيف (للشيبس)
     const byCat = (await query(
       `SELECT p.category AS label, COALESCE(SUM(s.quantity*s.sale_price),0)::float8 AS value
          FROM products p LEFT JOIN sales s ON s.product_id=p.id
@@ -359,8 +354,7 @@ app.get("/", async (_req, res, next) => {
 
     res.render("index", {
       stats, totals, lowStock, byCat,
-      ordersByStatus, pendingItems, returnsCount, topProducts,
-      dayjs
+      ordersByStatus, pendingItems, returnsCount, topProducts, dayjs
     });
   } catch (e) { next(e); }
 });
