@@ -1,8 +1,7 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (بناء جديد كامل) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (Empty-state + bulk fixes) -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <%
-  // أمان لو ما وصلت filters من السيرفر
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
   const tz = (typeof TZ_NAME !== 'undefined' && TZ_NAME) ? TZ_NAME : 'Asia/Hebron';
@@ -20,6 +19,35 @@
   }
 %>
 
+<style>
+  .empty-state{
+    background:#fff; border:1px solid var(--border); border-radius:18px;
+    padding:32px; text-align:center; box-shadow:var(--shadow)
+  }
+  .empty-state h3{ margin:0 0 8px; font-size:1.4rem }
+  .empty-state p{ margin:0 0 16px; color:var(--muted) }
+  .empty-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap }
+
+  /* ===== HARD OVERRIDE: إبقاء ألوان الأزرار حتى عند التعطيل ===== */
+  .btn.info, .btn.info:disabled, .btn.info[disabled], .btn.info[aria-disabled="true"]{
+    background:var(--primary)!important; color:#fff!important; opacity:1!important; filter:none!important;
+  }
+  .btn.success, .btn.success:disabled, .btn.success[disabled], .btn.success[aria-disabled="true"]{
+    background:var(--success)!important; color:#fff!important; opacity:1!important; filter:none!important;
+  }
+  .btn.warn, .btn.warn:disabled, .btn.warn[disabled], .btn.warn[aria-disabled="true"]{
+    background:var(--warning)!important; color:#1f2937!important; opacity:1!important; filter:none!important;
+  }
+  .btn.gray, .btn.gray:disabled, .btn.gray[disabled], .btn.gray[aria-disabled="true"]{
+    background:var(--gray)!important; color:#fff!important; opacity:1!important; filter:none!important;
+  }
+  .btn.danger, .btn.danger:disabled, .btn.danger[disabled], .btn.danger[aria-disabled="true"]{
+    background:var(--danger)!important; color:#fff!important; opacity:1!important; filter:none!important;
+  }
+  /* امنع أي قاعدة عامة ترمّد الأزرار المعطّلة */
+  .btn:disabled, .bulk-actions .btn:disabled { opacity:1!important; filter:none!important; }
+</style>
+
 <div class="container page" style="max-width:1400px">
 
   <!-- الهيدر -->
@@ -28,7 +56,6 @@
       <h2 style="margin:0"><i class="fa fa-list"></i> كل الطلبات
         <span class="muted">(<%= ORD.length %>)</span></h2>
 
-      <!-- شارة إجمالية ديناميكية بعد التصفية -->
       <div id="sumBar" class="badge-lg" style="display:none;background:#fff">
         <i class="fa fa-chart-line"></i>
         <span id="sumText"></span>
@@ -70,7 +97,7 @@
   <!-- شريط الأوامر الجماعية -->
   <form id="bulkForm" method="post" style="margin:10px 0">
     <input type="hidden" name="ids" id="bulkIds">
-    <div class="bulk-bar">
+    <div class="bulk-bar" id="bulkBar">
       <label class="row" style="gap:8px;align-items:center;cursor:pointer">
         <input id="selectAll" type="checkbox">
         <span class="bulk-title">تحديد الكل</span>
@@ -91,17 +118,27 @@
 
       <span class="right"></span>
 
-      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit"
-              onclick="return confirm('حذف الطلبات المحددة نهائيًا؟ سيتم حذف بنودها أيضاً.')">
+      <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit" id="bulkDelete">
         <i class="fa fa-trash"></i> حذف المحدّد
       </button>
 
-      <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit"
-              onclick="return confirm('إرسال بنود الطلبات المحددة إلى قائمة المرتجعات؟')">
+      <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit" id="bulkReturn">
         <i class="fa fa-undo"></i> إرجاع البنود
       </button>
     </div>
   </form>
+
+  <% if (!ORD.length) { %>
+    <!-- حالة فارغة -->
+    <div class="empty-state">
+      <h3><i class="fa fa-box-open"></i> لا توجد طلبات حتى الآن</h3>
+      <p>ابدأ بإنشاء طلب جديد أو إدخال مبيعات متعددة من صفحة المبيعات.</p>
+      <div class="empty-actions">
+        <a class="btn info" href="/orders/new"><i class="fa fa-plus"></i> إنشاء طلب</a>
+        <a class="btn open-order" href="/sales"><i class="fa fa-cash-register"></i> صفحة المبيعات</a>
+      </div>
+    </div>
+  <% } %>
 
   <!-- الشبكة -->
   <div id="grid" class="cards">
@@ -132,7 +169,6 @@
          data-revenue="<%= revenue.toFixed(2) %>"
          data-profit="<%= profit.toFixed(2) %>">
 
-      <!-- رأس -->
       <div class="row" style="justify-content:space-between;align-items:center;gap:10px">
         <label class="row" style="gap:10px;align-items:center;cursor:pointer">
           <input class="sel" type="checkbox" data-oid="<%= o.id %>">
@@ -147,7 +183,6 @@
         </div>
       </div>
 
-      <!-- عميل -->
       <div class="row" style="gap:12px;align-items:center;margin-top:6px;flex-wrap:wrap">
         <span class="badge"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
         <span class="badge"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
@@ -155,7 +190,6 @@
         <% if (o.note) { %><span class="badge" title="ملاحظة"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
       </div>
 
-      <!-- البنود -->
       <div style="margin-top:12px">
         <% if (!its.length) { %>
           <div class="muted">لا يوجد بنود بعد.</div>
@@ -173,7 +207,6 @@
         <% } %>
       </div>
 
-      <!-- أزرار -->
       <div class="row order-quick" style="gap:8px;margin-top:14px">
         <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="pending"><button class="btn warn"    type="submit" title="قيد الإدخال"><i class="fa fa-hourglass-start"></i></button></form>
         <form method="post" action="/orders/<%= o.id %>/status"><input type="hidden" name="apply_to_items" value="on"><input type="hidden" name="status" value="processing"><button class="btn info"    type="submit" title="قيد المعالجة"><i class="fa fa-gears"></i></button></form>
@@ -211,11 +244,25 @@
   const bulkIds=document.getElementById('bulkIds');
   const applyItems=document.getElementById('applyItems');
   const bulkForm=document.getElementById('bulkForm');
+  const bulkBar=document.getElementById('bulkBar');
 
   const selected=new Set();
-  const cards=$$('#grid .order');
+  const grid=document.getElementById('grid');
+  let cards=$$('#grid .order');
   const sumBar=document.getElementById('sumBar');
   const sumText=document.getElementById('sumText');
+
+  function setDisabled(el, on){
+    el.toggleAttribute('disabled', on);
+    el.classList.toggle('is-disabled', on);
+    el.setAttribute('aria-disabled', on?'true':'false');
+  }
+  function toggleBulk(enabled){
+    $$('#bulkBar [data-bulk]').forEach(b=>setDisabled(b, !enabled));
+    setDisabled(selectAll, !enabled);
+    setDisabled(copyPhones, !enabled);
+    setDisabled(exportCsv, !enabled);
+  }
 
   function withinRange(card){
     const ts=Number(card.dataset.date||0);
@@ -240,10 +287,11 @@
     return (card.dataset.status||'')===st;
   }
   function filter(){
+    cards=$$('#grid .order');
     let vis=cards;
-    vis.forEach(c=>c.style.display='none');
+    cards.forEach(c=>c.style.display='none');
     vis=cards.filter(c=>matchStatus(c) && matchSearch(c) && withinRange(c));
-    // ترتيب
+
     const mode=sortBy.value;
     vis.sort((a,b)=>{
       if(mode==='date_desc') return Number(b.dataset.date)-Number(a.dataset.date);
@@ -254,38 +302,37 @@
       if(mode==='prf_asc')   return Number(a.dataset.profit)-Number(b.dataset.profit);
       return 0;
     });
-    const grid=document.getElementById('grid');
     vis.forEach(c=>grid.appendChild(c));
     vis.forEach(c=>c.style.display='');
 
-    // مجاميع
     const cnt=vis.length;
     const rev=vis.reduce((a,c)=>a+Number(c.dataset.revenue||0),0);
     const prf=vis.reduce((a,c)=>a+Number(c.dataset.profit||0),0);
     if(cnt>0){ sumBar.style.display='inline-flex'; sumText.textContent=`العرض: ${cnt} طلب — الإيراد ${rev.toFixed(2)} — الربح ${prf.toFixed(2)}`; }
     else { sumBar.style.display='none'; }
+
+    // فعِّل/عطّل الشريط حسب وجود نتائج
+    toggleBulk(cnt>0);
+    syncSel(); // إعادة مزامنة العدّاد
   }
   function syncSel(){
     selCount.textContent=selected.size;
     bulkIds.value=[...selected].join(',');
-    // مزامنة تحديد الكل بالنسبة للظاهر فقط
     const visible=$$('#grid .order').filter(c=>c.style.display!=='none');
     const visibleBoxes=visible.map(c=>c.querySelector('.sel'));
     selectAll.checked = (visibleBoxes.length>0 && visibleBoxes.every(b=>b.checked));
   }
 
-  // أحداث التصفية
   [q,fStatus,sortBy,dFrom,dTo].forEach(el=>el.addEventListener('input', filter));
   clearFilters.addEventListener('click', ()=>{ q.value=''; fStatus.value='all'; sortBy.value='date_desc'; dFrom.value=''; dTo.value=''; filter(); });
 
-  // اختيار
-  $$('.sel').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      const id=cb.dataset.oid;
-      (cb.checked?selected.add(id):selected.delete(id));
-      syncSel();
-    });
+  $$('#grid').addEventListener('change', (e)=>{
+    const cb=e.target.closest('.sel'); if(!cb) return;
+    const id=cb.dataset.oid;
+    (cb.checked?selected.add(id):selected.delete(id));
+    syncSel();
   });
+
   selectAll.addEventListener('change', ()=>{
     const on=selectAll.checked;
     const visible=$$('#grid .order').filter(c=>c.style.display!=='none');
@@ -298,21 +345,15 @@
     syncSel();
   });
 
-  // منع إرسال جماعي بلا اختيار
   bulkForm.addEventListener('click', (e)=>{
     const btn=e.target.closest('[data-bulk]');
     if(!btn) return;
     if(selected.size===0){ e.preventDefault(); alert('اختر طلبًا واحدًا على الأقل.'); return; }
-    // ضم خيار تطبيق البنود
-    if(!bulkForm.querySelector('input[name="apply_to_items"]')){
-      const h=document.createElement('input'); h.type='hidden'; h.name='apply_to_items'; h.value=applyItems.checked?'on':'off';
-      bulkForm.appendChild(h);
-    } else {
-      bulkForm.querySelector('input[name="apply_to_items"]').value=applyItems.checked?'on':'off';
-    }
+    let hidden=bulkForm.querySelector('input[name="apply_to_items"]');
+    if(!hidden){ hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='apply_to_items'; bulkForm.appendChild(hidden); }
+    hidden.value=applyItems.checked?'on':'off';
   });
 
-  // CSV (المعروض فقط أو المحدد إن وُجد)
   function exportRows(list){
     const head=['id','status','created_at','customer_name','customer_phone','customer_city','items_count','revenue','profit'];
     const lines=[head.join(',')];
@@ -341,7 +382,6 @@
     exportRows(list);
   });
 
-  // نسخ الهواتف
   copyPhones.addEventListener('click', async ()=>{
     const list = selected.size ? $$('#grid .order').filter(c=>selected.has(c.dataset.id)) 
                                : $$('#grid .order').filter(c=>c.style.display!=='none');
@@ -352,6 +392,6 @@
   });
 
   // بدءي
-  filter(); syncSel();
+  filter();
 })();
 </script>
