@@ -1,4 +1,4 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (Empty-state + bulk fixes) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (FINAL, fixed disabled colors + select-all) -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <%
@@ -28,7 +28,7 @@
   .empty-state p{ margin:0 0 16px; color:var(--muted) }
   .empty-actions{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap }
 
-  /* ===== HARD OVERRIDE: إبقاء ألوان الأزرار حتى عند التعطيل ===== */
+  /* ===== HARD OVERRIDE: keep button colors even when disabled ===== */
   .btn.info, .btn.info:disabled, .btn.info[disabled], .btn.info[aria-disabled="true"]{
     background:var(--primary)!important; color:#fff!important; opacity:1!important; filter:none!important;
   }
@@ -44,8 +44,22 @@
   .btn.danger, .btn.danger:disabled, .btn.danger[disabled], .btn.danger[aria-disabled="true"]{
     background:var(--danger)!important; color:#fff!important; opacity:1!important; filter:none!important;
   }
-  /* امنع أي قاعدة عامة ترمّد الأزرار المعطّلة */
-  .btn:disabled, .bulk-actions .btn:disabled { opacity:1!important; filter:none!important; }
+  /* امنع أي قاعدة عامة ترمّد/تخفي الأزرار المعطّلة في الشريط الجماعي */
+  .bulk-actions .btn[disabled],
+  .bulk-actions .btn.is-disabled,
+  .bulk-actions .btn[aria-disabled="true"]{
+    visibility:visible!important; display:inline-flex!important;
+    opacity:1!important; filter:none!important; pointer-events:auto!important;
+  }
+
+  /* أزرار الحالة السريعة داخل البطاقة (تثبيت الألوان) */
+  .order-quick .btn{ border:0!important }
+  .order-quick .btn.info{    background:var(--primary)!important; color:#fff!important }
+  .order-quick .btn.success{  background:var(--success)!important; color:#fff!important }
+  .order-quick .btn.warn{     background:var(--warning)!important; color:#1f2937!important }
+  .order-quick .btn.gray{     background:var(--gray)!important;    color:#fff!important }
+  .order-quick .btn.danger{   background:var(--danger)!important;  color:#fff!important }
+  .order-quick .btn i{ color:inherit!important }
 </style>
 
 <div class="container page" style="max-width:1400px">
@@ -259,7 +273,8 @@
   }
   function toggleBulk(enabled){
     $$('#bulkBar [data-bulk]').forEach(b=>setDisabled(b, !enabled));
-    setDisabled(selectAll, !enabled);
+    /* إبقاء تحديد الكل شغّال دائماً */
+    setDisabled(selectAll, false);
     setDisabled(copyPhones, !enabled);
     setDisabled(exportCsv, !enabled);
   }
@@ -311,9 +326,8 @@
     if(cnt>0){ sumBar.style.display='inline-flex'; sumText.textContent=`العرض: ${cnt} طلب — الإيراد ${rev.toFixed(2)} — الربح ${prf.toFixed(2)}`; }
     else { sumBar.style.display='none'; }
 
-    // فعِّل/عطّل الشريط حسب وجود نتائج
     toggleBulk(cnt>0);
-    syncSel(); // إعادة مزامنة العدّاد
+    syncSel();
   }
   function syncSel(){
     selCount.textContent=selected.size;
@@ -388,7 +402,8 @@
     const phones = [...new Set(list.map(c=>c.dataset.phone).filter(Boolean))];
     if(!phones.length){ alert('لا يوجد أرقام.'); return; }
     await navigator.clipboard.writeText(phones.join('\n'));
-    copyPhones.textContent='✔ تم النسخ'; setTimeout(()=>copyPhones.innerHTML='<i class="fa fa-copy"></i> نسخ أرقام الهواتف',1200);
+    copyPhones.textContent='✔ تم النسخ';
+    setTimeout(()=>copyPhones.innerHTML='<i class="fa fa-copy"></i> نسخ أرقام الهواتف',1200);
   });
 
   // بدءي
