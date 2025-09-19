@@ -4,130 +4,39 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Abrar Store</title>
+
+  <!-- Font Awesome (من السيرفر لديك) -->
   <link rel="stylesheet" href="<%= faLink %>">
 
-  <!-- زر تعديل موحّد -->
+  <!-- ملف النمط الأساسي (يحتوي كل الألوان/الأزرار/الشريط العلوي) -->
+  <link rel="stylesheet" href="/style.css?v=<%= typeof version!=='undefined'?version:Date.now() %>">
+
+  <!-- تخصيص زر تعديل فقط بدون لمس .btn العامة -->
   <style>
-    .btn{display:inline-flex;align-items:center;gap:8px;line-height:1}
-    .btn i{font-size:14px}
-    .btn.edit{background:#f9a825;color:#111;border:none;border-radius:14px;padding:10px 14px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
-    .btn.edit::before,.btn.edit::after{content:none !important;display:none !important}
+    .btn.edit{
+      background:#f9a825; color:#111; border:none;
+      border-radius:14px; padding:10px 14px; font-weight:800;
+      display:inline-flex; align-items:center; gap:8px; line-height:1;
+      box-shadow:0 2px 0 rgba(0,0,0,.08); cursor:pointer
+    }
+    .btn.edit i{font-size:14px}
+    .btn.edit::before,.btn.edit::after{content:none !important; display:none !important}
     .btn.edit:hover{filter:brightness(.97)}
-    .btn.edit:active{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.08)}
-  </style>
-
-  <style>
-    :root{
-      --bg:#fff7fb; --text:#1f2937; --muted:#6b7280; --card:#fff;
-      --border:#f7cfe1; --accent1:#ff7eb3; --accent2:#ffb07b;
-      --ok:#16a34a; --danger:#ef4444; --warning:#f59e0b;
-      --shadow:0 12px 30px rgba(255,126,179,.15);
-      --thumb:96px;
-    }
-    *{box-sizing:border-box}
-    html{font-family:'Tajawal','Cairo',system-ui;line-height:1.65;background:var(--bg);color:var(--text)}
-    body{margin:0}
-    a{color:inherit;text-decoration:none}
-    .container{max-width:1400px;margin:0 auto;padding:0 24px}
-    .page{padding:20px 0}
-
-    /* شريط علوي */
-    .topbar{position:sticky;top:0;z-index:5;
-      background:linear-gradient(90deg,var(--accent1),var(--accent2));
-      color:#111; box-shadow:0 6px 22px rgba(0,0,0,.08)}
-    .nav{display:flex;align-items:center;gap:10px;padding:10px 0}
-    .brand{font-weight:900;color:#fff}
-    .nav a.btab{background:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.7);
-      border-radius:999px;padding:8px 12px}
-    .nav a.active{background:#fff}
-
-    /* بطاقات وجداول */
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
-    .card h3{margin:0 0 8px 0}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:10px;border-top:1px solid #f1f5f9;text-align:center;vertical-align:middle}
-    thead th{background:#feeef5}
-
-    /* أزرار عامة */
-    .btn{padding:10px 14px;border-radius:12px;border:0;color:#fff;font-weight:700;cursor:pointer}
-    .btn.add{background:#2563eb}.btn.save{background:#16a34a}
-    .btn.danger{background:#ef4444}.btn.secondary{background:#475569}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .right{margin-inline-start:auto}
-
-    /* زر خروج */
-    .logout-btn{
-      display:inline-flex; align-items:center; gap:8px;
-      background:var(--danger); color:#fff; border:none; border-radius:999px;
-      padding:8px 14px; font-weight:800; cursor:pointer;
-      box-shadow:0 2px 6px rgba(0,0,0,.15); transition:.18s;
-    }
-    .logout-btn i{
-      background:#fff; color:var(--danger);
-      width:22px; height:22px; border-radius:50%;
-      display:inline-flex; align-items:center; justify-content:center; font-size:12px;
-    }
-    .logout-btn:hover{filter:brightness(.95)}
-
-    /* مدخلات */
-    input,select,textarea{width:100%;background:#fff;border:1px solid var(--border);
-      border-radius:12px;padding:10px 12px}
-    label{font-size:12px;color:var(--muted)}
-    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:800px){.form-grid{grid-template-columns:1fr}}
-
-    /* صور + لايت بوكس */
-    .thumb{width:var(--thumb);height:var(--thumb);border-radius:12px;object-fit:cover;border:1px solid var(--border)}
-    .js-img{cursor:zoom-in}
-    #imgPreviewBg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:70}
-    #imgPreview{position:fixed;inset:0;margin:auto;max-width:min(92vw,900px);max-height:92vh;display:none;z-index:80;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    #imgPreviewClose{position:fixed;inset:12px 12px auto auto;z-index:85;background:#fff;border:1px solid #e5e7eb;border-radius:999px;width:40px;height:40px;display:none;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)}
-
-    /* Chips الحالة */
-    .status-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font-weight:700;font-size:.88rem;border:1px solid var(--border);cursor:pointer}
-    .status-pending{background:#fff7e6}.status-shipping{background:#fff3cd}
-    .status-delivered{background:#e6ffed}.status-failed{background:#ffe6e6}
-    .status-wrap{position:relative;display:inline-block}
-    .status-menu{position:absolute;inset:auto auto auto 0;transform:translateY(6px);background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);min-width:180px;padding:6px;z-index:30;display:none}
-    .status-menu button{width:100%;text-align:right;background:#fff;color:#111;border:0;padding:8px 10px;border-radius:8px;cursor:pointer}
-    .status-menu button:hover{background:#f8fafc}
-    .muted{color:var(--muted)} .muted-sm{color:#6b7280;font-size:.85rem}
-
-    /* مودال اختيار المنتج */
-    .modal{position:fixed;inset:0;display:none;z-index:90}
-    .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-    .modal-card{position:absolute;inset:4% 3%;background:#fff;border-radius:16px;border:1px solid var(--border);display:flex;flex-direction:column}
-    .mclose{
-      position:absolute;inset-block-start:10px;inset-inline-start:10px;
-      width:38px;height:38px;border:0;border-radius:999px;background:#ef4444;color:#fff;
-      display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:5;
-    }
-    .mclose:hover{filter:brightness(.95)}
-    .mhead{display:flex;gap:10px;align-items:center;padding:12px;border-bottom:1px solid #f1f5f9;padding-inline-start:56px}
-    .mgrid{padding:14px;overflow:auto;display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-    @media(max-width:1200px){.mgrid{grid-template-columns:repeat(4,1fr)}}
-    @media(max-width:900px){.mgrid{grid-template-columns:repeat(2,1fr)}}
-    .pcard{border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px}
-    .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border:1px solid var(--border);border-radius:12px}
-    .tag{display:inline-block;padding:2px 8px;border:1px solid var(--border);border-radius:999px;font-size:.8rem;background:#fff7fb;margin-inline:2px}
-    .pcard .name{font-weight:800;text-align:center;min-height:48px}
+    .btn.edit:active{transform:translateY(1px); box-shadow:0 1px 0 rgba(0,0,0,.08)}
   </style>
 </head>
 <body>
 
+  <!-- الشريط العلوي -->
   <div class="topbar">
     <div class="container nav">
       <div class="brand">Abrar Store</div>
+
       <% if (currentUser) { %>
         <a class="btab <%= currentPath==='/'?'active':'' %>" href="/"><i class="fa fa-gauge"></i> لوحة التحكم</a>
         <a class="btab <%= currentPath.startsWith('/products')?'active':'' %>" href="/products"><i class="fa fa-box"></i> المنتجات</a>
         <a class="btab <%= currentPath.startsWith('/sales')?'active':'' %>" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
-
-        <!-- الرابط الجديد: كل الطلبات -->
-        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders">
-          <i class="fa fa-list"></i> كل الطلبات
-        </a>
-
+        <a class="btab <%= currentPath.startsWith('/orders')?'active':'' %>" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
         <a class="btab <%= currentPath.startsWith('/reports')?'active':'' %>" href="/reports"><i class="fa fa-file-lines"></i> التقارير</a>
 
         <form class="right" method="post" action="/logout" style="margin:0">
@@ -141,9 +50,10 @@
     </div>
   </div>
 
+  <!-- محتوى الصفحات -->
   <div class="container page"><%- body %></div>
 
-  <!-- Lightbox -->
+  <!-- Lightbox للصور -->
   <div id="imgPreviewBg"></div>
   <img id="imgPreview" alt="">
   <button id="imgPreviewClose"><i class="fa fa-xmark"></i></button>
@@ -164,12 +74,12 @@
       window.addEventListener('keydown',e=>{if(e.key==='Escape') close()});
     })();
 
-    // قائمة حالة التوصيل
+    // قائمة حالة التوصيل (إن وُجدت في بعض الصفحات)
     function toggleMenu(el){
       const menu=el.parentElement.querySelector('.status-menu');
-      const open=menu.style.display==='block';
+      const open=menu&&menu.style.display==='block';
       document.querySelectorAll('.status-menu').forEach(m=>m.style.display='none');
-      menu.style.display=open?'none':'block';
+      if(menu) menu.style.display=open?'none':'block';
     }
     document.addEventListener('click',(e)=>{
       const wrap=e.target.closest('.status-wrap');
