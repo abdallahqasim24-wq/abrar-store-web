@@ -616,7 +616,7 @@ app.post("/sales/multi", async (req, res) => {
       customer_phone = "",
       customer_city = "",
       order_note = "",
-      order_id = ""         // ← الجديد: التقاط رقم الطلب اليدوي إن وُجد
+      order_id = ""
     } = req.body;
 
     const A = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
@@ -664,7 +664,6 @@ app.post("/sales/multi", async (req, res) => {
       return res.redirect("/sales");
     }
 
-    // ← استخدام الرقم اليدوي إن أُرسل، وإلا السلوك السابق
     const requestedId = Number(order_id || 0);
     const orderId = await ensureOrderWithRequestedId({
       requestedId,
@@ -1167,6 +1166,62 @@ app.post("/orders/:id/status", async (req, res) => {
     );
   }
   res.redirect(`/orders/${id}`);
+});
+
+// ===== تعديل بيانات الطلب + تغيير رقم الطلب اختياري =====
+app.post("/orders/:id/update", async (req, res) => {
+  const currentId = Number(req.params.id);
+  const {
+    order_id: newIdRaw,
+    customer_name = "",
+    customer_phone = "",
+    customer_city = "",
+    note = ""
+  } = req.body;
+
+  const wantedId = Number(newIdRaw || currentId) || currentId;
+
+  try {
+    await query("BEGIN");
+
+    let finalId = currentId;
+
+    // إن أراد المستخدم رقماً جديداً وغير مستخدم
+    if (wantedId !== currentId) {
+      const exists = await query(`SELECT 1 FROM orders WHERE id=$1`, [wantedId]);
+      if (exists.rowCount) {
+        await query("ROLLBACK");
+        return res.redirect(`/orders/${currentId}?err=exists`);
+      }
+
+      await query(`UPDATE sales SET order_id=$1 WHERE order_id=$2`, [wantedId, currentId]);
+      await query(`UPDATE orders SET id=$1 WHERE id=$2`, [wantedId, currentId]);
+
+      await query(
+        `SELECT setval(
+           pg_get_serial_sequence('orders','id'),
+           (SELECT GREATEST(COALESCE(MAX(id),0), $1) FROM orders)
+         )`,
+        [wantedId]
+      );
+
+      finalId = wantedId;
+    }
+
+    await query(
+      `UPDATE orders
+         SET customer_name=$1, customer_phone=$2, customer_city=$3, note=$4
+       WHERE id=$5`,
+      [customer_name.trim(), customer_phone.trim(), customer_city.trim(), note.trim(), finalId]
+    );
+
+    await query("COMMIT");
+    return res.redirect(`/orders/${finalId}`);
+  } catch (e) {
+    console.error("order update error:", e);
+    await query("ROLLBACK");
+    return res.redirect(`/orders/${currentId}`);
+  }
 });
 
 // حذف طلب مفرد

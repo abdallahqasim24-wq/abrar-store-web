@@ -1,4 +1,6 @@
 <!-- views/orders-view.ejs (FINAL)
+     - تعديل بيانات الطلب (الاسم/الهاتف/العنوان/رقم الطلب/الملاحظات)
+     - تغيير رقم الطلب ينقل البنود تلقائياً (إن لم يكن الرقم مستخدماً)
      - حذف البنود يعمل بصندوق اختيار delete_ids[]
      - إضافة بند عبر شبكة المنتجات + تعبئة سعر البيع/الكلفة تلقائياً
 -->
@@ -44,13 +46,37 @@
     </div>
   </div>
 
-  <!-- بيانات الزبون -->
+  <!-- تعديل بيانات الطلب -->
   <div class="card" style="margin-bottom:14px">
-    <div class="row" style="gap:10px;flex-wrap:wrap">
-      <span class="badge"><i class="fa fa-user"></i> <%= o.customer_name || '—' %></span>
-      <span class="badge"><i class="fa fa-phone"></i> <%= o.customer_phone || '—' %></span>
-      <span class="badge"><i class="fa fa-location-dot"></i> <%= o.customer_city || '—' %></span>
-      <% if (o.note) { %><span class="badge"><i class="fa fa-note-sticky"></i> <%= o.note %></span><% } %>
+    <h3 style="margin-top:0"><i class="fa fa-user-pen"></i> تعديل بيانات الطلب</h3>
+    <form class="form-grid" method="post" action="/orders/<%= o.id %>/update">
+      <div>
+        <label>رقم الطلب</label>
+        <input name="order_id" type="number" min="1" value="<%= o.id %>">
+        <div class="muted-sm">تغيير الرقم سينقل كل البنود للرقم الجديد.</div>
+      </div>
+      <div>
+        <label>اسم الزبون</label>
+        <input name="customer_name" value="<%- o.customer_name||'' %>">
+      </div>
+      <div>
+        <label>الهاتف</label>
+        <input name="customer_phone" value="<%- o.customer_phone||'' %>">
+      </div>
+      <div>
+        <label>المدينة / العنوان</label>
+        <input name="customer_city" value="<%- o.customer_city||'' %>">
+      </div>
+      <div style="grid-column:1 / -1">
+        <label>ملاحظات</label>
+        <input name="note" value="<%- o.note||'' %>">
+      </div>
+      <div class="right" style="align-self:end">
+        <button class="btn success" type="submit"><i class="fa fa-floppy-disk"></i> حفظ بيانات الطلب</button>
+      </div>
+    </form>
+    <div id="orderIdErr" class="muted-sm" style="display:none;color:#b91c1c;margin-top:8px">
+      رقم الطلب المطلوب موجود مسبقًا. اختر رقمًا آخر.
     </div>
   </div>
 
@@ -214,6 +240,14 @@
 
 <script>
 (function(){
+  // عرض خطأ عند محاولة تغيير رقم الطلب لرقم موجود
+  (function(){
+    const params=new URLSearchParams(location.search||'');
+    if(params.get('err')==='exists'){
+      const el=document.getElementById('orderIdErr'); if(el) el.style.display='block';
+    }
+  })();
+
   // ===== تعبئة تلقائية لأسعار الإضافة =====
   const addProduct = document.getElementById('addProduct');
   const addSale = document.getElementById('addSale');
@@ -235,7 +269,7 @@
   const openBtn = document.getElementById('openPicker');
   const closeEls = [document.getElementById('pickClose'), document.getElementById('pickX')];
 
-  function openModal(){ modal.style.display='block'; }
+  function openModal(){ modal.style.display='block'; pickSearch.focus(); }
   function closeModal(){ modal.style.display='none'; }
   openBtn.addEventListener('click', openModal);
   closeEls.forEach(el=>el.addEventListener('click', closeModal));
@@ -245,12 +279,8 @@
   pickGrid.addEventListener('click', (e)=>{
     const card = e.target.closest('.pcard'); if(!card) return;
     const id = card.dataset.id;
-    const sale = card.dataset.sale || '';
-    const cost = card.dataset.cost || '';
-    // اضبط الـ select
     addProduct.value = id;
     fillAddPricesFromSelect();
-    // غلق
     closeModal();
   });
 
