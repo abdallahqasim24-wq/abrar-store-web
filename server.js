@@ -810,6 +810,7 @@ app.post("/sales/:id/delete", async (req, res) => {
   res.redirect("/sales");
 });
 app.post("/sales/:id/return", async (req, res) => {
+  // ← الآن: يرجّع البند ثم يحذفه من الطلب
   const id = Number(req.params.id);
   const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
   if (sQ.rowCount) {
@@ -821,6 +822,7 @@ app.post("/sales/:id/return", async (req, res) => {
     `,
       [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
     );
+    await query(`DELETE FROM sales WHERE id=$1`, [id]); // remove from order
   }
   res.redirect("/sales");
 });
@@ -831,6 +833,7 @@ app.post("/sales/bulk-delete", async (req, res) => {
   res.redirect("/sales");
 });
 app.post("/sales/bulk-return", async (req, res) => {
+  // ← الآن: يرجّع البنود ثم يحذفها من الطلب
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map((n) => Number(n)).filter(Boolean);
   for (const id of ids) {
@@ -844,6 +847,7 @@ app.post("/sales/bulk-return", async (req, res) => {
     `,
       [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
     );
+    await query(`DELETE FROM sales WHERE id=$1`, [id]); // remove from order
   }
   res.redirect("/sales");
 });
@@ -938,6 +942,7 @@ app.post("/orders/bulk-return", async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
       );
+      await query(`DELETE FROM sales WHERE id=$1`, [s.id]); // remove from order
     }
   }
 
@@ -1238,6 +1243,29 @@ app.post("/orders/:id/items/:itemId/delete", async (req, res) => {
   const itemId = Number(req.params.itemId);
   await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [itemId, id]);
   res.redirect(`/orders/${id}`);
+});
+
+// جديد: إرجاع بنود محددة من طلب واحد (من صفحة /orders/:id)
+// يقرأ delete_ids[] أو ids، يُضيف للـ returns_queue ثم يحذف من sales
+app.post("/orders/:id/items/bulk-return", async (req, res) => {
+  const orderId = Number(req.params.id);
+  const raw = req.body.delete_ids || req.body.ids || [];
+  const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map(Number).filter(Boolean);
+  if (!ids.length) return res.redirect(`/orders/${orderId}`);
+
+  for (const sid of ids) {
+    const sQ = await query(`SELECT * FROM sales WHERE id=$1 AND order_id=$2`, [sid, orderId]);
+    if (!sQ.rowCount) continue;
+    const s = sQ.rows[0];
+    await query(
+      `INSERT INTO returns_queue (sale_id, product_id, quantity, sale_price, cost_price, shipping_cost, note, sold_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [s.id, s.product_id, s.quantity, s.sale_price, s.cost_price, s.shipping_cost || 0, s.note || "", s.sold_at]
+    );
+    await query(`DELETE FROM sales WHERE id=$1 AND order_id=$2`, [sid, orderId]);
+  }
+
+  res.redirect(`/orders/${orderId}`);
 });
 
 // -------- Returns actions --------

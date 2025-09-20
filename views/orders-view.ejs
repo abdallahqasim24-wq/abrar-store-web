@@ -2,6 +2,7 @@
      - تعديل بيانات الطلب (الاسم/الهاتف/العنوان/رقم الطلب/الملاحظات)
      - تغيير رقم الطلب ينقل البنود تلقائياً (إن لم يكن الرقم مستخدماً)
      - حذف البنود يعمل بصندوق اختيار delete_ids[]
+     - إرجاع البنود المحددة (يرسِل إلى /orders/:id/items/bulk-return)
      - إضافة بند عبر شبكة المنتجات + تعبئة سعر البيع/الكلفة تلقائياً
 -->
 <%
@@ -108,9 +109,13 @@
     </div>
   </div>
 
-  <!-- البنود (تحديث + حذف) -->
+  <!-- البنود (تحديث + حذف + إرجاع) -->
   <div class="card" style="margin-bottom:14px">
     <h3>بنود الطلب</h3>
+
+    <!-- ملاحظة صغيرة: نفس مربعات الاختيار تُستخدم للحذف أو الإرجاع -->
+    <div class="muted-sm" style="margin:6px 0">اختر البنود ثم اضغط <strong>إرجاع البنود المحددة</strong> أو <strong>حفظ التعديلات / حذف المحدد</strong>.</div>
+
     <form id="editItemsForm" method="post" action="/orders/<%= o.id %>/items/bulk-update">
       <div class="table-scroll">
         <table>
@@ -124,7 +129,7 @@
               <th>شحن</th>
               <th>ملاحظة</th>
               <th>حالة التوصيل</th>
-              <th>حذف</th>
+              <th>تحديد</th>
             </tr>
           </thead>
           <tbody>
@@ -158,7 +163,14 @@
         </table>
       </div>
 
-      <div class="row" style="margin-top:10px">
+      <div class="row" style="margin-top:10px; gap:8px">
+        <button class="btn info" type="submit"
+                formaction="/orders/<%= o.id %>/items/bulk-return"
+                formmethod="post"
+                onclick="return confirm('إرجاع البنود المحددة إلى قائمة المرتجعات؟ سيتم حذفها من الطلب.');">
+          <i class="fa fa-rotate-left"></i> إرجاع البنود المحددة
+        </button>
+
         <button class="btn success" type="submit"><i class="fa fa-floppy-disk"></i> حفظ التعديلات / حذف المحدد</button>
       </div>
     </form>
