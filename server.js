@@ -270,6 +270,28 @@ async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
   return ins.rows[0].id;
 }
 
+// يدعم إنشاء/استخدام رقم طلب مُحدد يدويًا
+async function ensureOrderWithRequestedId({ requestedId, name, phone, city, note }) {
+  if (requestedId && requestedId > 0) {
+    const ex = await query(`SELECT id FROM orders WHERE id=$1`, [requestedId]);
+    if (ex.rowCount) return ex.rows[0].id;
+
+    const ins = await query(
+      `INSERT INTO orders (id, customer_name, customer_phone, customer_city, note, status)
+       VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
+      [requestedId, (name||"").trim(), (phone||"").trim(), (city||"").trim(), (note||"").trim()]
+    );
+
+    await query(`
+      SELECT setval(pg_get_serial_sequence('orders','id'),
+                    GREATEST($1,(SELECT COALESCE(MAX(id),0) FROM orders)))
+    `,[requestedId]);
+
+    return ins.rows[0].id;
+  }
+  return await ensureOpenOrderForCustomer({ name, phone, city, note });
+}
+
 // ================== Routes ==================
 
 // -------- Dashboard --------
@@ -580,7 +602,7 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة ===
+// === إضافة عدة بنود بيع دفعة واحدة (يدعم رقم الطلب اليدوي) ===
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -594,6 +616,7 @@ app.post("/sales/multi", async (req, res) => {
       customer_phone = "",
       customer_city = "",
       order_note = "",
+      order_id = ""         // ← الجديد: التقاط رقم الطلب اليدوي إن وُجد
     } = req.body;
 
     const A = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
@@ -641,7 +664,10 @@ app.post("/sales/multi", async (req, res) => {
       return res.redirect("/sales");
     }
 
-    const orderId = await ensureOpenOrderForCustomer({
+    // ← استخدام الرقم اليدوي إن أُرسل، وإلا السلوك السابق
+    const requestedId = Number(order_id || 0);
+    const orderId = await ensureOrderWithRequestedId({
+      requestedId,
       name: customer_name,
       phone: customer_phone,
       city: customer_city,
