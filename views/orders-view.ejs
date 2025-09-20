@@ -1,5 +1,5 @@
 <!-- views/orders-view.ejs (FINAL)
-     - تعديل بيانات الطلب (الاسم/الهاتف/العنوان/رقم الطلب/الملاحظات)
+     - تعديل بيانات الطلب (الاسم/الهاتف/العنوان/رقم الطلب/الملاحظات/التاريخ)
      - تغيير رقم الطلب ينقل البنود تلقائياً (إن لم يكن الرقم مستخدماً)
      - حذف البنود يعمل بصندوق اختيار delete_ids[]
      - إضافة بند عبر شبكة المنتجات + تعبئة سعر البيع/الكلفة تلقائياً
@@ -66,6 +66,12 @@
       <div>
         <label>المدينة / العنوان</label>
         <input name="customer_city" value="<%- o.customer_city||'' %>">
+      </div>
+      <div>
+        <label>تاريخ/وقت الطلب</label>
+        <input name="created_at" type="datetime-local"
+               value="<%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DDTHH:mm') %>">
+        <div class="muted-sm">اتركه كما هو إن لم ترغب بتعديله.</div>
       </div>
       <div style="grid-column:1 / -1">
         <label>ملاحظات</label>
@@ -240,7 +246,7 @@
 
 <script>
 (function(){
-  // عرض خطأ عند محاولة تغيير رقم الطلب لرقم موجود
+  // إظهار خطأ تعارض رقم الطلب
   (function(){
     const params=new URLSearchParams(location.search||'');
     if(params.get('err')==='exists'){
@@ -248,7 +254,7 @@
     }
   })();
 
-  // ===== تعبئة تلقائية لأسعار الإضافة =====
+  // تعبئة تلقائية لأسعار الإضافة حسب المنتج
   const addProduct = document.getElementById('addProduct');
   const addSale = document.getElementById('addSale');
   const addCost = document.getElementById('addCost');
@@ -262,7 +268,7 @@
   addProduct.addEventListener('change', fillAddPricesFromSelect);
   fillAddPricesFromSelect();
 
-  // ===== مودال شبكة المنتجات =====
+  // مودال شبكة المنتجات
   const modal = document.getElementById('pickModal');
   const pickSearch = document.getElementById('pickSearch');
   const pickGrid = document.getElementById('pickGrid');
@@ -275,7 +281,7 @@
   closeEls.forEach(el=>el.addEventListener('click', closeModal));
   window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
-  // اختيار بطاقة منتج
+  // اختيار منتج من الشبكة
   pickGrid.addEventListener('click', (e)=>{
     const card = e.target.closest('.pcard'); if(!card) return;
     const id = card.dataset.id;
