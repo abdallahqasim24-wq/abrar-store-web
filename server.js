@@ -1168,7 +1168,7 @@ app.post("/orders/:id/status", async (req, res) => {
   res.redirect(`/orders/${id}`);
 });
 
-// ===== تعديل بيانات الطلب + تغيير رقم الطلب اختياري (مع تعديل التاريخ) =====
+// ===== تعديل بيانات الطلب + تغيير رقم الطلب اختياري =====
 app.post("/orders/:id/update", async (req, res) => {
   const currentId = Number(req.params.id);
   const {
@@ -1176,18 +1176,10 @@ app.post("/orders/:id/update", async (req, res) => {
     customer_name = "",
     customer_phone = "",
     customer_city = "",
-    note = "",
-    created_at = ""
+    note = ""
   } = req.body;
 
   const wantedId = Number(newIdRaw || currentId) || currentId;
-
-  // حضّر التاريخ إن أُرسل من الواجهة (YYYY-MM-DDTHH:mm محلي)
-  let createdTs = null;
-  if (String(created_at || "").trim()) {
-    const d = dayjs.tz(String(created_at).trim(), TZ_NAME);
-    if (d.isValid()) createdTs = d.toDate();
-  }
 
   try {
     await query("BEGIN");
@@ -1216,18 +1208,12 @@ app.post("/orders/:id/update", async (req, res) => {
       finalId = wantedId;
     }
 
-    // تحديث الحقول الأساسية
     await query(
       `UPDATE orders
          SET customer_name=$1, customer_phone=$2, customer_city=$3, note=$4
        WHERE id=$5`,
       [customer_name.trim(), customer_phone.trim(), customer_city.trim(), note.trim(), finalId]
     );
-
-    // تحديث التاريخ إذا أُرسل وكان صالح
-    if (createdTs) {
-      await query(`UPDATE orders SET created_at=$1 WHERE id=$2`, [createdTs, finalId]);
-    }
 
     await query("COMMIT");
     return res.redirect(`/orders/${finalId}`);
