@@ -1,4 +1,4 @@
-<!-- views/sales.ejs — كامل وجاهز للاستبدال -->
+<!-- views/sales.ejs — كامل وجاهز للاستبدال (رقم الطلب إجباري + فحص تكرار) -->
 <link rel="stylesheet" href="<%= faLink %>">
 
 <style>
@@ -21,6 +21,10 @@
   .status-pending{background:#fff7e6}.status-shipping{background:#fff3cd}
   .status-delivered{background:#e6ffed}.status-failed{background:#ffe6e6}
 
+  /* تنبيه خطأ لرقم الطلب */
+  .field-error{color:#b91c1c;margin-top:6px;display:none}
+  .is-invalid{border-color:#ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.12)}
+
   /* ===== Modal (picker) ===== */
   .modal{display:none;position:fixed;inset:0;z-index:60}
   .modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
@@ -33,14 +37,7 @@
   .pcard img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
   .pcard .name{font-weight:800}
   .tag{display:inline-block;font-size:.82rem;padding:4px 8px;border-radius:999px;background:#f8fafc;border:1px solid var(--border)}
-  /* زر إغلاق أحمر ومُبعَّد */
-  .mclose{
-    position:absolute; top:10px; left:10px; right:auto;
-    width:40px; height:40px; border:0; border-radius:999px;
-    background:#ef4444; color:#fff;
-    display:flex; align-items:center; justify-content:center;
-    cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.15); z-index:5;
-  }
+  .mclose{position:absolute; top:10px; left:10px; width:40px; height:40px; border:0; border-radius:999px; background:#ef4444; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.15); z-index:5}
   .mclose:hover{ filter:brightness(.95) }
   .choose-btn{white-space:nowrap}
 </style>
@@ -68,7 +65,7 @@
   <h2 style="margin:0 0 10px"><i class="fa fa-cart-shopping"></i> إضافة طلب جديد (عدّة منتجات)</h2>
 
   <!-- نموذج الطلب متعدد البنود -->
-  <form id="multiSaleForm" action="/sales/multi" method="post" class="card">
+  <form id="multiSaleForm" action="/sales/multi" method="post" class="card" novalidate>
     <div class="form-grid">
       <input name="customer_name"  placeholder="اسم الزبون">
       <input name="customer_phone" placeholder="الهاتف">
@@ -76,11 +73,13 @@
       <input name="order_note"     placeholder="ملاحظة عامة للطلب" style="grid-column:1 / -1">
     </div>
 
-    <!-- رقم طلب يدوي + حساب/رابط إنستغرام -->
+    <!-- رقم طلب إجباري + حساب/رابط إنستغرام -->
     <div class="form-grid" style="margin-top:10px">
       <div>
-        <input name="order_id" type="number" min="1" placeholder="رقم الطلب (اختياري)">
-        <div class="muted-sm">اتركه فارغًا لإنشاء رقم تلقائي.</div>
+        <input id="orderId" name="order_id" type="number" min="1" required
+               placeholder="رقم الطلب (إجباري وفريد)">
+        <div id="orderIdHelp" class="muted-sm">هذا الحقل إجباري ورقم الطلب يجب أن يكون فريدًا.</div>
+        <div id="orderIdErr" class="field-error">رقم الطلب موجود مسبقًا. اختر رقمًا آخر.</div>
       </div>
       <div>
         <input name="customer_instagram" placeholder="حساب إنستغرام / رابط (اختياري)">
@@ -130,7 +129,7 @@
           <div>
             <b>#<%= o.id %></b> — <%= o.customer_name || 'بدون اسم' %>
             <div class="muted-sm"><i class="fa fa-clock"></i>
-              <%= dayjs(o.created_at).tz('Asia/Hebron').format('YYYY-MM-DD HH:mm') %>
+              <%= dayjs(o.created_at).tz('Asia/Hebron').format('hh:mm a YYYY-MM-DD') %>
             </div>
           </div>
           <a class="btn edit" href="/orders/<%= o.id %>"><i class="fa fa-pen"></i> إدارة</a>
@@ -229,6 +228,9 @@
   const sumProfit  = document.getElementById('sumProfit');
   const btnAddRow  = document.getElementById('btnAddEmpty');
   const btnClear   = document.getElementById('btnClear');
+  const orderIdInp = document.getElementById('orderId');
+  const orderErr   = document.getElementById('orderIdErr');
+  const submitBtn  = document.getElementById('btnSubmit');
 
   const picker   = document.getElementById('picker');
   const pickGrid = document.getElementById('pickGrid');
@@ -239,6 +241,37 @@
   let activeRow = null;
   const num = v => Number(v||0) || 0;
   const fmt = n => (Number(n)||0).toFixed(2);
+
+  /* ====== رقم الطلب: فحص فريد ====== */
+  async function checkOrderId(){
+    const v = (orderIdInp.value||'').trim();
+    if(!v){ orderErr.style.display='none'; orderIdInp.classList.remove('is-invalid'); submitBtn.removeAttribute('disabled'); return false; }
+    try{
+      const r = await fetch(`/orders/check-id?id=${encodeURIComponent(v)}`);
+      const j = await r.json();
+      const taken = !!j.exists;
+      orderErr.style.display = taken ? 'block' : 'none';
+      orderIdInp.classList.toggle('is-invalid', taken);
+      submitBtn.toggleAttribute('disabled', taken);
+      return taken;
+    }catch(_e){
+      // في حال فشل الشبكة لا نمنع الإرسال
+      orderErr.style.display='none';
+      orderIdInp.classList.remove('is-invalid');
+      submitBtn.removeAttribute('disabled');
+      return false;
+    }
+  }
+  orderIdInp.addEventListener('input', checkOrderId);
+  orderIdInp.addEventListener('blur', checkOrderId);
+
+  /* منع الإرسال إن كان الرقم مكرر */
+  document.getElementById('multiSaleForm').addEventListener('submit', async (e)=>{
+    if(!orderIdInp.reportValidity()) return; // required من المتصفح
+    e.preventDefault();
+    const taken = await checkOrderId();
+    if(!taken) e.target.submit();
+  });
 
   function rowTemplate({pid=0, name='', qty=1, sp=0, cp=0, ship=0, note='', img=''} = {}) {
     const has = Boolean(pid && name);

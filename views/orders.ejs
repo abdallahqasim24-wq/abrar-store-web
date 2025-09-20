@@ -1,4 +1,4 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (نهائي + أزرار مرتبة + صور المنتجات) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (نهائي + أزرار مرتبة + صور المنتجات + شريط أيقونات خارجي + صورة مكبّرة مع Lightbox) -->
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -16,6 +16,11 @@
     }
   }
 %>
+
+<style>
+  /* أيقونات شريط الأوامر الخارجي */
+  .icon-pill{width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;padding:0;font-size:18px}
+</style>
 
 <div class="row" style="gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:8px">
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -56,38 +61,38 @@
     <button id="clearFilters" class="btn gray" type="button"><i class="fa fa-rotate-left"></i> تصفير</button>
 
     <button id="exportCsv" class="btn info" type="button"><i class="fa fa-file-csv"></i> تصدير CSV</button>
+    <button id="copyPhones" class="btn gray" type="button"><i class="fa fa-copy"></i> نسخ أرقام الهواتف</button>
   </div>
 </div>
 
-<!-- شريط الأوامر الجماعية -->
-<form id="bulkForm" method="post" style="margin:10px 0">
+<!-- شريط الأيقونات الخارجي (يعمل على التحديد الحالي) -->
+<form id="bulkForm" method="post" style="margin:6px 0 10px">
   <input type="hidden" name="ids" id="bulkIds">
-  <div class="bulk-bar" id="bulkBar">
-    <label class="row" style="gap:8px;align-items:center;cursor:pointer">
+  <input type="hidden" name="status" id="bulkStatus">
+  <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+    <label class="row muted-sm" style="gap:6px;align-items:center;cursor:pointer">
       <input id="selectAll" type="checkbox">
-      <span class="bulk-title">تحديد الكل</span>
+      <span>تحديد الكل</span>
     </label>
+
     <span class="muted">على <span id="selCount" class="bulk-count">0</span> طلب</span>
 
-    <div class="bulk-actions">
-      <label class="row muted-sm" style="gap:6px;align-items:center">
-        <input id="applyItems" type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
-      </label>
+    <label class="row muted-sm" style="gap:6px;align-items:center;margin-inline-start:8px">
+      <input id="applyItems" type="checkbox" name="apply_to_items" checked> تطبيق على البنود أيضاً
+    </label>
 
-      <button data-bulk class="btn warn"     formaction="/orders/bulk-status"   name="status" value="pending"    type="submit"><i class="fa fa-hourglass-start"></i> إلى قيد الإدخال</button>
-      <button data-bulk class="btn info"     formaction="/orders/bulk-status"   name="status" value="processing" type="submit"><i class="fa fa-gears"></i> إلى قيد المعالجة</button>
-      <button data-bulk class="btn gray"     formaction="/orders/bulk-status"   name="status" value="shipping"   type="submit"><i class="fa fa-truck"></i> إلى قيد التوصيل</button>
-      <button data-bulk class="btn success"  formaction="/orders/bulk-status"   name="status" value="delivered"  type="submit"><i class="fa fa-check"></i> تم التسليم</button>
-      <button data-bulk class="btn danger"   formaction="/orders/bulk-status"   name="status" value="failed"     type="submit"><i class="fa fa-xmark"></i> فشل التسليم</button>
+    <!-- الأيقونات -->
+    <div id="iconToolbar" class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn warn icon-pill"    type="button" data-act="status" data-status="pending"    title="إلى قيد الإدخال"><i class="fa fa-hourglass-start"></i></button>
+      <button class="btn info icon-pill"    type="button" data-act="status" data-status="processing" title="إلى قيد المعالجة"><i class="fa fa-gears"></i></button>
+      <button class="btn gray icon-pill"    type="button" data-act="status" data-status="shipping"   title="إلى قيد التوصيل"><i class="fa fa-truck"></i></button>
+      <button class="btn success icon-pill" type="button" data-act="status" data-status="delivered"  title="تم التسليم"><i class="fa fa-check"></i></button>
+      <button class="btn danger icon-pill"  type="button" data-act="status" data-status="failed"     title="فشل/لم يتم"><i class="fa fa-xmark"></i></button>
+      <button class="btn danger icon-pill"  type="button" data-act="delete"                          title="حذف المحدّد"><i class="fa fa-trash"></i></button>
     </div>
 
-    <span class="right"></span>
-
-    <button data-bulk class="btn danger" formaction="/orders/bulk-delete" type="submit" id="bulkDelete">
-      <i class="fa fa-trash"></i> حذف المحدّد
-    </button>
-
-    <button data-bulk class="btn gray" formaction="/orders/bulk-return" type="submit" id="bulkReturn">
+    <!-- أيضًا زر إرجاع البنود جماعي (نصي) -->
+    <button id="bulkReturn" class="btn gray" formaction="/orders/bulk-return" type="submit" style="margin-inline-start:auto">
       <i class="fa fa-undo"></i> إرجاع البنود
     </button>
   </div>
@@ -142,7 +147,7 @@
       </label>
 
       <div class="order-kpis">
-        <span><i class="fa fa-clock"></i> <strong><%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %></strong></span>
+        <span><i class="fa fa-clock"></i> <strong><%= dayjs(o.created_at).tz(tz).format('hh:mm a YYYY-MM-DD') %></strong></span>
         <span><i class="fa fa-box"></i> <strong><%= totalQty %></strong> عناصر</span>
         <span><i class="fa fa-coins"></i> <strong><%= revenue.toFixed(2) %></strong></span>
         <span><i class="fa fa-sack-dollar"></i> <strong><%= profit.toFixed(2) %></strong></span>
@@ -161,9 +166,11 @@
         <div class="muted">لا يوجد بنود بعد.</div>
       <% } else { %>
         <div class="row" style="gap:10px;flex-wrap:wrap">
-          <% shown.forEach(x => { %>
-            <div class="item-chip">
-              <img class="mini-thumb" src="<%= x.product_image||'' %>" alt="">
+          <% shown.forEach((x,i) => { const img=(x.product_image||'/public/placeholder.png'); %>
+            <div class="item-chip <%= i===0?'big':'' %>">
+              <button type="button" class="thumb-btn" data-img="<%= img %>">
+                <img class="mini-thumb" src="<%= img %>" alt="" loading="lazy">
+              </button>
               <span class="qty">&times;<%= x.quantity %></span>
               <span class="name"><%= x.product_name %></span>
             </div>
@@ -173,7 +180,7 @@
       <% } %>
     </div>
 
-    <!-- أفعال سريعة + إدارة (إدارة يسار لوحدها) -->
+    <!-- أفعال سريعة داخل البطاقة -->
     <div class="row" style="gap:10px;margin-top:14px;align-items:center">
       <div class="order-quick row" style="gap:8px">
         <!-- حذف -->
@@ -199,6 +206,11 @@
   <% }) %>
 </div>
 
+<!-- عناصر معاينة الصور (Lightbox) -->
+<div id="imgPreviewBg"></div>
+<img id="imgPreview" alt="">
+<button id="imgPreviewClose" type="button" title="إغلاق"><i class="fa fa-xmark"></i></button>
+
 <script>
 (function(){
   const $$=(s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
@@ -214,8 +226,10 @@
   const selectAll=document.getElementById('selectAll');
   const selCount=document.getElementById('selCount');
   const bulkIds=document.getElementById('bulkIds');
+  const bulkStatus=document.getElementById('bulkStatus');
   const applyItems=document.getElementById('applyItems');
   const bulkForm=document.getElementById('bulkForm');
+  const iconToolbar=document.getElementById('iconToolbar');
 
   const selected=new Set();
   const grid=document.getElementById('grid');
@@ -223,16 +237,11 @@
   const sumBar=document.getElementById('sumBar');
   const sumText=document.getElementById('sumText');
 
-  function setDisabled(el, on){
-    el.toggleAttribute('disabled', on);
-    el.classList.toggle('is-disabled', on);
-    el.setAttribute('aria-disabled', on?'true':'false');
-  }
+  function setDisabled(el, on){ if(!el) return; el.toggleAttribute('disabled', on); el.classList.toggle('is-disabled', on); el.setAttribute('aria-disabled', on?'true':'false'); }
   function toggleBulk(enabled){
-    $$('.bulk-actions [data-bulk], #bulkDelete, #bulkReturn').forEach(b=>setDisabled(b, !enabled));
     setDisabled(selectAll, false);
-    setDisabled(copyPhones, !enabled);
     setDisabled(exportCsv, !enabled);
+    setDisabled(copyPhones, !enabled);
   }
 
   function withinRange(card){
@@ -315,13 +324,26 @@
     syncSel();
   });
 
-  bulkForm.addEventListener('click', (e)=>{
-    const btn=e.target.closest('[data-bulk]');
-    if(!btn) return;
-    if(selected.size===0){ e.preventDefault(); alert('اختر طلبًا واحدًا على الأقل.'); return; }
+  // شريط الأيقونات الخارجي
+  iconToolbar.addEventListener('click',(e)=>{
+    const btn=e.target.closest('[data-act]'); if(!btn) return;
+    if(selected.size===0){ alert('اختر طلبًا واحدًا على الأقل.'); return; }
+    // مزامنة خيار التطبيق على البنود
     let hidden=bulkForm.querySelector('input[name="apply_to_items"]');
     if(!hidden){ hidden=document.createElement('input'); hidden.type='hidden'; hidden.name='apply_to_items'; bulkForm.appendChild(hidden); }
     hidden.value=applyItems.checked?'on':'off';
+
+    if(btn.dataset.act==='delete'){
+      if(!confirm('حذف الطلبات المحددة؟')) return;
+      bulkForm.action='/orders/bulk-delete';
+      bulkForm.submit();
+      return;
+    }
+    if(btn.dataset.act==='status'){
+      bulkStatus.value = btn.dataset.status || 'pending';
+      bulkForm.action='/orders/bulk-status';
+      bulkForm.submit();
+    }
   });
 
   function exportRows(list){
@@ -361,6 +383,31 @@
     copyPhones.textContent='✔ تم النسخ';
     setTimeout(()=>copyPhones.innerHTML='<i class="fa fa-copy"></i> نسخ أرقام الهواتف',1200);
   });
+
+  // ===== Lightbox للصور داخل الشبكة =====
+  const pbg=document.getElementById('imgPreviewBg');
+  const pimg=document.getElementById('imgPreview');
+  const pclose=document.getElementById('imgPreviewClose');
+  function openPreview(src){
+    if(!src) return;
+    pimg.src=src;
+    pbg.style.display='block';
+    pimg.style.display='block';
+    pclose.style.display='inline-flex';
+  }
+  function closePreview(){
+    pimg.src='';
+    pbg.style.display='none';
+    pimg.style.display='none';
+    pclose.style.display='none';
+  }
+  grid.addEventListener('click',(e)=>{
+    const btn=e.target.closest('.thumb-btn'); if(!btn) return;
+    openPreview(btn.dataset.img);
+  });
+  pbg.addEventListener('click', closePreview);
+  pclose.addEventListener('click', closePreview);
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closePreview(); });
 
   // بدءي
   filter();

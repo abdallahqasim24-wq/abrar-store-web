@@ -1,4 +1,4 @@
-// server.js — Abrar Manager (FINAL, Cloudinary-ready)
+// server.js — Abrar Manager (FINAL, Cloudinary-ready, Order ID Required+Unique)
 // ===================================================
 import express from "express";
 import path from "path";
@@ -270,7 +270,7 @@ async function ensureOpenOrderForCustomer({ name, phone, city, note }) {
   return ins.rows[0].id;
 }
 
-// يدعم إنشاء/استخدام رقم طلب مُحدد يدويًا
+// يدعم إنشاء/استخدام رقم طلب مُحدد يدويًا (للتوافق القديم)
 async function ensureOrderWithRequestedId({ requestedId, name, phone, city, note }) {
   if (requestedId && requestedId > 0) {
     const ex = await query(`SELECT id FROM orders WHERE id=$1`, [requestedId]);
@@ -602,7 +602,14 @@ app.post("/sales", async (req, res) => {
   res.redirect("/sales");
 });
 
-// === إضافة عدة بنود بيع دفعة واحدة (يدعم رقم الطلب اليدوي) ===
+// === إضافة عدة بنود بيع دفعة واحدة — رقم الطلب إلزامي وفريد ===
+app.get("/orders/check-id", async (req, res) => {
+  const id = Number(req.query.id || 0);
+  if (!id) return res.json({ exists: false });
+  const ex = await query(`SELECT 1 FROM orders WHERE id=$1 LIMIT 1`, [id]);
+  res.json({ exists: !!ex.rowCount });
+});
+
 app.post("/sales/multi", async (req, res) => {
   try {
     const {
@@ -618,6 +625,31 @@ app.post("/sales/multi", async (req, res) => {
       order_note = "",
       order_id = ""
     } = req.body;
+
+    // ===== تحقق: رقم الطلب إلزامي وفريد =====
+    const requestedId = Number(order_id || 0);
+    if (!requestedId || requestedId < 1) {
+      req.session.sales_flash = { type: "danger", msg: "رقم الطلب إلزامي. الرجاء إدخاله." };
+      return res.redirect("/sales");
+    }
+    const existQ = await query(`SELECT 1 FROM orders WHERE id=$1`, [requestedId]);
+    if (existQ.rowCount) {
+      req.session.sales_flash = { type: "danger", msg: `رقم الطلب ${requestedId} مستخدم مسبقًا. اختر رقمًا آخر.` };
+      return res.redirect("/sales");
+    }
+
+    // أنشئ الطلب بالرقم المطلوب
+    await query(
+      `INSERT INTO orders (id, customer_name, customer_phone, customer_city, note, status)
+       VALUES ($1,$2,$3,$4,$5,'pending')`,
+      [requestedId, (customer_name||"").trim(), (customer_phone||"").trim(), (customer_city||"").trim(), (order_note||"").trim()]
+    );
+    await query(
+      `SELECT setval(pg_get_serial_sequence('orders','id'),
+                     (SELECT GREATEST(COALESCE(MAX(id),0), $1) FROM orders))`,
+      [requestedId]
+    );
+    const orderId = requestedId;
 
     const A = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
     const PIDS = A(product_id);
@@ -635,21 +667,12 @@ app.post("/sales/multi", async (req, res) => {
       if (!pid) continue;
 
       const prodQ = await query(`SELECT * FROM products WHERE id=$1`, [pid]);
-      if (!prodQ.rowCount) {
-        skipped.push(`ID ${pid} (غير موجود)`);
-        continue;
-      }
+      if (!prodQ.rowCount) { skipped.push(`ID ${pid} (غير موجود)`); continue; }
       const prod = prodQ.rows[0];
       const qty = Math.max(1, Number(QTY[i] || 1));
 
-      if (Number(prod.stock || 0) <= 0) {
-        skipped.push(`${prod.name} — نفد المخزون`);
-        continue;
-      }
-      if (qty > Number(prod.stock || 0)) {
-        skipped.push(`${prod.name} — الكمية المطلوبة (${qty}) أكبر من المتاح (${prod.stock})`);
-        continue;
-      }
+      if (Number(prod.stock || 0) <= 0) { skipped.push(`${prod.name} — نفد المخزون`); continue; }
+      if (qty > Number(prod.stock || 0)) { skipped.push(`${prod.name} — الكمية المطلوبة (${qty}) أكبر من المتاح (${prod.stock})`); continue; }
 
       const sp = Number(SP[i] ?? prod.sale_price ?? 0);
       const cp = Number(CP[i] ?? prod.cost_price ?? 0);
@@ -663,15 +686,6 @@ app.post("/sales/multi", async (req, res) => {
       req.session.sales_flash = { type: "danger", msg: "لم يتم إنشاء الطلب: كل البنود نفدت/غير متاحة.", skipped };
       return res.redirect("/sales");
     }
-
-    const requestedId = Number(order_id || 0);
-    const orderId = await ensureOrderWithRequestedId({
-      requestedId,
-      name: customer_name,
-      phone: customer_phone,
-      city: customer_city,
-      note: order_note,
-    });
 
     for (const it of valid) {
       await query(
@@ -700,7 +714,7 @@ app.post("/sales/multi", async (req, res) => {
       ]);
     }
 
-    req.session.sales_flash = { type: "success", msg: `تم إنشاء/تحديث الطلب بنجاح (#${orderId}).`, orderId, skipped };
+    req.session.sales_flash = { type: "success", msg: `تم إنشاء الطلب بنجاح (#${orderId}).`, orderId, skipped };
     return res.redirect("/sales");
   } catch (e) {
     console.error("multi-sale error:", e);
@@ -837,7 +851,7 @@ app.post("/sales/bulk-return", async (req, res) => {
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map((n) => Number(n)).filter(Boolean);
   for (const id of ids) {
-    const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
+    const sQ = await query(`SELECT * FROM sales WHERE id=$1`);
     if (!sQ.rowCount) continue;
     const s = sQ.rows[0];
     await query(
@@ -966,7 +980,7 @@ app.get("/orders/new", async (_req, res) => {
   res.render("orders-new", { products, dayjs });
 });
 
-// إنشاء طلب جديد (+ بنود) مع دعم رقم الطلب اليدوي
+// إنشاء طلب جديد (+ بنود) مع دعم رقم الطلب اليدوي (السلوك القديم كما هو)
 app.post("/orders", async (req, res) => {
   const {
     order_id,
@@ -998,10 +1012,8 @@ app.post("/orders", async (req, res) => {
         [manualId]
       );
     } else {
-      await query(
-        `UPDATE orders SET customer_name=$1, customer_phone=$2, customer_city=$3, note=$4 WHERE id=$5`,
-        [(customer_name || "").trim(), (customer_phone || "").trim(), (customer_city || "").trim(), (note || "").trim(), manualId]
-      );
+      // منع تكرار الرقم عند الإنشاء من هذا المسار
+      return res.redirect(`/orders/new?err=exists&id=${manualId}`);
     }
     orderId = manualId;
   } else {

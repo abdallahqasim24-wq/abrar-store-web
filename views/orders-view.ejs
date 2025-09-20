@@ -4,6 +4,7 @@
      - حذف البنود يعمل بصندوق اختيار delete_ids[]
      - إرجاع البنود المحددة (يرسِل إلى /orders/:id/items/bulk-return)
      - إضافة بند عبر شبكة المنتجات + تعبئة سعر البيع/الكلفة تلقائياً
+     - صورة المنتج داخل صف البند + اختيار من شبكة المنتجات للتعديل
 -->
 <%
   const o   = typeof order === 'object' && order ? order : {};
@@ -35,7 +36,7 @@
       </span>
       <span class="badge">
         <i class="fa fa-clock"></i>
-        <%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD HH:mm') %>
+        <%= dayjs(o.created_at).tz(tz).format('YYYY-MM-DD hh:mm A') %>
       </span>
     </div>
 
@@ -113,7 +114,6 @@
   <div class="card" style="margin-bottom:14px">
     <h3>بنود الطلب</h3>
 
-    <!-- ملاحظة صغيرة: نفس مربعات الاختيار تُستخدم للحذف أو الإرجاع -->
     <div class="muted-sm" style="margin:6px 0">اختر البنود ثم اضغط <strong>إرجاع البنود المحددة</strong> أو <strong>حفظ التعديلات / حذف المحدد</strong>.</div>
 
     <form id="editItemsForm" method="post" action="/orders/<%= o.id %>/items/bulk-update">
@@ -139,13 +139,30 @@
                   <%= s.id %>
                   <input type="hidden" name="item_id[]" value="<%= s.id %>">
                 </td>
+
+                <!-- المنتج + صورة + زر شبكة -->
                 <td>
-                  <select name="product_id[]" required>
-                    <% products.forEach(p=>{ %>
-                      <option value="<%= p.id %>" data-sale="<%= Number(p.sale_price||0).toFixed(2) %>" data-cost="<%= Number(p.cost_price||0).toFixed(2) %>" <%= p.id===s.product_id?'selected':'' %>><%= p.name %></option>
-                    <% }) %>
-                  </select>
+                  <div class="row" style="gap:8px;align-items:center">
+                    <img class="mini-thumb" id="thumb-<%= s.id %>"
+                         src="<%= s.product_image || '/public/placeholder.png' %>"
+                         alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover">
+                    <select name="product_id[]" required class="item-product" data-sid="<%= s.id %>">
+                      <% products.forEach(p=>{ %>
+                        <option value="<%= p.id %>"
+                                data-sale="<%= Number(p.sale_price||0).toFixed(2) %>"
+                                data-cost="<%= Number(p.cost_price||0).toFixed(2) %>"
+                                data-img ="<%= p.image_path || '/public/placeholder.png' %>"
+                                <%= p.id===s.product_id?'selected':'' %>>
+                          <%= p.name %>
+                        </option>
+                      <% }) %>
+                    </select>
+                    <button class="btn info pick-item" type="button" data-sid="<%= s.id %>">
+                      <i class="fa fa-grid-2"></i>
+                    </button>
+                  </div>
                 </td>
+
                 <td><input type="number" name="quantity[]" step="1" min="1" value="<%= s.quantity %>"></td>
                 <td><input type="number" name="sale_price[]" step="0.01" value="<%= Number(s.sale_price||0).toFixed(2) %>"></td>
                 <td><input type="number" name="cost_price[]" step="0.01" value="<%= Number(s.cost_price||0).toFixed(2) %>"></td>
@@ -252,7 +269,7 @@
 
 <script>
 (function(){
-  // عرض خطأ عند محاولة تغيير رقم الطلب لرقم موجود
+  // إظهار خطأ رقم طلب موجود
   (function(){
     const params=new URLSearchParams(location.search||'');
     if(params.get('err')==='exists'){
@@ -264,7 +281,6 @@
   const addProduct = document.getElementById('addProduct');
   const addSale = document.getElementById('addSale');
   const addCost = document.getElementById('addCost');
-
   function fillAddPricesFromSelect(){
     const opt = addProduct.options[addProduct.selectedIndex];
     if(!opt) return;
@@ -283,14 +299,57 @@
 
   function openModal(){ modal.style.display='block'; pickSearch.focus(); }
   function closeModal(){ modal.style.display='none'; }
-  openBtn.addEventListener('click', openModal);
+  openBtn.addEventListener('click', ()=>{ activeTarget=null; openModal(); });
   closeEls.forEach(el=>el.addEventListener('click', closeModal));
   window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
 
-  // اختيار بطاقة منتج
+  // ===== تعديل صفوف البنود من الشبكة/السلكت =====
+  function fillRowFromSelect(sel){
+    if(!sel) return;
+    const opt = sel.options[sel.selectedIndex];
+    const tr  = sel.closest('tr');
+    if(!opt || !tr) return;
+
+    const sale = tr.querySelector('input[name="sale_price[]"]');
+    const cost = tr.querySelector('input[name="cost_price[]"]');
+    if(sale) sale.value = opt.dataset.sale || sale.value || '';
+    if(cost) cost.value = opt.dataset.cost || cost.value || '';
+
+    const sid = sel.dataset.sid;
+    const img = document.getElementById('thumb-'+sid);
+    if(img) img.src = opt.dataset.img || img.src;
+  }
+
+  // عندما يغيّر المستخدم المنتج من القائمة
+  document.addEventListener('change', (e)=>{
+    const sel = e.target.closest('select.item-product');
+    if(sel) fillRowFromSelect(sel);
+  });
+
+  // تحديد الهدف النشط (صف معيّن أو إضافة)
+  let activeTarget = null;
+
+  // زر "اختر من الشبكة" لكل صف
+  document.addEventListener('click',(e)=>{
+    const btn = e.target.closest('.pick-item');
+    if(!btn) return;
+    activeTarget = document.querySelector('select.item-product[data-sid="'+btn.dataset.sid+'"]');
+    if(activeTarget) openModal();
+  });
+
+  // اختيار بطاقة منتج من الشبكة
   pickGrid.addEventListener('click', (e)=>{
     const card = e.target.closest('.pcard'); if(!card) return;
     const id = card.dataset.id;
+
+    if(activeTarget){ // تعديل صف
+      activeTarget.value = id;
+      fillRowFromSelect(activeTarget);
+      closeModal();
+      return;
+    }
+
+    // إضافة بند جديد
     addProduct.value = id;
     fillAddPricesFromSelect();
     closeModal();

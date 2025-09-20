@@ -1,13 +1,19 @@
-<!-- views/orders-new.ejs -->
+<!-- views/orders-new.ejs — جاهز للاستبدال (رقم الطلب إجباري + فحص عدم التكرار) -->
 <div class="card">
   <h2 style="margin:0 0 12px"><i class="fa fa-cart-plus"></i> إضافة عملية بيع (عدّة منتجات)</h2>
 
+  <style>
+    .field-error{color:#b91c1c;margin-top:6px;display:none}
+    .is-invalid{border-color:#ef4444!important;box-shadow:0 0 0 2px rgba(239,68,68,.12)}
+  </style>
+
   <form id="orderForm" method="post" action="/orders">
-    <!-- رقم الطلب اليدوي (اختياري) -->
+    <!-- رقم الطلب اليدوي (إجباري وفريد) -->
     <div class="form-grid">
       <div>
-        <label>رقم الطلب (اختياري)</label>
-        <input type="number" min="1" name="order_id" placeholder="مثال: 1234">
+        <label>رقم الطلب <strong>(إجباري وفريد)</strong></label>
+        <input id="orderId" type="number" min="1" name="order_id" required placeholder="مثال: 1234">
+        <div id="orderIdErr" class="field-error">رقم الطلب موجود مسبقًا. اختر رقمًا آخر.</div>
       </div>
       <div>
         <label>اسم الزبون</label>
@@ -64,7 +70,7 @@
     </div>
 
     <div class="row" style="margin-top:16px">
-      <button class="btn save" type="submit"><i class="fa fa-floppy-disk"></i> حفظ البنود</button>
+      <button class="btn save" id="btnSubmit" type="submit"><i class="fa fa-floppy-disk"></i> حفظ البنود</button>
     </div>
   </form>
 </div>
@@ -100,10 +106,44 @@
 (function(){
   const products = <%- JSON.stringify(products||[]) %>;
   const itemsBody = document.getElementById('itemsBody');
+  const orderIdInp = document.getElementById('orderId');
+  const orderErr   = document.getElementById('orderIdErr');
+  const submitBtn  = document.getElementById('btnSubmit');
 
   function num(v){ return Number(v||0) || 0 }
   function fmt(n){ return (Number(n)||0).toFixed(2) }
 
+  // ===== فحص تكرار رقم الطلب =====
+  async function checkOrderId(){
+    const v=(orderIdInp.value||'').trim();
+    if(!v){ orderErr.style.display='none'; orderIdInp.classList.remove('is-invalid'); submitBtn.removeAttribute('disabled'); return false; }
+    try{
+      const r = await fetch(`/orders/check-id?id=${encodeURIComponent(v)}`);
+      const j = await r.json();
+      const taken = !!j.exists;
+      orderErr.style.display = taken ? 'block' : 'none';
+      orderIdInp.classList.toggle('is-invalid', taken);
+      submitBtn.toggleAttribute('disabled', taken);
+      return taken;
+    }catch(_e){
+      orderErr.style.display='none';
+      orderIdInp.classList.remove('is-invalid');
+      submitBtn.removeAttribute('disabled');
+      return false;
+    }
+  }
+  orderIdInp.addEventListener('input', checkOrderId);
+  orderIdInp.addEventListener('blur', checkOrderId);
+
+  // منع الإرسال عند التكرار
+  document.getElementById('orderForm').addEventListener('submit', async (e)=>{
+    if(!orderIdInp.reportValidity()) return; // required من المتصفح
+    e.preventDefault();
+    const taken = await checkOrderId();
+    if(!taken) e.target.submit();
+  });
+
+  // ===== الصفوف والحساب =====
   function rowTemplate(data){
     const {pid=0, name='', qty=1, sp=0, cp=0, ship=0, note=''} = data||{};
     const pidHidden = `<input type="hidden" name="product_id" value="${pid}">`;
@@ -146,9 +186,7 @@
   // صف افتراضي
   addRow({});
 
-  itemsBody.addEventListener('input', e=>{
-    if(e.target.matches('input')) recalc();
-  });
+  itemsBody.addEventListener('input', e=>{ if(e.target.matches('input')) recalc(); });
   itemsBody.addEventListener('click', e=>{
     const btn = e.target.closest('[data-act="del"]');
     if(btn){ btn.closest('tr').remove(); recalc(); }
@@ -181,19 +219,13 @@
 
   // اختيار منتج
   pickGrid.addEventListener('click', e=>{
-    const card = e.target.closest('.pcard');
-    if(!card) return;
+    const card = e.target.closest('.pcard'); if(!card) return;
     const pid  = Number(card.dataset.pid);
     const name = card.dataset.name || '';
     const sp   = Number(card.dataset.sp||0);
     const cp   = Number(card.dataset.cp||0);
     addRow({ pid, name, qty:1, sp, cp, ship:0, note:'' });
     closePicker();
-  });
-
-  // عند الإرسال: تأكد أن الحقول Array
-  document.getElementById('orderForm').addEventListener('submit', ()=>{
-    // لا شيء إضافي؛ لدينا نفس أسماء الحقول مكررة وسيجمّعها Express كقوائم
   });
 })();
 </script>
