@@ -1,4 +1,4 @@
-<!-- views/orders.ejs — صفحة كل الطلبات (محسّنة ومطوّرة) -->
+<!-- views/orders.ejs — صفحة كل الطلبات (محسّنة - منتجات مكدسة) -->
 <%
   const _filters = (typeof filters !== 'undefined' && filters) ? filters : {};
   const st = _filters.status || 'all';
@@ -205,96 +205,197 @@
     text-align: center;
   }
   
-  /* عرض المنتجات المحسّن */
+  /* عرض المنتجات المكدسة - التصميم الجديد */
   .products-showcase {
     margin: 20px 0;
-    padding: 20px;
+    padding: 24px;
     background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
     border-radius: 16px;
     border: 2px solid #e9ecef;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
-  .products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 16px;
-  }
-  
-  .product-item {
-    background: #fff;
-    border: 2px solid #e9ecef;
-    border-radius: 14px;
-    padding: 12px;
-    transition: all 0.3s;
-    cursor: pointer;
+  .products-stack-container {
     position: relative;
-    overflow: hidden;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
   }
   
-  .product-item:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+  .product-stack-item {
+    position: relative;
+    background: #fff;
+    border: 3px solid #e9ecef;
+    border-radius: 20px;
+    padding: 20px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  
+  /* المنتج الأول - الأكثر وضوحاً */
+  .product-stack-item:first-child {
+    position: relative;
+    z-index: 10;
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  
+  /* المنتج الثاني - خلف الأول قليلاً */
+  .product-stack-item:nth-child(2) {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0) scale(0.95);
+    width: 95%;
+    z-index: 9;
+    opacity: 0.8;
+    filter: brightness(0.95);
+  }
+  
+  /* المنتج الثالث - خلف الثاني */
+  .product-stack-item:nth-child(3) {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0) scale(0.9);
+    width: 90%;
+    z-index: 8;
+    opacity: 0.6;
+    filter: brightness(0.9);
+  }
+  
+  /* المنتجات الإضافية مخفية */
+  .product-stack-item:nth-child(n+4) {
+    display: none;
+  }
+  
+  /* عند hover على الحاوية - تظهر المنتجات بشكل متباعد */
+  .products-stack-container:hover .product-stack-item:nth-child(2) {
+    top: 140px;
+    opacity: 1;
+    filter: brightness(1);
+  }
+  
+  .products-stack-container:hover .product-stack-item:nth-child(3) {
+    top: 280px;
+    opacity: 1;
+    filter: brightness(1);
+  }
+  
+  .product-stack-item:hover {
+    transform: translateX(-50%) translateY(-8px) scale(0.98);
+    box-shadow: 0 12px 24px rgba(102, 126, 234, 0.2);
     border-color: #667eea;
+    z-index: 20 !important;
+  }
+  
+  .product-stack-item:first-child:hover {
+    transform: translateY(-8px) scale(1.02);
+  }
+  
+  .product-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
   
   .product-image-wrapper {
     position: relative;
-    width: 100%;
-    padding-top: 100%;
-    border-radius: 10px;
+    width: 100px;
+    height: 100px;
+    border-radius: 14px;
     overflow: hidden;
     background: #f8f9fa;
-    margin-bottom: 10px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
   
   .product-image {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
     transition: transform 0.3s;
   }
   
-  .product-item:hover .product-image {
+  .product-stack-item:hover .product-image {
     transform: scale(1.1);
   }
   
-  .product-quantity {
+  .product-quantity-badge {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: -8px;
+    right: -8px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
-    padding: 6px 12px;
-    border-radius: 8px;
+    padding: 8px 14px;
+    border-radius: 12px;
     font-weight: 900;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-size: 1rem;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    border: 3px solid #fff;
+    z-index: 1;
+  }
+  
+  .product-details {
+    flex: 1;
+    min-width: 0;
   }
   
   .product-name {
-    font-weight: 700;
+    font-weight: 800;
     color: #1a202c;
-    font-size: 0.9rem;
-    text-align: center;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   
-  .more-products {
-    grid-column: 1 / -1;
+  .product-meta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .product-meta-item {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 16px;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4a5568;
+  }
+  
+  .product-meta-item i {
+    color: #667eea;
+  }
+  
+  /* بطاقة "المزيد من المنتجات" */
+  .more-products-badge {
+    position: absolute;
+    bottom: -16px;
+    left: 50%;
+    transform: translateX(-50%);
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: #fff;
-    border-radius: 12px;
-    font-weight: 800;
+    padding: 12px 24px;
+    border-radius: 999px;
+    font-weight: 900;
     font-size: 1rem;
+    box-shadow: 0 8px 20px rgba(240, 147, 251, 0.4);
+    border: 3px solid #fff;
+    z-index: 15;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   
   /* أزرار الإجراءات */
@@ -459,8 +560,10 @@
   @media (max-width: 768px) {
     .orders-header h2 { font-size: 1.5rem; }
     .order-metrics { font-size: 0.85rem; }
-    .products-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
     .filters-grid { grid-template-columns: 1fr; }
+    .product-content { flex-direction: column; text-align: center; }
+    .product-image-wrapper { width: 120px; height: 120px; }
+    .products-stack-container { max-width: 300px; }
   }
 </style>
 
@@ -590,7 +693,7 @@
       
       const whenISO = dayjs(o.created_at).tz(tz).format('YYYY-MM-DD');
       const whenTS = +dayjs(o.created_at).tz(tz);
-      const shown = its.slice(0, 6);
+      const shown = its.slice(0, 3);
       const more = Math.max(0, its.length - shown.length);
   %>
   
@@ -665,23 +768,43 @@
       <% } %>
     </div>
     
-    <!-- عرض المنتجات -->
+    <!-- عرض المنتجات المكدسة -->
     <% if (its.length) { %>
     <div class="products-showcase">
-      <div class="products-grid">
-        <% shown.forEach(x => { const img = x.product_image || '/images/Product.jpg'; %>
-        <div class="product-item" data-img="<%= img %>">
-          <div class="product-image-wrapper">
-            <img class="product-image" src="<%= img %>" alt="<%= x.product_name %>" loading="lazy">
-            <div class="product-quantity">×<%= x.quantity %></div>
+      <div class="products-stack-container">
+        <% shown.forEach((x, idx) => { 
+          const img = x.product_image || '/images/photo1762725970.jpg';
+          const sp = Number(x.sale_price || 0);
+          const cp = Number(x.cost_price || 0);
+          const profit = (sp - cp) * Number(x.quantity || 0);
+        %>
+        <div class="product-stack-item" data-img="<%= img %>">
+          <div class="product-content">
+            <div class="product-image-wrapper">
+              <img class="product-image" src="<%= img %>" alt="<%= x.product_name %>" loading="lazy">
+              <div class="product-quantity-badge">×<%= x.quantity %></div>
+            </div>
+            <div class="product-details">
+              <div class="product-name" title="<%= x.product_name %>"><%= x.product_name %></div>
+              <div class="product-meta">
+                <div class="product-meta-item">
+                  <i class="fa fa-tag"></i>
+                  <span><%= sp.toFixed(2) %> ر.س</span>
+                </div>
+                <div class="product-meta-item">
+                  <i class="fa fa-chart-line"></i>
+                  <span><%= profit.toFixed(2) %> ر.س</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="product-name" title="<%= x.product_name %>"><%= x.product_name %></div>
         </div>
         <% }) %>
+        
         <% if (more > 0) { %>
-        <div class="more-products">
-          <i class="fa fa-plus-circle"></i>
-          <span style="margin-right:8px">+<%= more %> منتج آخر</span>
+        <div class="more-products-badge">
+          <i class="fa fa-layer-group"></i>
+          <span>+<%= more %> منتج إضافي</span>
         </div>
         <% } %>
       </div>
@@ -947,7 +1070,7 @@
     pclose.style.display='none';
   }
   grid.addEventListener('click',(e)=>{
-    const item=e.target.closest('.product-item'); if(!item) return;
+    const item=e.target.closest('.product-stack-item'); if(!item) return;
     openPreview(item.dataset.img);
   });
   pbg.addEventListener('click', closePreview);
