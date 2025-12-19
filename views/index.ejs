@@ -1,85 +1,199 @@
 <link rel="stylesheet" href="<%= faLink %>">
 
-<div class="row" style="justify-content:flex-end; gap:10px; margin-bottom:14px">
-  <a class="btn secondary" href="/products"><i class="fa fa-box"></i> المنتجات</a>
-  <a class="btn secondary" href="/sales"><i class="fa fa-receipt"></i> المبيعات</a>
-  <a class="btn secondary" href="/orders"><i class="fa fa-list"></i> كل الطلبات</a>
+<!-- Quick Actions Bar -->
+<div class="row" style="justify-content:space-between; gap:10px; margin-bottom:20px; flex-wrap: wrap">
+  <div>
+    <h1 style="margin: 0"><i class="fa fa-gauge"></i> لوحة التحكم</h1>
+    <p class="muted-sm" style="margin: 8px 0 0">مرحباً بك في نظام إدارة المتجر</p>
+  </div>
+  <div class="row" style="gap: 10px">
+    <a class="btn add" href="/products"><i class="fa fa-box"></i> المنتجات</a>
+    <a class="btn success" href="/sales"><i class="fa fa-receipt"></i> بيع جديد</a>
+    <a class="btn info" href="/orders"><i class="fa fa-list"></i> الطلبات</a>
+  </div>
 </div>
 
-<div class="cards" style="margin-bottom:14px">
+<!-- Main KPI Cards -->
+<div class="cards" style="margin-bottom:24px">
   <div class="card">
-    <h3><i class="fa fa-sack-dollar"></i> إجمالي الإيرادات (تم التسليم)</h3>
-    <div class="kpi">₪ <%= Number(totals.revenue||0).toFixed(2) %></div>
-    <div class="muted">جميع البنود الموصّلة فقط.</div>
+    <h3><i class="fa fa-sack-dollar"></i> إجمالي الإيرادات</h3>
+    <div class="kpi">₪ <%= Number(totals.revenue||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
+    <div class="muted">من جميع البنود الموصّلة</div>
+    <div class="kpi-trend up" style="margin-top: 12px">
+      <i class="fa fa-arrow-trend-up"></i>
+      <span>نشط</span>
+    </div>
   </div>
+  
   <div class="card">
-    <h3><i class="fa fa-chart-line"></i> إجمالي الربح (تم التسليم)</h3>
-    <div class="kpi">₪ <%= Number(totals.profit||0).toFixed(2) %></div>
-    <div class="muted">جميع البنود الموصّلة فقط.</div>
+    <h3><i class="fa fa-chart-line"></i> إجمالي الربح</h3>
+    <div class="kpi">₪ <%= Number(totals.profit||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
+    <div class="muted">صافي الربح من المبيعات</div>
+    <div class="kpi-trend up" style="margin-top: 12px">
+      <i class="fa fa-arrow-trend-up"></i>
+      <span><%= ((totals.profit / totals.revenue) * 100 || 0).toFixed(1) %>% هامش</span>
+    </div>
   </div>
 
   <div class="card">
     <h3><i class="fa fa-calendar-day"></i> مبيعات اليوم</h3>
-    <div class="kpi">₪ <%= Number(stats.today_revenue||0).toFixed(2) %></div>
-    <div class="muted">الربح: ₪ <%= Number(stats.today_profit||0).toFixed(2) %></div>
+    <div class="kpi">₪ <%= Number(stats.today_revenue||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
+    <div class="muted">الربح: ₪ <%= Number(stats.today_profit||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
   </div>
+  
   <div class="card">
-    <h3><i class="fa fa-calendar"></i> مبيعات هذا الشهر</h3>
-    <div class="kpi">₪ <%= Number(stats.month_revenue||0).toFixed(2) %></div>
-    <div class="muted">الربح: ₪ <%= Number(stats.month_profit||0).toFixed(2) %></div>
-  </div>
-
-  <div class="card">
-    <h3><i class="fa fa-warehouse"></i> مخزون المتجر</h3>
-    <div class="row" style="gap:18px; flex-wrap:wrap">
-      <div><strong><%= stats.products_count %></strong> منتج</div>
-      <div><strong><%= stats.total_units %></strong> وحدة</div>
-      <div>قيمة التكلفة: <strong>₪ <%= Number(stats.total_cost_value||0).toFixed(2) %></strong></div>
-      <div>قيمة البيع المحتملة: <strong>₪ <%= Number(stats.total_sale_value||0).toFixed(2) %></strong></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3><i class="fa fa-truck"></i> قيد التوصيل/المعالجة</h3>
-    <div class="kpi"><%= pendingItems %></div>
-    <div class="muted">عدد البنود بحالات: قيد الإدخال/المعالجة/التوصيل.</div>
-  </div>
-
-  <div class="card">
-    <h3><i class="fa fa-rotate-left"></i> قائمة الراجعة</h3>
-    <div class="kpi"><%= returnsCount %></div>
-    <div class="muted">طلبات بحاجة قرار (إرجاع للمخزون/إعادة كطلب).</div>
+    <h3><i class="fa fa-calendar"></i> مبيعات الشهر</h3>
+    <div class="kpi">₪ <%= Number(stats.month_revenue||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
+    <div class="muted">الربح: ₪ <%= Number(stats.month_profit||0).toLocaleString('ar-EG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) %></div>
   </div>
 </div>
 
-<div class="cards" style="margin-bottom:14px">
+<!-- Inventory & Operations Status -->
+<div class="cards" style="margin-bottom:24px">
   <div class="card">
-    <h3><i class="fa fa-sitemap"></i> حالات الطلبات</h3>
-    <div class="row" style="gap:8px; flex-wrap:wrap">
-      <% const map = {}; (ordersByStatus||[]).forEach(x=>map[x.status]=x.cnt); %>
-      <span class="status-chip status-pending">قيد الإدخال: <strong><%= map.pending||0 %></strong></span>
-      <span class="status-chip" style="background:#eef6ff;border-color:#93c5fd;color:#1e3a8a">قيد المعالجة: <strong><%= map.processing||0 %></strong></span>
-      <span class="status-chip" style="background:#fff3cd;border-color:#fcd34d;color:#92400e">قيد التوصيل: <strong><%= map.shipping||0 %></strong></span>
-      <span class="status-chip status-delivered">تم التسليم: <strong><%= map.delivered||0 %></strong></span>
-      <span class="status-chip status-failed">فشل/لم يتم: <strong><%= map.failed||0 %></strong></span>
+    <h3><i class="fa fa-warehouse"></i> حالة المخزون</h3>
+    <div class="row" style="gap:18px; flex-wrap:wrap; margin-top: 12px">
+      <div style="flex: 1; min-width: 120px">
+        <div class="muted-sm">عدد المنتجات</div>
+        <strong style="font-size: 1.5rem; color: var(--primary)"><%= stats.products_count %></strong>
+      </div>
+      <div style="flex: 1; min-width: 120px">
+        <div class="muted-sm">إجمالي الوحدات</div>
+        <strong style="font-size: 1.5rem; color: var(--primary)"><%= stats.total_units %></strong>
+      </div>
+    </div>
+    <div style="width:100%;height:1px;background:var(--border);margin:16px 0"></div>
+    <div class="row" style="gap: 12px; flex-wrap: wrap">
+      <div class="badge">
+        <i class="fa fa-coins"></i>
+        <span>قيمة التكلفة: <strong>₪ <%= Number(stats.total_cost_value||0).toLocaleString('ar-EG', {maximumFractionDigits: 0}) %></strong></span>
+      </div>
+      <div class="badge">
+        <i class="fa fa-money-bill-trend-up"></i>
+        <span>قيمة البيع: <strong>₪ <%= Number(stats.total_sale_value||0).toLocaleString('ar-EG', {maximumFractionDigits: 0}) %></strong></span>
+      </div>
+    </div>
+    <div style="margin-top: 12px">
+      <div class="muted-sm">الربح المحتمل من المخزون</div>
+      <strong style="font-size: 1.3rem; color: var(--success)">₪ <%= Number(stats.inv_potential_profit||0).toLocaleString('ar-EG', {maximumFractionDigits: 0}) %></strong>
     </div>
   </div>
 
   <div class="card">
+    <h3><i class="fa fa-truck"></i> حالة التوصيل</h3>
+    <div style="text-align: center; margin: 20px 0">
+      <div class="kpi" style="font-size: 3rem"><%= pendingItems %></div>
+      <div class="muted">بند قيد المعالجة/التوصيل</div>
+    </div>
+    <div class="row" style="gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px">
+      <% const map = {}; (ordersByStatus||[]).forEach(x=>map[x.status]=x.cnt); %>
+      <span class="status-chip status-pending" style="font-size: 0.85rem">
+        <i class="fa fa-hourglass-half"></i>
+        <%= map.pending||0 %>
+      </span>
+      <span class="status-chip status-shipping" style="font-size: 0.85rem">
+        <i class="fa fa-truck"></i>
+        <%= map.shipping||0 %>
+      </span>
+      <span class="status-chip status-delivered" style="font-size: 0.85rem">
+        <i class="fa fa-check"></i>
+        <%= map.delivered||0 %>
+      </span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3><i class="fa fa-rotate-left"></i> قائمة الإرجاع</h3>
+    <div style="text-align: center; margin: 20px 0">
+      <div class="kpi" style="font-size: 3rem; <%= returnsCount > 0 ? 'color: var(--warning)' : '' %>"><%= returnsCount %></div>
+      <div class="muted">طلب يحتاج معالجة</div>
+    </div>
+    <% if (returnsCount > 0) { %>
+      <a href="/products#returns" class="btn warn" style="width: 100%; margin-top: 12px">
+        <i class="fa fa-eye"></i> عرض القائمة
+      </a>
+    <% } else { %>
+      <div class="muted-sm" style="text-align: center; margin-top: 12px">
+        <i class="fa fa-check-circle"></i> لا توجد إرجاعات معلقة
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Order Status Overview -->
+<div class="card" style="margin-bottom: 24px">
+  <h3><i class="fa fa-sitemap"></i> نظرة عامة على الطلبات</h3>
+  <div class="row" style="gap:12px; flex-wrap:wrap; margin-top: 16px">
+    <% const statusMap = {}; (ordersByStatus||[]).forEach(x=>statusMap[x.status]=x.cnt); %>
+    <div class="status-chip status-pending" style="flex: 1; min-width: 150px; justify-content: center">
+      <i class="fa fa-hourglass-half"></i>
+      <div>
+        <div style="font-size: 0.8rem">قيد الإدخال</div>
+        <strong style="font-size: 1.2rem"><%= statusMap.pending||0 %></strong>
+      </div>
+    </div>
+    <div class="status-chip" style="flex: 1; min-width: 150px; justify-content: center; background:#eef6ff;border-color:#93c5fd;color:#1e3a8a">
+      <i class="fa fa-cog"></i>
+      <div>
+        <div style="font-size: 0.8rem">قيد المعالجة</div>
+        <strong style="font-size: 1.2rem"><%= statusMap.processing||0 %></strong>
+      </div>
+    </div>
+    <div class="status-chip status-shipping" style="flex: 1; min-width: 150px; justify-content: center">
+      <i class="fa fa-truck"></i>
+      <div>
+        <div style="font-size: 0.8rem">قيد التوصيل</div>
+        <strong style="font-size: 1.2rem"><%= statusMap.shipping||0 %></strong>
+      </div>
+    </div>
+    <div class="status-chip status-delivered" style="flex: 1; min-width: 150px; justify-content: center">
+      <i class="fa fa-check-circle"></i>
+      <div>
+        <div style="font-size: 0.8rem">تم التسليم</div>
+        <strong style="font-size: 1.2rem"><%= statusMap.delivered||0 %></strong>
+      </div>
+    </div>
+    <div class="status-chip status-failed" style="flex: 1; min-width: 150px; justify-content: center">
+      <i class="fa fa-xmark"></i>
+      <div>
+        <div style="font-size: 0.8rem">فشل/لم يتم</div>
+        <strong style="font-size: 1.2rem"><%= statusMap.failed||0 %></strong>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top Products & Low Stock -->
+<div class="cards" style="margin-bottom: 24px">
+  <div class="card">
     <h3><i class="fa fa-trophy"></i> أفضل 5 منتجات (آخر 30 يوم)</h3>
     <% if (!topProducts || !topProducts.length) { %>
-      <div class="muted">لا يوجد بيانات كافية.</div>
+      <div class="empty-state" style="padding: 32px 16px">
+        <i class="fa fa-chart-simple" style="font-size: 3rem; color: var(--muted); margin-bottom: 12px"></i>
+        <p class="muted">لا توجد بيانات كافية لعرض أفضل المنتجات</p>
+      </div>
     <% } else { %>
-      <div class="table-scroll">
+      <div class="table-scroll" style="margin-top: 16px">
         <table>
-          <thead><tr><th>#</th><th class="right">المنتج</th><th>كمية</th><th>الإيراد</th></tr></thead>
+          <thead>
+            <tr>
+              <th style="width: 50px">#</th>
+              <th class="right">المنتج</th>
+              <th>الكمية</th>
+              <th>الإيراد</th>
+            </tr>
+          </thead>
           <tbody>
             <% topProducts.forEach((p,i)=>{ %>
               <tr>
-                <td><%= i+1 %></td>
-                <td class="right"><%= p.name %></td>
-                <td><%= p.qty %></td>
-                <td>₪ <%= Number(p.revenue||0).toFixed(2) %></td>
+                <td>
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; margin: 0 auto">
+                    <%= i+1 %>
+                  </div>
+                </td>
+                <td class="right" style="font-weight: 600"><%= p.name %></td>
+                <td><strong style="color: var(--primary)"><%= p.qty %></strong></td>
+                <td><strong style="color: var(--success)">₪ <%= Number(p.revenue||0).toLocaleString('ar-EG', {minimumFractionDigits: 2}) %></strong></td>
               </tr>
             <% }) %>
           </tbody>
@@ -88,44 +202,94 @@
     <% } %>
   </div>
 
- <div class="card">
-  <h3><i class="fa fa-warehouse"></i> مخزون المتجر</h3>
-  <div class="row" style="gap:18px; flex-wrap:wrap">
-    <div><strong><%= stats.products_count %></strong> منتج</div>
-    <div><strong><%= stats.total_units %></strong> وحدة</div>
-    <div>قيمة التكلفة: <strong>₪ <%= Number(stats.total_cost_value||0).toFixed(2) %></strong></div>
-    <div>قيمة البيع المحتملة: <strong>₪ <%= Number(stats.total_sale_value||0).toFixed(2) %></strong></div>
-    <div style="width:100%;height:1px;background:#f3e0ea;margin:6px 0"></div>
-    <div><i class="fa fa-sack-dollar"></i> إجمالي الإيرادات بالمخزون: <strong>₪ <%= Number(stats.inv_potential_revenue||0).toFixed(2) %></strong></div>
-    <div><i class="fa fa-chart-line"></i> إجمالي الربح بالمخزون: <strong>₪ <%= Number(stats.inv_potential_profit||0).toFixed(2) %></strong></div>
+  <div class="card">
+    <h3><i class="fa fa-bell"></i> تنبيهات المخزون المنخفض</h3>
+    <div class="muted-sm" style="margin-bottom: 12px">المنتجات التي مخزونها ≤ 5 وحدات</div>
+    <% if (!lowStock || !lowStock.length) { %>
+      <div class="empty-state" style="padding: 32px 16px">
+        <i class="fa fa-check-circle" style="font-size: 3rem; color: var(--success); margin-bottom: 12px"></i>
+        <p class="muted">جميع المنتجات لديها مخزون كافٍ</p>
+      </div>
+    <% } else { %>
+      <div style="max-height: 400px; overflow-y: auto">
+        <% lowStock.forEach(p => { 
+          const stockLevel = p.stock === 0 ? 'out' : p.stock <= 2 ? 'low' : 'medium';
+        %>
+          <div class="item-chip big" style="width: 100%; margin-bottom: 12px; justify-content: space-between">
+            <div class="row" style="gap: 12px; flex: 1">
+              <% if (p.image_path) { %>
+                <img src="<%= p.image_path %>" class="mini-thumb js-img" alt="<%= p.name %>">
+              <% } %>
+              <div style="flex: 1">
+                <div class="name" style="max-width: none; font-size: 1rem"><%= p.name %></div>
+                <div class="muted-sm" style="margin-top: 4px">₪ <%= Number(p.sale_price||0).toFixed(2) %></div>
+              </div>
+            </div>
+            <div class="row" style="gap: 8px">
+              <span class="stock-indicator <%= stockLevel %>">
+                <i class="fa <%= stockLevel === 'out' ? 'fa-ban' : 'fa-boxes-stacked' %>"></i>
+                <strong><%= p.stock %></strong>
+              </span>
+              <a class="btn manage icon-pill" href="/products" title="إدارة المخزون">
+                <i class="fa fa-pen"></i>
+              </a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
   </div>
 </div>
 
-
+<!-- Quick Stats Summary -->
 <div class="card">
-  <h3><i class="fa fa-bell"></i> تنبيهات المخزون المنخفض (≤ 5)</h3>
-  <% if (!lowStock || !lowStock.length) { %>
-    <div class="muted">لا يوجد أصناف منخفضة حالياً.</div>
-  <% } else { %>
-    <div class="table-scroll">
-      <table>
-        <thead><tr><th>الصورة</th><th class="right">المنتج</th><th>المخزون</th><th>سعر البيع</th><th></th></tr></thead>
-        <tbody>
-          <% lowStock.forEach(p => { %>
-            <tr>
-              <td>
-                <% if (p.image_path) { %>
-                  <img src="<%= p.image_path %>" class="thumb js-img" alt="">
-                <% } else { %> — <% } %>
-              </td>
-              <td class="right"><%= p.name %></td>
-              <td><strong><%= p.stock %></strong></td>
-              <td>₪ <%= Number(p.sale_price||0).toFixed(2) %></td>
-              <td><a class="btn manage" href="/products"><i class="fa fa-boxes-stacked"></i> إدارة</a></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <h3><i class="fa fa-chart-pie"></i> ملخص سريع</h3>
+  <div class="row" style="gap: 24px; flex-wrap: wrap; margin-top: 16px">
+    <div class="badge badge-lg">
+      <i class="fa fa-calendar-day"></i>
+      <div>
+        <div class="muted-sm">مبيعات اليوم</div>
+        <strong>₪ <%= Number(stats.today_revenue||0).toLocaleString('ar-EG', {maximumFractionDigits: 0}) %></strong>
+      </div>
     </div>
-  <% } %>
+    <div class="badge badge-lg">
+      <i class="fa fa-calendar-week"></i>
+      <div>
+        <div class="muted-sm">مبيعات الشهر</div>
+        <strong>₪ <%= Number(stats.month_revenue||0).toLocaleString('ar-EG', {maximumFractionDigits: 0}) %></strong>
+      </div>
+    </div>
+    <div class="badge badge-lg">
+      <i class="fa fa-box"></i>
+      <div>
+        <div class="muted-sm">عدد المنتجات</div>
+        <strong><%= stats.products_count %></strong>
+      </div>
+    </div>
+    <div class="badge badge-lg">
+      <i class="fa fa-boxes-stacked"></i>
+      <div>
+        <div class="muted-sm">إجمالي الوحدات</div>
+        <strong><%= stats.total_units %></strong>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+// Auto-refresh dashboard every 5 minutes
+setTimeout(() => {
+  location.reload();
+}, 5 * 60 * 1000);
+
+// Smooth scroll to returns section
+document.querySelectorAll('a[href="#returns"]').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.getElementById('returns');
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
