@@ -1,4 +1,4 @@
-// server.js — Abrar Manager (FINAL, Cloudinary-ready, Order ID Required+Unique)
+// server.js — Abrar Manager (FINAL, Cloudinary-ready, Image-path fixed, Replit-ready)
 // ===================================================
 import express from "express";
 import path from "path";
@@ -187,16 +187,67 @@ app.set("layout", "layout");
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// نخدم الملفات الثابتة من الجذر و /public (الاثنان شغّالين)
+// نخدم الملفات الثابتة من الجذر و /public و /uploads
 const publicDir = path.join(__dirname, "public");
 app.use(express.static(publicDir));
 app.use("/public", express.static(publicDir));
+app.use("/uploads", express.static(path.join(publicDir, "uploads")));
+
+// ================== Helpers: Image path fixing ==================
+function normalizeImagePath(p) {
+  if (!p || typeof p !== "string") return "/public/placeholder.png";
+
+  let s = p.trim();
+  if (!s) return "/public/placeholder.png";
+
+  // روابط كاملة (Cloudinary وغيرها)
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+  // windows path -> خذ اسم الملف فقط
+  if (/^[a-zA-Z]:\\/.test(s)) {
+    const file = path.basename(s).replace(/\\/g, "/");
+    return `/uploads/${file}`;
+  }
+
+  // normalize slashes
+  s = s.replace(/\\/g, "/");
+
+  // remove accidental duplicated prefixes
+  while (s.startsWith("//")) s = s.slice(1);
+
+  // old variants
+  if (s.startsWith("public/uploads/")) return `/${s}`;
+  if (s.startsWith("/public/uploads/")) return s;
+  if (s.startsWith("uploads/")) return `/${s}`;
+  if (s.startsWith("/uploads/")) return s;
+
+  // if someone stored only filename
+  if (!s.includes("/")) return `/uploads/${s}`;
+
+  return s.startsWith("/") ? s : `/${s}`;
+}
+
+function withNormalizedProductImage(row) {
+  if (!row) return row;
+  return { ...row, image_path: normalizeImagePath(row.image_path) };
+}
+
+function withNormalizedSaleImage(row) {
+  if (!row) return row;
+  return { ...row, product_image: normalizeImagePath(row.product_image) };
+}
+
+function withNormalizedGalleryImage(row) {
+  if (!row) return row;
+  return { ...row, url: normalizeImagePath(row.url) };
+}
 
 app.use((req, res, next) => {
   res.locals.faLink = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css";
   res.locals.currentPath = req.path;
   res.locals.dayjs = dayjs;
   res.locals.TZ_NAME = TZ_NAME;
+  res.locals.fixImagePath = normalizeImagePath;
   next();
 });
 
@@ -222,6 +273,7 @@ function requireAuth(req, res, next) {
   if (!AUTH_ENABLED) return next();
   if (openPaths.has(req.path)) return next();
   if (req.path.startsWith("/public")) return next();
+  if (req.path.startsWith("/uploads")) return next();
   if (/\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|woff2?)$/i.test(req.path)) return next();
   if (req.session?.user) return next();
   return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl || "/")}`);
@@ -279,7 +331,7 @@ async function ensureOrderWithRequestedId({ requestedId, name, phone, city, note
     const ins = await query(
       `INSERT INTO orders (id, customer_name, customer_phone, customer_city, note, status)
        VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
-      [requestedId, (name||"").trim(), (phone||"").trim(), (city||"").trim(), (note||"").trim()]
+      [requestedId, (name || "").trim(), (phone || "").trim(), (city || "").trim(), (note || "").trim()]
     );
 
     await query(`
@@ -353,7 +405,7 @@ app.get("/", async (_req, res, next) => {
       WHERE stock <= 5
       ORDER BY stock ASC, updated_at DESC NULLS LAST, created_at DESC
       LIMIT 12
-    `)).rows;
+    `)).rows.map(withNormalizedProductImage);
 
     const topProducts = (await query(
       `SELECT p.id, p.name,
@@ -381,10 +433,10 @@ app.get("/", async (_req, res, next) => {
   } catch (e) { next(e); }
 });
 
-
 // -------- Products --------
 app.get("/products", async (_req, res) => {
-  const products = (await query(`SELECT * FROM products ORDER BY created_at DESC`)).rows;
+  const products = (await query(`SELECT * FROM products ORDER BY created_at DESC`)).rows
+    .map(withNormalizedProductImage);
 
   const returnsList = (
     await query(`
@@ -392,7 +444,7 @@ app.get("/products", async (_req, res) => {
       FROM returns_queue r JOIN products p ON p.id=r.product_id
       ORDER BY r.created_at DESC
     `)
-  ).rows;
+  ).rows.map(withNormalizedSaleImage);
 
   res.render("products", { products, returnsList, dayjs });
 });
@@ -407,7 +459,7 @@ app.post("/products", (req, res, next) => {
 
       let image_path = null;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = main.path || `/public/uploads/${main.filename}`;
+      if (main) image_path = main.path || `/uploads/${main.filename}`;
 
       const ins = await query(
         `
@@ -420,7 +472,7 @@ app.post("/products", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        const url = f.path || `/public/uploads/${f.filename}`;
+        const url = f.path || `/uploads/${f.filename}`;
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [productId, url]);
       }
 
@@ -447,7 +499,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       let image_path = old.image_path;
       const main = (req.files?.image || [])[0];
-      if (main) image_path = main.path || `/public/uploads/${main.filename}`;
+      if (main) image_path = main.path || `/uploads/${main.filename}`;
 
       await query(
         `
@@ -469,7 +521,7 @@ app.post("/products/:id/update", (req, res, next) => {
 
       const extras = req.files?.images || [];
       for (const f of extras) {
-        const url = f.path || `/public/uploads/${f.filename}`;
+        const url = f.path || `/uploads/${f.filename}`;
         await query(`INSERT INTO product_images (product_id, url) VALUES ($1,$2)`, [id, url]);
       }
 
@@ -507,7 +559,7 @@ app.get("/sales", async (req, res, next) => {
       await query(
         `SELECT id, name, stock, cost_price, sale_price, image_path, brand, category FROM products ORDER BY name`
       )
-    ).rows;
+    ).rows.map(withNormalizedProductImage);
 
     const orders = (
       await query(`
@@ -539,7 +591,7 @@ app.get("/sales", async (req, res, next) => {
         `,
           [ids]
         )
-      ).rows.map((r) => ({ ...r, _profit: profitOf(r) }));
+      ).rows.map((r) => ({ ...withNormalizedSaleImage(r), _profit: profitOf(r) }));
 
       const by = {};
       for (const it of items) (by[it.order_id] = by[it.order_id] || []).push(it);
@@ -735,10 +787,12 @@ app.get("/sales/:id/edit", async (req, res) => {
     [id]
   );
   if (!saleQ.rowCount) return res.redirect("/sales");
-  const sale = saleQ.rows[0];
+  const sale = withNormalizedSaleImage(saleQ.rows[0]);
+
   const products = (
     await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)
-  ).rows;
+  ).rows.map(withNormalizedProductImage);
+
   const stockQ = await query(`SELECT stock FROM products WHERE id=$1`, [sale.product_id]);
   const productStock = stockQ.rowCount ? stockQ.rows[0].stock : 0;
 
@@ -851,7 +905,7 @@ app.post("/sales/bulk-return", async (req, res) => {
   const raw = req.body.ids || "";
   const ids = (Array.isArray(raw) ? raw : String(raw).split(",")).map((n) => Number(n)).filter(Boolean);
   for (const id of ids) {
-    const sQ = await query(`SELECT * FROM sales WHERE id=$1`);
+    const sQ = await query(`SELECT * FROM sales WHERE id=$1`, [id]);
     if (!sQ.rowCount) continue;
     const s = sQ.rows[0];
     await query(
@@ -909,7 +963,7 @@ app.get("/orders", async (req, res) => {
         `,
         [ids]
       )
-    ).rows;
+    ).rows.map(withNormalizedSaleImage);
     for (const it of items) (itemsByOrder[it.order_id] ||= []).push(it);
   }
 
@@ -976,7 +1030,8 @@ app.post("/orders/bulk-delete", async (req, res) => {
 
 // نموذج طلب جديد
 app.get("/orders/new", async (_req, res) => {
-  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows
+    .map(withNormalizedProductImage);
   res.render("orders-new", { products, dayjs });
 });
 
@@ -1067,9 +1122,10 @@ app.get("/orders/:id", async (req, res) => {
        WHERE s.order_id=$1 ORDER BY s.id ASC`,
       [id]
     )
-  ).rows;
+  ).rows.map(withNormalizedSaleImage);
 
-  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows;
+  const products = (await query(`SELECT id, name, stock, cost_price, sale_price, image_path FROM products ORDER BY name`)).rows
+    .map(withNormalizedProductImage);
 
   const revenue = items.reduce((a, s) => a + Number(s.sale_price) * Number(s.quantity), 0);
   const profit  = items.reduce((a, s) => a + (Number(s.sale_price) * Number(s.quantity) - Number(s.cost_price) * Number(s.quantity)), 0);
@@ -1244,7 +1300,7 @@ app.post("/orders/:id/update", async (req, res) => {
 // حذف طلب مفرد
 app.post("/orders/:id/delete", async (req, res) => {
   const id = Number(req.params.id);
-  await query(`DELETE FROM sales  WHERE order_id=$1`, [id]);
+  await query(`DELETE FROM sales WHERE order_id=$1`, [id]);
   await query(`DELETE FROM orders WHERE id=$1`,       [id]);
   res.redirect("/orders");
 });
@@ -1334,7 +1390,7 @@ app.get("/reports", async (req, res) => {
          ORDER BY COALESCE(s.delivered_at, s.sold_at) DESC`,
         [ym]
       )
-    ).rows;
+    ).rows.map(withNormalizedSaleImage);
   } else {
     const y = Number(year) || Number(dayjs().tz(TZ_NAME).format("YYYY"));
     const m = Number(month) || Number(dayjs().tz(TZ_NAME).format("MM"));
@@ -1351,7 +1407,7 @@ app.get("/reports", async (req, res) => {
          ORDER BY COALESCE(s.delivered_at, s.sold_at) DESC`,
         [ds]
       )
-    ).rows;
+    ).rows.map(withNormalizedSaleImage);
   }
 
   res.render("reports", {
